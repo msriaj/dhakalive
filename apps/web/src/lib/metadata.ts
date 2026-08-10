@@ -79,6 +79,21 @@ export async function buildMetadata(input: MetadataInput): Promise<Metadata> {
     alternates: {
       canonical,
       ...(input.alternates ? { languages: input.alternates } : {}),
+      /**
+       * Feed autodiscovery, on every page rather than only the home page.
+       * Readers and browser extensions look at whatever page the user happens
+       * to be on, and Next replaces `alternates` wholesale when a child route
+       * sets it — so declaring these once in a layout would lose them on every
+       * page that has a canonical URL, which is all of them.
+       */
+      types: {
+        'application/rss+xml': [
+          { url: absoluteUrl(`/${input.locale}/rss.xml`, siteUrl), title: 'RSS' },
+        ],
+        'application/atom+xml': [
+          { url: absoluteUrl(`/${input.locale}/atom.xml`, siteUrl), title: 'Atom' },
+        ],
+      },
     },
     robots: noIndex
       ? { index: false, follow: false }

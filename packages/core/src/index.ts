@@ -113,3 +113,6 @@ export type {
   SitemapIndexEntry,
   UrlsetOptions,
 } from './seo/xml.js'
+
+export { MAX_FEED_ITEMS, renderAtom, renderRss } from './seo/feed.js'
+export type { FeedAuthor, FeedChannel, FeedEnclosure, FeedItem } from './seo/feed.js'

@@ -1,7 +1,8 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
-import { isLocale } from '@dhakalive/config'
+import { DEFAULT_LOCALE, LOCALES, isLocale } from '@dhakalive/config'
 
 import { ArticleCard } from '../../../components/ArticleCard'
 import { ArticleList } from '../../../components/ArticleList'
@@ -12,8 +13,10 @@ import {
   getArticlesByType,
   getLatestArticles,
 } from '../../../lib/queries/articles'
-import { getHomepage } from '../../../lib/queries/globals'
-import { categoryPath } from '../../../lib/routes'
+import { buildMetadata } from '../../../lib/metadata'
+import { getHomepage, getSeoDefaults, getSiteSettings } from '../../../lib/queries/globals'
+import { env } from '../../../lib/env'
+import { absoluteUrl, categoryPath, homePath } from '../../../lib/routes'
 import { homeGraph } from '../../../lib/seo/structured-data'
 import type { Article } from '../../../payload-types'
 
@@ -26,6 +29,38 @@ import type { Article } from '../../../payload-types'
  * time-based window of any cached route.
  */
 export const revalidate = 60
+
+/**
+ * The front page had no metadata of its own, which meant no canonical URL, no
+ * Open Graph card when the domain root is shared, and — once feeds existed — no
+ * autodiscovery on the one page most readers land on first.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}): Promise<Metadata> {
+  const { locale: raw } = await params
+  if (!isLocale(raw)) return {}
+  const locale = raw
+
+  const [settings, defaults] = await Promise.all([getSiteSettings(locale), getSeoDefaults(locale)])
+  const siteUrl = env().NEXT_PUBLIC_SITE_URL
+
+  return buildMetadata({
+    locale,
+    title: settings.siteName ?? 'DhakaLive',
+    description: settings.tagline ?? defaults.defaultDescription,
+    path: homePath(locale),
+    alternates: {
+      ...Object.fromEntries<string>(
+        LOCALES.map((candidate) => [candidate, absoluteUrl(homePath(candidate), siteUrl)]),
+      ),
+      'x-default': absoluteUrl(homePath(DEFAULT_LOCALE), siteUrl),
+    },
+    image: settings.logo,
+  })
+}
 
 function populatedArticle(value: unknown): Article | null {
   return typeof value === 'object' && value !== null ? (value as Article) : null
