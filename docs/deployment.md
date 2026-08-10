@@ -55,39 +55,46 @@ the box before you carry real editorial content — see [Backups](#backups).
 
 ## Sizing
 
-The current droplet is **1 vCPU / 1 GB / 25 GB, Ubuntu 24.04, NYC1**.
+The current droplet is **1 vCPU / 2 GB / 50 GB, Ubuntu 24.04, SGP1**.
 
 Approximate resident memory with all four services running:
 
 | Service     | Idle        | Under load  |
 | ----------- | ----------- | ----------- |
-| app         | ~200 MB     | 400 MB+     |
-| worker      | ~150 MB     | 250 MB      |
-| postgres    | ~150 MB     | 250 MB      |
-| redis       | ~30 MB      | 64 MB       |
-| OS + Docker | ~200 MB     | 200 MB      |
-| **Total**   | **~730 MB** | **~1.2 GB** |
+| app         | ~250 MB     | 500 MB      |
+| worker      | ~180 MB     | 300 MB      |
+| postgres    | ~250 MB     | 400 MB      |
+| redis       | ~40 MB      | 96 MB       |
+| OS + Docker | ~220 MB     | 220 MB      |
+| **Total**   | **~940 MB** | **~1.5 GB** |
 
-Idle fits in 1 GB; sustained load does not. Two consequences:
+That leaves real headroom on 2 GB. Two things still hold:
 
-1. **Swap is mandatory**, not optional. `server-bootstrap.sh` adds 2 GB. Without
-   it the kernel OOM-kills a process of its choosing, which is usually the app.
-2. Container limits are set low and are **caps, not reservations**, so their sum
-   may exceed RAM. Override on a bigger box:
+1. **Keep swap.** `server-bootstrap.sh` adds 2 GB. It is the difference between
+   a slow minute during a traffic spike and the kernel OOM-killing a process of
+   its own choosing — usually the app.
+2. Container limits are **caps, not reservations**, so their sum exceeding RAM
+   is expected and fine. The defaults suit this box; override for a larger one:
 
    ```
-   APP_MEMORY_LIMIT=1g
-   WORKER_MEMORY_LIMIT=512m
+   APP_MEMORY_LIMIT=1500m
+   WORKER_MEMORY_LIMIT=768m
    REDIS_MEMORY_LIMIT=256m
    REDIS_MAXMEMORY=192mb
+   POSTGRES_MEMORY_LIMIT=1g
+   POSTGRES_SHARED_BUFFERS=512MB
+   POSTGRES_EFFECTIVE_CACHE_SIZE=1536MB
    ```
 
-2 GB is the realistic minimum for production traffic.
+**The single vCPU is now the tighter constraint, not memory.** `sharp` image
+processing on upload and Postgres full-text indexing both compete for it, and
+both run through the worker. If editors report slow uploads, add a vCPU before
+adding RAM.
 
-**Region.** NYC1 is ~250 ms from Dhaka. Cloudflare's cache hides that for cached
-pages, but cache misses, admin actions and every API call pay it — the CMS will
-feel slow to the newsroom. SGP1 or BLR1 would be materially better, and the R2
-bucket is already APAC.
+**Region.** SGP1 is ~50-60 ms from Dhaka. Cloudflare's cache serves readers from
+their nearest edge regardless, but every cache miss, admin save and API call pays
+this round trip — it is what the newsroom feels all day. The R2 bucket is APAC,
+so media and origin are co-located.
 
 ## First deployment
 

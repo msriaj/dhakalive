@@ -7,8 +7,8 @@
 #
 #   docker compose -f docker/docker-compose.postgres.yml up -d
 #
-# Tuned for a 1 GB droplet sharing the box with the app, worker and Redis.
-# If you resize, raise shared_buffers and effective_cache_size to match.
+# Tuned for a 2 GB droplet sharing the box with the app, worker and Redis.
+# If you resize again, raise shared_buffers and effective_cache_size to match.
 
 name: dhakalive-data
 
@@ -32,21 +32,22 @@ services:
 
     command:
       - postgres
-      # ~25% of RAM is the usual rule, but this box shares 1 GB with three other
-      # services, so it is deliberately far below that.
+      # ~25% of RAM is the usual rule; this box shares 2 GB with three other
+      # services, so it sits below that on purpose.
       - -c
-      - shared_buffers=96MB
+      - shared_buffers=${POSTGRES_SHARED_BUFFERS:-192MB}
       # What the planner assumes the OS will cache. Advisory, not an allocation.
       - -c
-      - effective_cache_size=256MB
+      - effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE:-640MB}
+      # Per sort/hash node, not per query — a single query can use several.
       - -c
-      - work_mem=4MB
+      - work_mem=8MB
       - -c
-      - maintenance_work_mem=48MB
+      - maintenance_work_mem=96MB
       # 100 connections would exhaust the box long before Postgres complained.
       # App replicas × DATABASE_POOL_MAX must stay under this.
       - -c
-      - max_connections=40
+      - max_connections=${POSTGRES_MAX_CONNECTIONS:-50}
       # Retain WAL so a base backup plus WAL gives point-in-time recovery.
       - -c
       - wal_level=replica
@@ -85,7 +86,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 320m
+          memory: ${POSTGRES_MEMORY_LIMIT:-512m}
 
     # Joins the application stack's network so `app` and `worker` can reach it
     # by hostname while it stays off the public interface.
