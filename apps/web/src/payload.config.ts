@@ -15,8 +15,13 @@ import { Categories } from './collections/Categories'
 import { LiveBlogUpdates } from './collections/LiveBlogUpdates'
 import { LiveBlogs } from './collections/LiveBlogs'
 import { MAX_UPLOAD_BYTES, Media } from './collections/Media'
+import { Pages } from './collections/Pages'
 import { Tags } from './collections/Tags'
 import { Users } from './collections/Users'
+import { Homepage } from './globals/Homepage'
+import { Footer, Header } from './globals/Navigation'
+import { SeoDefaults } from './globals/SeoDefaults'
+import { SiteSettings } from './globals/SiteSettings'
 import { env } from './lib/env'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -75,8 +80,18 @@ export default buildConfig({
     },
   },
 
-  collections: [Articles, Categories, Tags, Authors, Media, LiveBlogs, LiveBlogUpdates, Users],
-  globals: [],
+  collections: [
+    Articles,
+    Categories,
+    Tags,
+    Authors,
+    Media,
+    LiveBlogs,
+    LiveBlogUpdates,
+    Pages,
+    Users,
+  ],
+  globals: [Homepage, Header, Footer, SiteSettings, SeoDefaults],
 
   plugins: storagePlugins,
 

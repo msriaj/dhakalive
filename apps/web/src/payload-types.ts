@@ -74,6 +74,7 @@ export interface Config {
     media: Media;
     'live-blogs': LiveBlog;
     'live-blog-updates': LiveBlogUpdate;
+    pages: Page;
     users: User;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
@@ -89,6 +90,7 @@ export interface Config {
     media: MediaSelect<false> | MediaSelect<true>;
     'live-blogs': LiveBlogsSelect<false> | LiveBlogsSelect<true>;
     'live-blog-updates': LiveBlogUpdatesSelect<false> | LiveBlogUpdatesSelect<true>;
+    pages: PagesSelect<false> | PagesSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -99,8 +101,20 @@ export interface Config {
     defaultIDType: number;
   };
   fallbackLocale: ('false' | 'none' | 'null') | false | null | ('bn' | 'en') | ('bn' | 'en')[];
-  globals: {};
-  globalsSelect: {};
+  globals: {
+    homepage: Homepage;
+    header: Header;
+    footer: Footer;
+    'site-settings': SiteSetting;
+    'seo-defaults': SeoDefault;
+  };
+  globalsSelect: {
+    homepage: HomepageSelect<false> | HomepageSelect<true>;
+    header: HeaderSelect<false> | HeaderSelect<true>;
+    footer: FooterSelect<false> | FooterSelect<true>;
+    'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
+    'seo-defaults': SeoDefaultsSelect<false> | SeoDefaultsSelect<true>;
+  };
   locale: 'bn' | 'en';
   widgets: {
     collections: CollectionsWidget;
@@ -653,6 +667,65 @@ export interface LiveBlogUpdate {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages".
+ */
+export interface Page {
+  id: number;
+  title: string;
+  /**
+   * URL segment. Leave blank to generate it from the title. Bengali characters are preserved.
+   */
+  slug: string;
+  body?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Adds this page to the legal links row in the footer.
+   */
+  showInFooter?: boolean | null;
+  /**
+   * Leave blank to derive metadata from the content itself.
+   */
+  seo?: {
+    /**
+     * Overrides the page title. Around 60 characters renders best.
+     */
+    title?: string | null;
+    /**
+     * Overrides the meta description. Around 155 characters.
+     */
+    description?: string | null;
+    /**
+     * Overrides the Open Graph image. Falls back to the featured image.
+     */
+    image?: (number | null) | Media;
+    /**
+     * Absolute URL. Set this only when this page is a duplicate of a canonical page elsewhere.
+     */
+    canonicalUrl?: string | null;
+    /**
+     * Ask search engines not to index this page.
+     */
+    noIndex?: boolean | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -702,6 +775,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'live-blog-updates';
         value: number | LiveBlogUpdate;
+      } | null)
+    | ({
+        relationTo: 'pages';
+        value: number | Page;
       } | null)
     | ({
         relationTo: 'users';
@@ -1006,6 +1083,28 @@ export interface LiveBlogUpdatesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages_select".
+ */
+export interface PagesSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  body?: T;
+  showInFooter?: T;
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+        canonicalUrl?: T;
+        noIndex?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
@@ -1067,6 +1166,354 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "homepage".
+ */
+export interface Homepage {
+  id: number;
+  /**
+   * The main story. Leave empty to use the most recent published article.
+   */
+  leadStory?: (number | null) | Article;
+  /**
+   * Up to four stories beside the lead.
+   */
+  secondaryLeads?: (number | Article)[] | null;
+  latestNews?: {
+    heading?: string | null;
+    /**
+     * How many recent stories to list.
+     */
+    limit?: number | null;
+  };
+  /**
+   * Section blocks, in the order they should appear.
+   */
+  categorySections?:
+    | {
+        category: number | Category;
+        heading?: string | null;
+        limit?: number | null;
+        id?: string | null;
+      }[]
+    | null;
+  editorsPicks?: {
+    heading?: string | null;
+    articles?: (number | Article)[] | null;
+  };
+  trending?: {
+    heading?: string | null;
+    /**
+     * Ordered by view count, which is eventually consistent — counts are aggregated periodically, not written per request.
+     */
+    enabled?: boolean | null;
+    limit?: number | null;
+  };
+  mediaSection?: {
+    heading?: string | null;
+    enabled?: boolean | null;
+    limit?: number | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "header".
+ */
+export interface Header {
+  id: number;
+  /**
+   * Main masthead navigation. Ten entries maximum.
+   */
+  primary?:
+    | {
+        label: string;
+        type: 'category' | 'page' | 'custom';
+        category?: (number | null) | Category;
+        page?: (number | null) | Page;
+        url?: string | null;
+        children?:
+          | {
+              label: string;
+              type: 'category' | 'page' | 'custom';
+              category?: (number | null) | Category;
+              page?: (number | null) | Page;
+              url?: string | null;
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Show the breaking-news ticker beneath the masthead.
+   */
+  showBreakingTicker?: boolean | null;
+  tickerLabel?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "footer".
+ */
+export interface Footer {
+  id: number;
+  columns?:
+    | {
+        heading: string;
+        links?:
+          | {
+              label: string;
+              type: 'category' | 'page' | 'custom';
+              category?: (number | null) | Category;
+              page?: (number | null) | Page;
+              url?: string | null;
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Shown after the year, which is added automatically.
+   */
+  copyright?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-settings".
+ */
+export interface SiteSetting {
+  id: number;
+  siteName: string;
+  tagline?: string | null;
+  logo?: (number | null) | Media;
+  /**
+   * Used for Organization structured data.
+   */
+  organization?: {
+    legalName?: string | null;
+    foundingDate?: string | null;
+    /**
+     * Wikipedia, Wikidata or official profiles.
+     */
+    sameAs?:
+      | {
+          url: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  contact?: {
+    email?: string | null;
+    phone?: string | null;
+    address?: string | null;
+    /**
+     * Tips and corrections address, shown on articles.
+     */
+    newsroomEmail?: string | null;
+  };
+  social?:
+    | {
+        platform: 'facebook' | 'x' | 'youtube' | 'instagram' | 'linkedin' | 'whatsapp';
+        url: string;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "seo-defaults".
+ */
+export interface SeoDefault {
+  id: number;
+  /**
+   * %s is replaced by the page title.
+   */
+  titleTemplate?: string | null;
+  /**
+   * Used for pages with no title of their own.
+   */
+  defaultTitle?: string | null;
+  defaultDescription?: string | null;
+  /**
+   * Open Graph fallback. 1200×630 renders best.
+   */
+  defaultImage?: (number | null) | Media;
+  /**
+   * Including the @.
+   */
+  twitterHandle?: string | null;
+  /**
+   * Uncheck to add a site-wide noindex. Intended for staging environments only.
+   */
+  allowIndexing?: boolean | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "homepage_select".
+ */
+export interface HomepageSelect<T extends boolean = true> {
+  leadStory?: T;
+  secondaryLeads?: T;
+  latestNews?:
+    | T
+    | {
+        heading?: T;
+        limit?: T;
+      };
+  categorySections?:
+    | T
+    | {
+        category?: T;
+        heading?: T;
+        limit?: T;
+        id?: T;
+      };
+  editorsPicks?:
+    | T
+    | {
+        heading?: T;
+        articles?: T;
+      };
+  trending?:
+    | T
+    | {
+        heading?: T;
+        enabled?: T;
+        limit?: T;
+      };
+  mediaSection?:
+    | T
+    | {
+        heading?: T;
+        enabled?: T;
+        limit?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "header_select".
+ */
+export interface HeaderSelect<T extends boolean = true> {
+  primary?:
+    | T
+    | {
+        label?: T;
+        type?: T;
+        category?: T;
+        page?: T;
+        url?: T;
+        children?:
+          | T
+          | {
+              label?: T;
+              type?: T;
+              category?: T;
+              page?: T;
+              url?: T;
+              id?: T;
+            };
+        id?: T;
+      };
+  showBreakingTicker?: T;
+  tickerLabel?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "footer_select".
+ */
+export interface FooterSelect<T extends boolean = true> {
+  columns?:
+    | T
+    | {
+        heading?: T;
+        links?:
+          | T
+          | {
+              label?: T;
+              type?: T;
+              category?: T;
+              page?: T;
+              url?: T;
+              id?: T;
+            };
+        id?: T;
+      };
+  copyright?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-settings_select".
+ */
+export interface SiteSettingsSelect<T extends boolean = true> {
+  siteName?: T;
+  tagline?: T;
+  logo?: T;
+  organization?:
+    | T
+    | {
+        legalName?: T;
+        foundingDate?: T;
+        sameAs?:
+          | T
+          | {
+              url?: T;
+              id?: T;
+            };
+      };
+  contact?:
+    | T
+    | {
+        email?: T;
+        phone?: T;
+        address?: T;
+        newsroomEmail?: T;
+      };
+  social?:
+    | T
+    | {
+        platform?: T;
+        url?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "seo-defaults_select".
+ */
+export interface SeoDefaultsSelect<T extends boolean = true> {
+  titleTemplate?: T;
+  defaultTitle?: T;
+  defaultDescription?: T;
+  defaultImage?: T;
+  twitterHandle?: T;
+  allowIndexing?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

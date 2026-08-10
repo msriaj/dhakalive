@@ -6,10 +6,11 @@ import { DEFAULT_LOCALE } from '@dhakalive/config'
 import './globals.css'
 
 /**
- * Root layout for the public site. Phase 4 replaces this with the real shell
- * (header, navigation, footer, breaking-news ticker) and moves `lang` onto the
- * `[locale]` segment. Until then it hard-codes the default locale rather than
- * emitting a wrong or missing `lang`, which is an accessibility failure.
+ * Root layout for the public site.
+ *
+ * `lang` is set on the `[locale]` layout, not here — but `<html>` must carry a
+ * value even for the redirect page, so the default locale stands in. The real
+ * per-locale value is applied by the nested layout.
  */
 export const metadata: Metadata = {
   title: {
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
 export default function FrontendLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang={DEFAULT_LOCALE}>
-      <body>{children}</body>
+      <body className="min-h-screen">{children}</body>
     </html>
   )
 }

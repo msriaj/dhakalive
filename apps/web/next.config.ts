@@ -27,6 +27,27 @@ if (existsSync(rootEnvFile)) {
   }
 }
 
+function buildRemotePatterns(): NonNullable<NextConfig['images']>['remotePatterns'] {
+  const hosts = [process.env.CLOUDFLARE_MEDIA_PUBLIC_URL, process.env.NEXT_PUBLIC_SITE_URL]
+
+  return hosts.flatMap((value) => {
+    if (!value) return []
+    try {
+      const url = new URL(value)
+      return [
+        {
+          protocol: url.protocol === 'https:' ? ('https' as const) : ('http' as const),
+          hostname: url.hostname,
+          pathname: '/**',
+          ...(url.port ? { port: url.port } : {}),
+        },
+      ]
+    } catch {
+      return []
+    }
+  })
+}
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
 
@@ -47,16 +68,16 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['pino', 'pino-pretty'],
 
   images: {
-    // Media is served from the R2 custom domain, so the optimiser has to be told
-    // that host is allowed. Phase 5 wires the real value from env.
-    remotePatterns: process.env.CLOUDFLARE_MEDIA_PUBLIC_URL
-      ? [
-          {
-            protocol: 'https',
-            hostname: new URL(process.env.CLOUDFLARE_MEDIA_PUBLIC_URL).hostname,
-          },
-        ]
-      : [],
+    /**
+     * next/image refuses any host not listed here, returning 400.
+     *
+     * Two hosts matter. In production, media comes from the R2 custom domain.
+     * In development there is no R2, so Payload serves uploads from the app's
+     * own origin as *absolute* URLs — which the optimiser rejects unless that
+     * origin is allowed too. Omitting it makes every image 400 locally while
+     * working in production, which is the worst way to find out.
+     */
+    remotePatterns: buildRemotePatterns(),
     formats: ['image/avif', 'image/webp'],
   },
 

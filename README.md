@@ -3,10 +3,10 @@
 A bilingual (Bengali / English) news publishing platform built on Payload CMS,
 Next.js, PostgreSQL and Cloudflare.
 
-> **Status: Phases 1–3 of 8 complete.**
-> Foundation, the permission model and the editorial content model are in place,
-> with Docker images built and verified. The public site, caching, search, jobs
-> and SEO are built in later phases. See
+> **Status: Phases 1–4 of 8 complete.**
+> Foundation, permissions, the editorial content model and the public website
+> are in place, with Docker images built and verified. Caching, search, jobs and
+> SEO are built in later phases. See
 > [Implementation phases](#implementation-phases).
 
 ---
@@ -115,8 +115,8 @@ notes are written as the phases that introduce them land.
 | 1     | Foundation — workspace, Payload + Next, Postgres, env, Docker, CI          | ✅ done |
 | 2     | Authentication and permissions — roles, capabilities, access control       | ✅ done |
 | 3     | Editorial content — Articles, Categories, Tags, Authors, Media, Live Blogs | ✅ done |
-| 4     | Public website — layout, homepage, article, listings, accessibility        | next    |
-| 5     | Cloudflare and caching — R2, cache headers, revalidation, purge            | —       |
+| 4     | Public website — layout, homepage, article, listings, accessibility        | ✅ done |
+| 5     | Cloudflare and caching — R2, cache headers, revalidation, purge            | next    |
 | 6     | Search, jobs and scheduling                                                | —       |
 | 7     | SEO and feeds                                                              | —       |
 | 8     | Hardening — security headers, rate limiting, audit logs, observability     | —       |
