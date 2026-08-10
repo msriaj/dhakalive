@@ -13,9 +13,16 @@ import { initLogger, newCorrelationId } from '@dhakalive/observability'
  * one runner — N web replicas polling the same queue would publish the same
  * scheduled article N times.
  *
- * Phase 1 wires the process, its shutdown behaviour and its database connection.
- * The task definitions themselves land in Phase 6; until then the poll loop is a
- * no-op that still proves the worker can reach Postgres.
+ * Each tick does two things, in order:
+ *
+ *   1. `handleSchedules` — turns cron-scheduled tasks into queued jobs. It is
+ *      idempotent by design: Payload will not schedule a second job while one
+ *      of the same type is queued, running, or retrying.
+ *   2. `run` — executes whatever is due across every queue.
+ *
+ * Both are driven from this one loop rather than from Payload's `autoRun`,
+ * because `autoRun` would start a cron inside any process that loads the config
+ * — including every web replica.
  */
 
 const env = getServerEnv()
@@ -27,6 +34,13 @@ const logger = initLogger({
   environment: env.NODE_ENV,
   version: env.NEXT_PUBLIC_APP_VERSION,
 })
+
+/**
+ * Jobs executed per tick. Sized against the pool in `DATABASE_POOL_MAX`: jobs
+ * run in parallel and each one holds a connection, so a batch larger than the
+ * pool converts into connection-timeout errors rather than throughput.
+ */
+const JOB_BATCH_LIMIT = 10
 
 let shuttingDown = false
 let activeRun: Promise<unknown> | null = null
@@ -57,9 +71,26 @@ async function main(): Promise<void> {
         continue
       }
 
-      const run = payload.jobs.run({ limit: 20 })
-      activeRun = run
-      const result = await run
+      const tick = (async () => {
+        /**
+         * Scheduling first, so a task whose cron has just come due is picked up
+         * by this same tick rather than waiting for the next one. A failure here
+         * must not stop the run below — a missed schedule is recoverable on the
+         * next tick, but skipping the run would stall every already-queued job.
+         */
+        try {
+          const scheduled = await payload.jobs.handleSchedules({ allQueues: true })
+          const queued = scheduled.queued?.length ?? 0
+          if (queued > 0) logger.info({ correlationId, queued }, 'Scheduled jobs queued')
+        } catch (error) {
+          logger.error({ correlationId, err: error }, 'Scheduling pass failed')
+        }
+
+        return payload.jobs.run({ allQueues: true, limit: JOB_BATCH_LIMIT })
+      })()
+
+      activeRun = tick
+      const result = await tick
       // `jobStatus` is keyed by job id; its value shape is Payload-internal, so
       // only the count is read here rather than trusting the payload structure.
       const completed = Object.keys(result.jobStatus ?? {}).length

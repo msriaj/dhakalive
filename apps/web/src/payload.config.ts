@@ -22,6 +22,7 @@ import { Homepage } from './globals/Homepage'
 import { Footer, Header } from './globals/Navigation'
 import { SeoDefaults } from './globals/SeoDefaults'
 import { SiteSettings } from './globals/SiteSettings'
+import { buildJobsConfig } from './jobs'
 import { env } from './lib/env'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -106,6 +107,12 @@ export default buildConfig({
     Users,
   ],
   globals: [Homepage, Header, Footer, SiteSettings, SeoDefaults],
+
+  /**
+   * Background work. Executed by the worker container only — see the note on
+   * `autoRun` in `./jobs/index.ts` for why no web replica may run the queue.
+   */
+  jobs: buildJobsConfig(),
 
   plugins: storagePlugins,
 
