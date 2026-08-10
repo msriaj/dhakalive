@@ -92,24 +92,36 @@ jobs:
     timeout-minutes: 15
     # A GitHub Environment gives you the approval gate and holds the secrets.
     environment: production
+    permissions:
+      contents: read
+      # Needed so GITHUB_TOKEN can pull the images we just published.
+      packages: read
 
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1
         env:
           SHA: ${{ needs.build.outputs.sha }}
+          # Published packages are private by default, so the server must
+          # authenticate to pull. GITHUB_TOKEN is valid only for the duration of
+          # this run, which is exactly the lifetime wanted — no long-lived
+          # registry credential is stored on the box.
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
-          envs: SHA
+          # Every variable the script reads must be listed here; the action does
+          # not forward the job environment automatically.
+          envs: SHA,GHCR_TOKEN,GHCR_USER
           script_stop: true
           script: |
             set -euo pipefail
             cd "${{ secrets.DEPLOY_PATH }}"
 
-            echo "$GHCR_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             git fetch --all --tags
             git checkout "$SHA"
 
@@ -117,6 +129,11 @@ jobs:
             export WORKER_IMAGE="ghcr.io/${{ github.repository_owner }}/dhakalive-worker:$SHA"
 
             docker compose -f docker/docker-compose.prod.yml pull app worker
+
+            # Drop the credential as soon as the images are local. The token
+            # expires with this run anyway, but leaving it in
+            # ~/.docker/config.json is a needless thing to leave lying on a box.
+            docker logout ghcr.io >/dev/null 2>&1 || true
 
             # Schema first, and only then the code that depends on it. Migrations
             # are written to be backward compatible, so the old container keeps

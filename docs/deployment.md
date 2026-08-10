@@ -165,6 +165,39 @@ it immediately after the first deploy, before the site is publicly announced.
 See [cloudflare.md](cloudflare.md) for cache rules, WAF, rate limiting and origin
 protection. The origin must not be reachable except through Cloudflare.
 
+## Where the build happens
+
+**On GitHub's runners. Never on the server.**
+
+```mermaid
+graph LR
+    D[git push main] --> CI[CI: lint, types, 344 tests]
+    CI --> B[GitHub runner<br/>docker build]
+    B --> G[(GHCR<br/>tagged by commit SHA)]
+    G --> S[Server: docker compose pull]
+    S --> U[migrate, then up -d]
+```
+
+The droplet has one vCPU. `next build` there would take many minutes, compete
+for CPU with the site it is trying to replace, and risk an OOM during the build.
+It also would not be the same artifact: the image that CI tested is the image
+that runs, byte for byte.
+
+The server therefore has **no Node, no pnpm and no `node_modules`**. It holds the
+repository only for the compose files and the deploy scripts; nothing in it is
+compiled there.
+
+### One consequence worth knowing
+
+`NEXT_PUBLIC_*` values are inlined into the browser bundle **at image build
+time**, on the runner — not read at container start. They come from repository
+_variables_, so a wrong `NEXT_PUBLIC_SITE_URL` produces a wrong bundle that no
+amount of fixing `.env` on the server will correct. Change the variable and
+rebuild.
+
+Server-side values (`DATABASE_URI`, `PAYLOAD_SECRET`, R2 credentials) are read
+from `.env` at container start and are never baked into an image.
+
 ## Continuous deployment
 
 `.github/workflows/deploy.yml` runs after CI passes on `main`:
