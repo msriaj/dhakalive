@@ -1,0 +1,35 @@
+node_modules/
+.pnpm-store/
+
+# Build output
+.next/
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Note: payload-types.ts and importMap.js ARE committed. Both are generated, but
+# CI and fresh clones need them present before the first `payload generate:*` run.
+
+# Environment — only .env.example is committed
+.env
+.env.*
+!.env.example
+
+# Test + tooling output
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+
+# Local media scratch (production media lives in R2, never on disk)
+apps/web/media/
+apps/web/public/media/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

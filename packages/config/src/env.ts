@@ -1,0 +1,289 @@
+import { z } from 'zod'
+
+/**
+ * Fail-fast environment validation.
+ *
+ * Two schemas, deliberately separate:
+ *   - `serverEnvSchema` may contain secrets and is parsed only in Node contexts.
+ *   - `clientEnvSchema` is restricted to `NEXT_PUBLIC_*` and is the only thing that
+ *     is ever allowed to reach a browser bundle.
+ *
+ * Nothing here ever echoes a value back in an error message. A misconfigured
+ * secret should produce "PAYLOAD_SECRET: too short", never the secret itself.
+ */
+
+const NODE_ENVS = ['development', 'test', 'production'] as const
+export type NodeEnvName = (typeof NODE_ENVS)[number]
+
+/**
+ * Deployment stage, deliberately separate from NODE_ENV.
+ *
+ * NODE_ENV is a *build* concept — `next build` forces it to `production` even
+ * for a local build, and every built artifact reports `production` regardless of
+ * where it runs. Keying the production safety rules on it would fail a
+ * developer's build and would still not distinguish staging from production.
+ * APP_ENV is the deployment concept, and it is what those rules check.
+ */
+const APP_ENVS = ['development', 'test', 'staging', 'production'] as const
+export type AppEnvName = (typeof APP_ENVS)[number]
+
+const SEARCH_PROVIDERS = ['postgres', 'meilisearch', 'opensearch'] as const
+export type SearchProviderName = (typeof SEARCH_PROVIDERS)[number]
+
+const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace'] as const
+
+const optionalString = z.string().trim().min(1).optional()
+
+const requiredString = (min = 1) => z.string().trim().min(min)
+
+/**
+ * `.env` templates carry empty placeholders (`CLOUDFLARE_R2_ENDPOINT=`). An
+ * empty string is "not configured", not "configured as the empty string", so it
+ * is dropped before validation — otherwise every optional URL fails to parse.
+ */
+function stripEmptyValues(
+  source: Readonly<Record<string, string | undefined>>,
+): Record<string, string | undefined> {
+  const cleaned: Record<string, string | undefined> = {}
+  for (const [key, value] of Object.entries(source)) {
+    if (typeof value === 'string' && value.trim() === '') continue
+    cleaned[key] = value
+  }
+  return cleaned
+}
+
+const booleanFromString = z
+  .enum(['true', 'false', '1', '0'])
+  .transform((value) => value === 'true' || value === '1')
+
+const port = z.coerce.number().int().min(1).max(65535)
+
+export const clientEnvSchema = z.object({
+  NEXT_PUBLIC_SITE_URL: z.url(),
+  NEXT_PUBLIC_MEDIA_URL: z.url().optional(),
+  NEXT_PUBLIC_DEFAULT_LOCALE: z.enum(['bn', 'en']).default('bn'),
+  NEXT_PUBLIC_APP_VERSION: optionalString,
+})
+
+export const serverEnvSchema = z
+  .object({
+    NODE_ENV: z.enum(NODE_ENVS).default('development'),
+    /** Deployment stage. Drives the production safety rules below. */
+    APP_ENV: z.enum(APP_ENVS).default('development'),
+
+    // --- Application identity -------------------------------------------------
+    NEXT_PUBLIC_SITE_URL: z.url(),
+    NEXT_PUBLIC_DEFAULT_LOCALE: z.enum(['bn', 'en']).default('bn'),
+    /** Commit SHA or release tag, surfaced by /api/health for deploy correlation. */
+    NEXT_PUBLIC_APP_VERSION: optionalString,
+
+    // --- Payload --------------------------------------------------------------
+    // 32 chars is the floor for the key that signs auth cookies and reset tokens.
+    PAYLOAD_SECRET: requiredString(32),
+
+    // --- PostgreSQL -----------------------------------------------------------
+    DATABASE_URI: requiredString(),
+    DATABASE_POOL_MIN: z.coerce.number().int().min(0).default(2),
+    DATABASE_POOL_MAX: z.coerce.number().int().min(1).default(10),
+    DATABASE_SSL: booleanFromString.default(false),
+    /**
+     * Drizzle `push` rewrites schema without a migration file. Safe in dev, a
+     * data-loss vector anywhere else, so it is opt-in and refused in production.
+     */
+    DATABASE_PUSH: booleanFromString.default(false),
+
+    // --- Cloudflare R2 (S3-compatible) ---------------------------------------
+    CLOUDFLARE_ACCOUNT_ID: optionalString,
+    CLOUDFLARE_R2_BUCKET: optionalString,
+    CLOUDFLARE_R2_ACCESS_KEY_ID: optionalString,
+    CLOUDFLARE_R2_SECRET_ACCESS_KEY: optionalString,
+    CLOUDFLARE_R2_ENDPOINT: z.url().optional(),
+    /** R2 ignores regions but the S3 client requires one; `auto` is the documented value. */
+    CLOUDFLARE_R2_REGION: z.string().trim().default('auto'),
+    CLOUDFLARE_R2_FORCE_PATH_STYLE: booleanFromString.default(true),
+    /** Public custom domain bound to the bucket, e.g. https://media.example.com */
+    CLOUDFLARE_MEDIA_PUBLIC_URL: z.url().optional(),
+
+    // --- Cloudflare cache purge ----------------------------------------------
+    CLOUDFLARE_ZONE_ID: optionalString,
+    CLOUDFLARE_API_TOKEN: optionalString,
+    /** Tag and prefix purge are Enterprise-only; leave false to purge by URL. */
+    CLOUDFLARE_PURGE_BY_TAG: booleanFromString.default(false),
+
+    // --- Revalidation ---------------------------------------------------------
+    REVALIDATION_SECRET: requiredString(16),
+
+    // --- Redis ----------------------------------------------------------------
+    REDIS_URL: optionalString,
+
+    // --- Search ---------------------------------------------------------------
+    SEARCH_PROVIDER: z.enum(SEARCH_PROVIDERS).default('postgres'),
+    SEARCH_URL: z.url().optional(),
+    SEARCH_API_KEY: optionalString,
+
+    // --- Email ----------------------------------------------------------------
+    EMAIL_FROM: z.email().optional(),
+    SMTP_HOST: optionalString,
+    SMTP_PORT: port.optional(),
+    SMTP_USER: optionalString,
+    SMTP_PASSWORD: optionalString,
+
+    // --- Jobs / worker --------------------------------------------------------
+    /**
+     * Only the worker container sets this. Web replicas must leave it false, or
+     * every replica races to publish the same scheduled article.
+     */
+    JOBS_RUN_IN_PROCESS: booleanFromString.default(false),
+    JOBS_POLL_INTERVAL_MS: z.coerce.number().int().min(1000).default(10_000),
+
+    // --- Observability --------------------------------------------------------
+    LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
+    ERROR_TRACKING_DSN: optionalString,
+  })
+  .superRefine((env, ctx) => {
+    const isProduction = env.APP_ENV === 'production'
+
+    const requireInProduction = (key: keyof typeof env, reason: string): void => {
+      if (isProduction && !env[key]) {
+        ctx.addIssue({ code: 'custom', path: [key], message: `Required in production — ${reason}` })
+      }
+    }
+
+    // Local disk storage is never acceptable in production, so R2 must be complete.
+    requireInProduction('CLOUDFLARE_R2_BUCKET', 'media must be stored in R2, never on disk')
+    requireInProduction('CLOUDFLARE_R2_ACCESS_KEY_ID', 'R2 credentials incomplete')
+    requireInProduction('CLOUDFLARE_R2_SECRET_ACCESS_KEY', 'R2 credentials incomplete')
+    requireInProduction('CLOUDFLARE_R2_ENDPOINT', 'R2 credentials incomplete')
+    requireInProduction('CLOUDFLARE_MEDIA_PUBLIC_URL', 'public media needs its own CDN hostname')
+
+    if (isProduction && env.DATABASE_PUSH) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['DATABASE_PUSH'],
+        message: 'Refusing to enable destructive schema push in production — use migrations',
+      })
+    }
+
+    if (isProduction && !env.DATABASE_SSL) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['DATABASE_SSL'],
+        message: 'Database connections must be encrypted in production',
+      })
+    }
+
+    if (env.DATABASE_POOL_MIN > env.DATABASE_POOL_MAX) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['DATABASE_POOL_MIN'],
+        message: 'DATABASE_POOL_MIN cannot exceed DATABASE_POOL_MAX',
+      })
+    }
+
+    if (env.SEARCH_PROVIDER !== 'postgres' && !env.SEARCH_URL) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SEARCH_URL'],
+        message: `SEARCH_URL is required when SEARCH_PROVIDER is "${env.SEARCH_PROVIDER}"`,
+      })
+    }
+
+    // A purge token without a zone (or vice versa) silently no-ops every purge.
+    const hasZone = Boolean(env.CLOUDFLARE_ZONE_ID)
+    const hasToken = Boolean(env.CLOUDFLARE_API_TOKEN)
+    if (hasZone !== hasToken) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['CLOUDFLARE_ZONE_ID'],
+        message: 'CLOUDFLARE_ZONE_ID and CLOUDFLARE_API_TOKEN must be set together',
+      })
+    }
+  })
+
+export type ServerEnv = z.infer<typeof serverEnvSchema>
+export type ClientEnv = z.infer<typeof clientEnvSchema>
+
+export class EnvValidationError extends Error {
+  public readonly issues: readonly string[]
+
+  constructor(scope: 'server' | 'client', issues: readonly string[]) {
+    super(
+      `Invalid ${scope} environment configuration:\n` +
+        issues.map((issue) => `  - ${issue}`).join('\n') +
+        `\nSee .env.example and docs/environment.md.`,
+    )
+    this.name = 'EnvValidationError'
+    this.issues = issues
+  }
+}
+
+/** Formats issues as `KEY: message`. Values are never included. */
+function formatIssues(error: z.ZodError): string[] {
+  return error.issues.map((issue) => {
+    const key = issue.path.join('.') || '(root)'
+    return `${key}: ${issue.message}`
+  })
+}
+
+let cachedServerEnv: ServerEnv | undefined
+let cachedClientEnv: ClientEnv | undefined
+
+/**
+ * Docker image builds run `next build` without production secrets available.
+ * This escape hatch is for that step only — the running container still validates.
+ */
+function shouldSkipValidation(source: Readonly<Record<string, string | undefined>>): boolean {
+  return source.SKIP_ENV_VALIDATION === 'true' || source.SKIP_ENV_VALIDATION === '1'
+}
+
+export function getServerEnv(
+  source: Readonly<Record<string, string | undefined>> = process.env,
+): ServerEnv {
+  if (cachedServerEnv) return cachedServerEnv
+
+  if (shouldSkipValidation(source)) {
+    // Placeholders that satisfy the type without ever being usable as credentials.
+    cachedServerEnv = serverEnvSchema.parse({
+      NODE_ENV: 'development',
+      APP_ENV: 'development',
+      NEXT_PUBLIC_SITE_URL: 'http://localhost:3000',
+      PAYLOAD_SECRET: 'build-time-placeholder-not-a-real-secret',
+      DATABASE_URI: 'postgres://build:build@localhost:5432/build',
+      REVALIDATION_SECRET: 'build-time-placeholder',
+    })
+    return cachedServerEnv
+  }
+
+  const parsed = serverEnvSchema.safeParse(stripEmptyValues(source))
+  if (!parsed.success) throw new EnvValidationError('server', formatIssues(parsed.error))
+
+  cachedServerEnv = parsed.data
+  return cachedServerEnv
+}
+
+export function getClientEnv(
+  source: Readonly<Record<string, string | undefined>> = process.env,
+): ClientEnv {
+  if (cachedClientEnv) return cachedClientEnv
+
+  // Next inlines NEXT_PUBLIC_* at build time, so these must be read literally
+  // rather than through a dynamic index, or the values disappear in the bundle.
+  const parsed = clientEnvSchema.safeParse(
+    stripEmptyValues({
+      NEXT_PUBLIC_SITE_URL: source.NEXT_PUBLIC_SITE_URL,
+      NEXT_PUBLIC_MEDIA_URL: source.NEXT_PUBLIC_MEDIA_URL,
+      NEXT_PUBLIC_DEFAULT_LOCALE: source.NEXT_PUBLIC_DEFAULT_LOCALE,
+      NEXT_PUBLIC_APP_VERSION: source.NEXT_PUBLIC_APP_VERSION,
+    }),
+  )
+  if (!parsed.success) throw new EnvValidationError('client', formatIssues(parsed.error))
+
+  cachedClientEnv = parsed.data
+  return cachedClientEnv
+}
+
+/** Test-only: clears memoised env so a suite can assert on different inputs. */
+export function resetEnvCache(): void {
+  cachedServerEnv = undefined
+  cachedClientEnv = undefined
+}

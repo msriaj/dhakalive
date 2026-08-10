@@ -1,0 +1,27 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+  - 'services/*'
+
+# pnpm 11 reads these from the workspace file, not from package.json.
+allowBuilds:
+  esbuild: true
+  unrs-resolver: true
+  sharp: true
+
+# Pinned so a transitive bump cannot drift out of Payload's supported ranges:
+#   - @payloadcms/next 3.87.1 accepts next ">=16.2.6 <17" (and NOT 15.5.x)
+#   - payload 3.87.1 declares a graphql ^16.8.1 peer; graphql 17 breaks it
+#   - typescript-eslint 8.x supports typescript <6.1.0, so TS 7 is held back
+#   - eslint-config-next 16.3.0 bundles eslint-plugin-{import,react,jsx-a11y},
+#     none of which declare eslint 10 support yet, so eslint stays on 9.x
+overrides:
+  typescript: 5.9.3
+  eslint: 9.39.5
+  graphql: 16.14.2
+  next: 16.3.0
+  react: 19.2.8
+  react-dom: 19.2.8
+
+minimumReleaseAgeExclude:
+  - tsx@4.23.12

@@ -1,0 +1,84 @@
+# Local development stack.
+#
+# Production does NOT use this file — see docker/docker-compose.prod.yml and
+# docs/deployment.md. In particular, Postgres and Redis here hold development
+# data only, and application media in any real environment lives in R2.
+
+name: dhakalive
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dhakalive
+      POSTGRES_PASSWORD: dhakalive
+      POSTGRES_DB: dhakalive
+      # Bengali content requires a UTF-8 database; the C collation keeps index
+      # ordering deterministic across platforms.
+      POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=C'
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U dhakalive -d dhakalive']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'no', '--save', '']
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URI: postgres://dhakalive:dhakalive@postgres:5432/dhakalive
+      REDIS_URL: redis://redis:6379
+      # Web replicas must never run the job queue.
+      JOBS_RUN_IN_PROCESS: 'false'
+    ports:
+      - '3000:3000'
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URI: postgres://dhakalive:dhakalive@postgres:5432/dhakalive
+      REDIS_URL: redis://redis:6379
+      JOBS_RUN_IN_PROCESS: 'true'
+    # Exactly one runner. Scaling this races on scheduled publication.
+    deploy:
+      replicas: 1
+
+volumes:
+  postgres-data:

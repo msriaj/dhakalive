@@ -1,0 +1,58 @@
+# syntax=docker/dockerfile:1.7
+#
+# Background job runner. Shares the dependency install with the web image but
+# keeps its own runtime so the two scale independently: web scales on request
+# volume, the worker stays at exactly one replica for the job queue.
+
+ARG NODE_VERSION=24.11.0-bookworm-slim
+
+FROM node:${NODE_VERSION} AS base
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+RUN corepack enable
+WORKDIR /repo
+
+FROM base AS deps
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
+COPY apps/web/package.json apps/web/
+COPY packages/config/package.json packages/config/
+COPY packages/core/package.json packages/core/
+COPY packages/observability/package.json packages/observability/
+COPY services/worker/package.json services/worker/
+
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+  pnpm install --frozen-lockfile
+
+FROM deps AS builder
+COPY . .
+ENV SKIP_ENV_VALIDATION=1
+RUN pnpm build:packages
+
+# -----------------------------------------------------------------------------
+# runner
+# -----------------------------------------------------------------------------
+FROM base AS runner
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends dumb-init \
+  && rm -rf /var/lib/apt/lists/*
+
+ENV NODE_ENV=production
+
+WORKDIR /repo
+COPY --from=builder /repo ./
+
+RUN groupadd --system --gid 1001 nodejs \
+  && useradd --system --uid 1001 --gid nodejs worker \
+  && chown -R worker:nodejs /repo
+
+USER worker
+
+# The worker exposes no port; liveness is judged by the process staying up and
+# by job-failure metrics, not by an HTTP probe.
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["pnpm", "--filter", "@dhakalive/worker", "start"]

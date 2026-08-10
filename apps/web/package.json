@@ -1,0 +1,44 @@
+{
+  "name": "@dhakalive/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "payload": "node --env-file-if-exists=../../.env node_modules/payload/bin.js",
+    "migrate": "node --env-file-if-exists=../../.env node_modules/payload/bin.js migrate",
+    "migrate:create": "node --env-file-if-exists=../../.env node_modules/payload/bin.js migrate:create && node scripts/normalize-migrations.mjs",
+    "migrate:status": "node --env-file-if-exists=../../.env node_modules/payload/bin.js migrate:status",
+    "generate:types": "node --env-file-if-exists=../../.env node_modules/payload/bin.js generate:types",
+    "generate:importmap": "node --env-file-if-exists=../../.env node_modules/payload/bin.js generate:importmap",
+    "migrate:down": "node --env-file-if-exists=../../.env node_modules/payload/bin.js migrate:down",
+    "normalize:migrations": "node scripts/normalize-migrations.mjs"
+  },
+  "dependencies": {
+    "@dhakalive/config": "workspace:*",
+    "@dhakalive/core": "workspace:*",
+    "@dhakalive/observability": "workspace:*",
+    "@payloadcms/db-postgres": "3.87.1",
+    "@payloadcms/next": "3.87.1",
+    "@payloadcms/richtext-lexical": "3.87.1",
+    "@payloadcms/ui": "3.87.1",
+    "graphql": "16.14.2",
+    "next": "16.3.0",
+    "payload": "3.87.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "sharp": "0.35.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "26.2.0",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "postcss": "8.5.26",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: '1'
+
+jobs:
+  verify:
+    name: Format, lint, types, tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: dhakalive
+          POSTGRES_PASSWORD: dhakalive
+          POSTGRES_DB: dhakalive_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U dhakalive"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Build workspace packages
+        run: pnpm build:packages
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit and integration tests
+        run: pnpm test
+        env:
+          NODE_ENV: test
+          DATABASE_URI: postgres://dhakalive:dhakalive@localhost:5432/dhakalive_test
+          PAYLOAD_SECRET: ci-only-secret-value-at-least-32-chars-long
+          REVALIDATION_SECRET: ci-only-revalidation-secret
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+
+      - name: Production build
+        run: pnpm build
+        env:
+          SKIP_ENV_VALIDATION: '1'
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Fails the job on a known high-severity advisory in the dependency tree.
+      - run: pnpm audit --audit-level high

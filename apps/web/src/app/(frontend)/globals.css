@@ -1,0 +1,65 @@
+@import 'tailwindcss';
+
+/*
+ * This stylesheet is imported only by the (frontend) layout. Tailwind's
+ * preflight resets `all` on base elements, which would flatten the Payload
+ * admin UI if it ever leaked into the (payload) route group.
+ */
+
+@theme {
+  /*
+   * Bengali needs an explicit font stack: the default sans-serif on most
+   * platforms falls back to a Latin face and renders Bengali conjuncts with
+   * wrong metrics and broken ligatures.
+   */
+  --font-bengali:
+    'Noto Sans Bengali', 'Hind Siliguri', 'SolaimanLipi', 'Kalpurush', system-ui, sans-serif;
+  --font-latin: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+
+  --color-ink: oklch(0.19 0.01 260);
+  --color-ink-muted: oklch(0.48 0.01 260);
+  --color-surface: oklch(1 0 0);
+  --color-surface-sunken: oklch(0.97 0.003 260);
+  --color-rule: oklch(0.9 0.005 260);
+  --color-brand: oklch(0.52 0.19 26);
+  --color-breaking: oklch(0.55 0.22 27);
+}
+
+@layer base {
+  html {
+    /* Bengali sits taller than Latin; a roomier default line-height keeps
+       vowel signs and conjuncts from clipping against the line above. */
+    line-height: 1.75;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  html:lang(bn) body {
+    font-family: var(--font-bengali);
+  }
+
+  html:lang(en) body {
+    font-family: var(--font-latin);
+  }
+
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+  }
+
+  /* WCAG 2.2 AA: focus must stay visible for keyboard users on every control. */
+  :focus-visible {
+    outline: 3px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

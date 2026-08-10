@@ -1,0 +1,45 @@
+{
+  "name": "dhakalive",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.17.0",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @dhakalive/web dev",
+    "build": "pnpm --filter @dhakalive/web build",
+    "start": "pnpm --filter @dhakalive/web start",
+    "worker": "pnpm --filter @dhakalive/worker start",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "build:packages": "tsc --build packages/config packages/observability packages/core",
+    "watch:packages": "tsc --build --watch packages/config packages/observability packages/core",
+    "typecheck": "pnpm build:packages && pnpm -r --filter './apps/*' --filter './services/*' typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "payload": "pnpm --filter @dhakalive/web payload",
+    "migrate": "pnpm --filter @dhakalive/web migrate",
+    "migrate:create": "pnpm --filter @dhakalive/web migrate:create",
+    "generate:types": "pnpm --filter @dhakalive/web generate:types",
+    "seed": "pnpm --filter @dhakalive/web seed",
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@types/node": "26.2.0",
+    "@vitest/coverage-v8": "4.1.10",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.0",
+    "eslint-config-prettier": "10.1.8",
+    "prettier": "3.9.6",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.66.0",
+    "vitest": "4.1.10"
+  }
+}

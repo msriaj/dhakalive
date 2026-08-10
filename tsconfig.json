@@ -1,0 +1,8 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/config" },
+    { "path": "./packages/observability" },
+    { "path": "./packages/core" }
+  ]
+}

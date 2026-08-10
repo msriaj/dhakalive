@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.next/
+coverage/
+playwright-report/
+test-results/
+pnpm-lock.yaml
+**/payload-types.ts
+**/importMap.js
+**/migrations/*.json

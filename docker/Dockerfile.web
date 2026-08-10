@@ -1,0 +1,96 @@
+# syntax=docker/dockerfile:1.7
+#
+# Multi-stage build for the Next.js + Payload web service.
+#
+# Stage layout is chosen so that a source-only change reuses the dependency
+# layer: deps -> builder -> runner. The runner carries no build toolchain, no
+# package manager and no source, and runs as a non-root user.
+
+ARG NODE_VERSION=24.11.0-bookworm-slim
+
+# -----------------------------------------------------------------------------
+# base — pnpm via corepack, shared by the build stages
+# -----------------------------------------------------------------------------
+FROM node:${NODE_VERSION} AS base
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+RUN corepack enable
+WORKDIR /repo
+
+# -----------------------------------------------------------------------------
+# deps — install workspace dependencies from the lockfile only
+# -----------------------------------------------------------------------------
+FROM base AS deps
+
+# sharp compiles against libvips; the slim image lacks the build headers.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
+COPY apps/web/package.json apps/web/
+COPY packages/config/package.json packages/config/
+COPY packages/core/package.json packages/core/
+COPY packages/observability/package.json packages/observability/
+COPY services/worker/package.json services/worker/
+
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+  pnpm install --frozen-lockfile
+
+# -----------------------------------------------------------------------------
+# builder — compile workspace packages, then build Next
+# -----------------------------------------------------------------------------
+FROM deps AS builder
+
+COPY . .
+
+# The image build has no database and no secrets. Env validation is skipped for
+# this step only; the running container validates for real at startup.
+ENV SKIP_ENV_VALIDATION=1
+ENV NEXT_TELEMETRY_DISABLED=1
+
+ARG NEXT_PUBLIC_SITE_URL=http://localhost:3000
+ARG NEXT_PUBLIC_MEDIA_URL=
+ARG NEXT_PUBLIC_DEFAULT_LOCALE=bn
+ARG NEXT_PUBLIC_APP_VERSION=dev
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+ENV NEXT_PUBLIC_MEDIA_URL=$NEXT_PUBLIC_MEDIA_URL
+ENV NEXT_PUBLIC_DEFAULT_LOCALE=$NEXT_PUBLIC_DEFAULT_LOCALE
+ENV NEXT_PUBLIC_APP_VERSION=$NEXT_PUBLIC_APP_VERSION
+
+RUN pnpm build:packages \
+  && pnpm --filter @dhakalive/web build
+
+# -----------------------------------------------------------------------------
+# runner — minimal runtime, non-root
+# -----------------------------------------------------------------------------
+FROM node:${NODE_VERSION} AS runner
+
+# dumb-init reaps zombies and forwards SIGTERM, which Node does not do as PID 1.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends dumb-init \
+  && rm -rf /var/lib/apt/lists/*
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
+WORKDIR /app
+
+RUN groupadd --system --gid 1001 nodejs \
+  && useradd --system --uid 1001 --gid nodejs nextjs
+
+# Standalone output already contains the traced server and its dependencies.
+COPY --from=builder --chown=nextjs:nodejs /repo/apps/web/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /repo/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder --chown=nextjs:nodejs /repo/apps/web/public ./apps/web/public
+
+USER nextjs
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "apps/web/server.js"]
