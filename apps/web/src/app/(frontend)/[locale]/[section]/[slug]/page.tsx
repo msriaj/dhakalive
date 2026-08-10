@@ -7,6 +7,7 @@ import { DEFAULT_LOCALE, LOCALES, isLocale } from '@dhakalive/config'
 import { ArticleList } from '../../../../../components/ArticleList'
 import { Breadcrumbs } from '../../../../../components/Breadcrumbs'
 import { Byline } from '../../../../../components/Byline'
+import { JsonLd } from '../../../../../components/JsonLd'
 import { MediaImage } from '../../../../../components/MediaImage'
 import { RichText } from '../../../../../components/RichText'
 import { ShareLinks } from '../../../../../components/ShareLinks'
@@ -15,6 +16,7 @@ import { env } from '../../../../../lib/env'
 import { formatDate, isoDate } from '../../../../../lib/format'
 import { buildMetadata } from '../../../../../lib/metadata'
 import { getArticleBySlug, getRelatedArticles } from '../../../../../lib/queries/articles'
+import { articleGraph } from '../../../../../lib/seo/structured-data'
 import { absoluteUrl, articlePath, categoryPath, tagPath } from '../../../../../lib/routes'
 import type { Category, Tag } from '../../../../../payload-types'
 
@@ -112,8 +114,31 @@ export default async function ArticlePage({ params }: RouteParams) {
     env().NEXT_PUBLIC_SITE_URL,
   )
 
+  /**
+   * Structured data mirrors the visible breadcrumb trail rather than being
+   * assembled separately. Google warns when the two disagree, and two sources
+   * of truth for the same trail is exactly how they come to disagree.
+   */
+  const graph = await articleGraph({
+    article,
+    locale,
+    crumbs: [
+      ...(category?.slug
+        ? [
+            {
+              name: category.title ?? '',
+              url: absoluteUrl(categoryPath(locale, category.slug), env().NEXT_PUBLIC_SITE_URL),
+            },
+          ]
+        : []),
+      { name: article.headline ?? '' },
+    ],
+  })
+
   return (
     <article className="mx-auto max-w-3xl">
+      <JsonLd data={graph} />
+
       {category?.slug ? (
         <Breadcrumbs
           locale={locale}

@@ -73,3 +73,26 @@ export type { ArticleChange, RevalidationEvent, RevalidationTargets } from './ca
 
 export { richTextToPlainText } from './rich-text/plain-text.js'
 export type { PlainTextOptions } from './rich-text/plain-text.js'
+
+export {
+  SCHEMA_CONTEXT,
+  breadcrumbSchema,
+  collectionPageSchema,
+  graph,
+  newsArticleSchema,
+  organizationId,
+  organizationSchema,
+  personSchema,
+  webSiteId,
+  webSiteSchema,
+} from './seo/json-ld.js'
+export type {
+  BreadcrumbItem,
+  CollectionPageInput,
+  ImageInput,
+  JsonLdNode,
+  NewsArticleInput,
+  OrganizationInput,
+  PersonInput,
+  WebSiteInput,
+} from './seo/json-ld.js'

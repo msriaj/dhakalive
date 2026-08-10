@@ -5,6 +5,7 @@ import { isLocale } from '@dhakalive/config'
 
 import { ArticleCard } from '../../../components/ArticleCard'
 import { ArticleList } from '../../../components/ArticleList'
+import { JsonLd } from '../../../components/JsonLd'
 import { dictionary } from '../../../lib/dictionary'
 import {
   getArticlesByCategory,
@@ -13,6 +14,7 @@ import {
 } from '../../../lib/queries/articles'
 import { getHomepage } from '../../../lib/queries/globals'
 import { categoryPath } from '../../../lib/routes'
+import { homeGraph } from '../../../lib/seo/structured-data'
 import type { Article } from '../../../payload-types'
 
 /**
@@ -90,8 +92,17 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       ).docs
     : []
 
+  /**
+   * The front page describes the publication, not one story. Emitting a
+   * `NewsArticle` for the lead here would compete with the article's own page
+   * for the same URL, so this carries the organisation and the site only.
+   */
+  const graph = await homeGraph(locale)
+
   return (
     <div className="space-y-14">
+      <JsonLd data={graph} />
+
       {heroArticle ? (
         <section aria-labelledby="lead-heading">
           <h1 id="lead-heading" className="sr-only">

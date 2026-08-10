@@ -5,6 +5,7 @@ import { isLocale } from '@dhakalive/config'
 
 import { ArticleList, Pagination } from '../../../../components/ArticleList'
 import { Breadcrumbs } from '../../../../components/Breadcrumbs'
+import { JsonLd } from '../../../../components/JsonLd'
 import { RichText } from '../../../../components/RichText'
 import { buildMetadata } from '../../../../lib/metadata'
 import { getArticlesByCategory } from '../../../../lib/queries/articles'
@@ -14,7 +15,9 @@ import {
   getChildCategories,
   getPageBySlug,
 } from '../../../../lib/queries/taxonomy'
-import { categoryPath } from '../../../../lib/routes'
+import { env } from '../../../../lib/env'
+import { absoluteUrl, categoryPath } from '../../../../lib/routes'
+import { collectionGraph } from '../../../../lib/seo/structured-data'
 
 /**
  * The single-segment route resolves either a category listing or a standing
@@ -78,8 +81,30 @@ export default async function CategoryOrPage({ params, searchParams }: RoutePara
       getCategoryAncestors(category, locale),
     ])
 
+    const siteUrl = env().NEXT_PUBLIC_SITE_URL
+    const ancestorCrumbs = [...ancestors].reverse().flatMap((ancestor) =>
+      ancestor.slug
+        ? [
+            {
+              name: ancestor.title ?? '',
+              url: absoluteUrl(categoryPath(locale, ancestor.slug), siteUrl),
+            },
+          ]
+        : [],
+    )
+
+    const graph = await collectionGraph({
+      name: category.title ?? '',
+      description: category.description,
+      path: categoryPath(locale, decoded),
+      locale,
+      crumbs: [...ancestorCrumbs, { name: category.title ?? '' }],
+    })
+
     return (
       <div>
+        <JsonLd data={graph} />
+
         <Breadcrumbs
           locale={locale}
           crumbs={[

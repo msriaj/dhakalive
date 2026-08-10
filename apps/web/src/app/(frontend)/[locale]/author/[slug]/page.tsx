@@ -5,12 +5,14 @@ import { isLocale } from '@dhakalive/config'
 
 import { ArticleList, Pagination } from '../../../../../components/ArticleList'
 import { Breadcrumbs } from '../../../../../components/Breadcrumbs'
+import { JsonLd } from '../../../../../components/JsonLd'
 import { MediaImage } from '../../../../../components/MediaImage'
 import { dictionary } from '../../../../../lib/dictionary'
 import { buildMetadata } from '../../../../../lib/metadata'
 import { getArticlesByAuthor } from '../../../../../lib/queries/articles'
 import { getAuthorBySlug } from '../../../../../lib/queries/taxonomy'
 import { authorPath } from '../../../../../lib/routes'
+import { collectionGraph } from '../../../../../lib/seo/structured-data'
 
 export const revalidate = 300
 
@@ -55,8 +57,25 @@ export default async function AuthorPage({ params, searchParams }: RouteParams) 
 
   const articles = await getArticlesByAuthor(author.id, { locale, limit: 12, page })
 
+  /**
+   * The author page carries a `Person` alongside its listing. It is the only
+   * page that describes the byline itself, so it is where the profile — job
+   * title, biography, social profiles — belongs; article markup references the
+   * same person by name and URL.
+   */
+  const graph = await collectionGraph({
+    name: author.displayName ?? '',
+    description: author.biography,
+    path: authorPath(locale, decoded),
+    locale,
+    crumbs: [{ name: author.displayName ?? '' }],
+    author,
+  })
+
   return (
     <div>
+      <JsonLd data={graph} />
+
       <Breadcrumbs locale={locale} crumbs={[{ label: author.displayName ?? '' }]} />
 
       <header className="mt-4 flex flex-col gap-4 border-b border-[var(--color-rule)] pb-6 sm:flex-row sm:items-center">

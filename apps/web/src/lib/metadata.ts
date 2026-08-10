@@ -13,9 +13,10 @@ import { env } from './env'
  * Builds page metadata from a document's SEO overrides, falling back to the SEO
  * defaults global and then to the content itself.
  *
- * Full structured data (NewsArticle, Breadcrumb, Organization) lands in Phase 7;
- * this covers title, description, canonical, hreflang, Open Graph and Twitter
- * cards.
+ * This covers title, description, canonical, hreflang, Open Graph and Twitter
+ * cards. schema.org structured data is built separately in `lib/seo` — it
+ * describes entities rather than the document, and Next's Metadata API has no
+ * representation for it.
  */
 
 export interface SeoOverrides {
