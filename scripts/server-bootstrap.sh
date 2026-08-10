@@ -14,7 +14,7 @@
 set -euo pipefail
 
 DEPLOY_USER="${DEPLOY_USER:-deploy}"
-DEPLOY_PATH="${DEPLOY_PATH:-/srv/dhakalive}"
+DEPLOY_PATH="${DEPLOY_PATH:-/www/DHAKALIVE}"
 REPO_URL="${REPO_URL:-https://github.com/msriaj/dhakalive.git}"
 SWAP_SIZE="${SWAP_SIZE:-2G}"
 
@@ -31,8 +31,8 @@ apt-get update -qq
 apt-get install -y -qq ca-certificates curl git ufw fail2ban >/dev/null
 
 log "Swap (${SWAP_SIZE})"
-# On a 1 GB box this is not optional. Without it, a traffic spike or an image
-# resize gets the app OOM-killed, and the kernel picks the victim, not you.
+# Cheap insurance even with 2 GB: it turns a traffic spike into a slow minute
+# instead of the kernel OOM-killing a process of its own choosing.
 if swapon --show | grep -q '/swapfile'; then
   echo "  swap already active"
 else

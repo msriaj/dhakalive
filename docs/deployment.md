@@ -229,7 +229,7 @@ Environment **secrets**, under an environment named `production`:
 | `DEPLOY_USER`    | SSH user                  |
 | `DEPLOY_SSH_KEY` | Private key for that user |
 | `DEPLOY_PORT`    | Optional, defaults to 22  |
-| `DEPLOY_PATH`    | e.g. `/srv/dhakalive`     |
+| `DEPLOY_PATH`    | e.g. `/www/DHAKALIVE`     |
 
 Using a GitHub _Environment_ rather than plain repository secrets gives you an
 optional approval gate before anything reaches production.
@@ -286,7 +286,7 @@ crontab -e -u deploy
 ```
 
 ```
-15 2 * * * cd /srv/dhakalive && ./scripts/backup-postgres.sh >> /var/log/dhakalive-backup.log 2>&1
+15 2 * * * cd /www/DHAKALIVE && ./scripts/backup-postgres.sh >> /var/log/dhakalive-backup.log 2>&1
 ```
 
 The script dumps in custom format, **verifies the archive is readable** with

@@ -6,7 +6,7 @@
 #   ./scripts/backup-postgres.sh --verify-only <file>
 #
 # Add to cron as the deploy user:
-#   15 2 * * * cd /srv/dhakalive && ./scripts/backup-postgres.sh >> /var/log/dhakalive-backup.log 2>&1
+#   15 2 * * * cd /www/DHAKALIVE && ./scripts/backup-postgres.sh >> /var/log/dhakalive-backup.log 2>&1
 #
 # Self-hosted Postgres has no automated backups. This is that.
 #
