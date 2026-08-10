@@ -75,12 +75,27 @@ platforms; `LC_CTYPE 'C.UTF-8'` is what gives Unicode character classes.
 data instead — no container or volume needs to be recreated:
 
 ```bash
-docker exec dhakalive-postgres-1 pg_dump -U dhakalive -d dhakalive --no-owner --no-acl > dump.sql
-docker exec dhakalive-postgres-1 psql -U dhakalive -d postgres \
+docker exec dhakalive-data-postgres-1 pg_dump -U dhakalive -d dhakalive --no-owner --no-acl > dump.sql
+docker exec dhakalive-data-postgres-1 psql -U dhakalive -d postgres \
   -c "CREATE DATABASE dhakalive_new TEMPLATE template0 ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C.UTF-8';"
-docker exec -i dhakalive-postgres-1 psql -U dhakalive -d dhakalive_new < dump.sql
-docker exec dhakalive-postgres-1 psql -U dhakalive -d postgres \
+docker exec -i dhakalive-data-postgres-1 psql -U dhakalive -d dhakalive_new < dump.sql
+docker exec dhakalive-data-postgres-1 psql -U dhakalive -d postgres \
   -c "DROP DATABASE dhakalive;" -c "ALTER DATABASE dhakalive_new RENAME TO dhakalive;"
+```
+
+The container is named for the compose project in
+`docker/docker-compose.postgres.yml` (`dhakalive-data`), not for the app stack.
+
+If the database has no data worth keeping — a deploy that failed partway
+through its first migration, for instance — drop and recreate it instead of
+dumping. Check before you do, because this is not reversible:
+
+```bash
+docker exec dhakalive-data-postgres-1 psql -U dhakalive -d dhakalive \
+  -tAc "select count(*) from users" 2>/dev/null || echo "no users table yet"
+docker exec dhakalive-data-postgres-1 psql -U dhakalive -d postgres \
+  -c "DROP DATABASE dhakalive;" \
+  -c "CREATE DATABASE dhakalive TEMPLATE template0 ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C.UTF-8';"
 ```
 
 For a throwaway development database, `docker compose down -v` followed by

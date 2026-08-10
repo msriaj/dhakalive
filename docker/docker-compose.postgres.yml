@@ -21,9 +21,15 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-dhakalive}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-dhakalive}
-      # UTF-8 is required for Bengali. The C collation keeps index ordering
-      # deterministic across platforms and makes comparisons cheaper.
-      POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=C'
+      # Must be C.UTF-8, not C. Plain `--locale=C` sets LC_CTYPE=C, and pg_trgm
+      # asks LC_CTYPE which bytes are letters — under C it sees no letters in
+      # multibyte text at all, so `show_trgm('ঢাকা')` comes back empty and every
+      # Bengali similarity score is 0. Search fails silently rather than loudly.
+      # C.UTF-8 still resolves to LC_COLLATE=C, so index ordering stays byte-wise
+      # deterministic and cheap; only character classification changes.
+      # Applied by initdb on first start only — changing this later does nothing
+      # to an existing cluster. See docs/search.md.
+      POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=C.UTF-8'
 
     # Bound to loopback only. The database must never be reachable from the
     # internet; the app reaches it over the shared Docker network instead.
