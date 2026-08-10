@@ -1,0 +1,104 @@
+# Self-hosted PostgreSQL.
+#
+# Deliberately a SEPARATE compose file from the application stack, with its own
+# project name. That separation is the whole point: `docker compose down -v` run
+# against the app stack during an incident cannot reach this volume. The database
+# is the only thing here that cannot be rebuilt from a git commit.
+#
+#   docker compose -f docker/docker-compose.postgres.yml up -d
+#
+# Tuned for a 1 GB droplet sharing the box with the app, worker and Redis.
+# If you resize, raise shared_buffers and effective_cache_size to match.
+
+name: dhakalive-data
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: always
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dhakalive}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-dhakalive}
+      # UTF-8 is required for Bengali. The C collation keeps index ordering
+      # deterministic across platforms and makes comparisons cheaper.
+      POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=C'
+
+    # Bound to loopback only. The database must never be reachable from the
+    # internet; the app reaches it over the shared Docker network instead.
+    ports:
+      - '127.0.0.1:5432:5432'
+
+    command:
+      - postgres
+      # ~25% of RAM is the usual rule, but this box shares 1 GB with three other
+      # services, so it is deliberately far below that.
+      - -c
+      - shared_buffers=96MB
+      # What the planner assumes the OS will cache. Advisory, not an allocation.
+      - -c
+      - effective_cache_size=256MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=48MB
+      # 100 connections would exhaust the box long before Postgres complained.
+      # App replicas × DATABASE_POOL_MAX must stay under this.
+      - -c
+      - max_connections=40
+      # Retain WAL so a base backup plus WAL gives point-in-time recovery.
+      - -c
+      - wal_level=replica
+      - -c
+      - max_wal_size=512MB
+      - -c
+      - min_wal_size=80MB
+      # Log anything slower than a second — the cheapest possible slow-query
+      # visibility, and it costs nothing when nothing is slow.
+      - -c
+      - log_min_duration_statement=1000
+      - -c
+      - log_checkpoints=on
+
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/backups:/backups
+
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-dhakalive} -d ${POSTGRES_DB:-dhakalive}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+    deploy:
+      resources:
+        limits:
+          memory: 320m
+
+    # Joins the application stack's network so `app` and `worker` can reach it
+    # by hostname while it stays off the public interface.
+    networks:
+      - dhakalive
+
+volumes:
+  postgres-data:
+    # Named explicitly so it is obvious in `docker volume ls` and hard to remove
+    # by accident.
+    name: dhakalive-postgres-data
+
+networks:
+  dhakalive:
+    name: dhakalive_default
+    external: true

@@ -20,13 +20,13 @@ connection to the database.
 
 ## What runs where
 
-| Component  | Where                  | Notes                                     |
-| ---------- | ---------------------- | ----------------------------------------- |
-| `app`      | Your server, container | Stateless. Scale horizontally.            |
-| `worker`   | Your server, container | **Exactly one.** Never scale it.          |
-| `redis`    | Your server, container | Ephemeral. No persistence on purpose.     |
-| PostgreSQL | **Managed service**    | Backups, PITR and failover are the point. |
-| Media      | Cloudflare R2          | Never the container filesystem.           |
+| Component  | Where                  | Notes                                 |
+| ---------- | ---------------------- | ------------------------------------- |
+| `app`      | Your server, container | Stateless. Scale horizontally.        |
+| `worker`   | Your server, container | **Exactly one.** Never scale it.      |
+| `redis`    | Your server, container | Ephemeral. No persistence on purpose. |
+| PostgreSQL | Separate compose file  | Self-hosted here — see below.         |
+| Media      | Cloudflare R2          | Never the container filesystem.       |
 
 ### Why the worker is a single replica
 
@@ -35,21 +35,76 @@ both find the same article and both publish it — duplicate revalidation, dupli
 search indexing, and in the worst case a double-counted correction. The job layer
 uses idempotency keys, but the cheap correctness guarantee is one runner.
 
-### Why PostgreSQL is not in the compose file
+### Why PostgreSQL has its own compose file
 
-A database container on the app server has no automated backups, no
-point-in-time recovery, and dies with the box. `docker compose down -v` during a
-3am incident would delete the newspaper. Use a managed provider (Neon, RDS,
-Supabase, DigitalOcean). If you self-host it anyway, run it from a separate
-compose file with its own volume and a tested restore procedure.
+`docker/docker-compose.postgres.yml` is separate, with its own project name and
+a named volume. That separation is the point: `docker compose down -v` run
+against the **app** stack during an incident cannot reach the database volume.
+
+Self-hosting means you own what a managed provider would do for you:
+
+|                        | Managed   | Self-hosted here                                                |
+| ---------------------- | --------- | --------------------------------------------------------------- |
+| Backups                | automatic | `scripts/backup-postgres.sh` on cron — **you must set this up** |
+| Point-in-time recovery | yes       | no, unless you add WAL archiving                                |
+| Survives droplet loss  | yes       | **no** — backups sit on the same disk                           |
+| Failover               | yes       | no                                                              |
+
+If the droplet dies, the database and its backups die together. Ship backups off
+the box before you carry real editorial content — see [Backups](#backups).
+
+## Sizing
+
+The current droplet is **1 vCPU / 1 GB / 25 GB, Ubuntu 24.04, NYC1**.
+
+Approximate resident memory with all four services running:
+
+| Service     | Idle        | Under load  |
+| ----------- | ----------- | ----------- |
+| app         | ~200 MB     | 400 MB+     |
+| worker      | ~150 MB     | 250 MB      |
+| postgres    | ~150 MB     | 250 MB      |
+| redis       | ~30 MB      | 64 MB       |
+| OS + Docker | ~200 MB     | 200 MB      |
+| **Total**   | **~730 MB** | **~1.2 GB** |
+
+Idle fits in 1 GB; sustained load does not. Two consequences:
+
+1. **Swap is mandatory**, not optional. `server-bootstrap.sh` adds 2 GB. Without
+   it the kernel OOM-kills a process of its choosing, which is usually the app.
+2. Container limits are set low and are **caps, not reservations**, so their sum
+   may exceed RAM. Override on a bigger box:
+
+   ```
+   APP_MEMORY_LIMIT=1g
+   WORKER_MEMORY_LIMIT=512m
+   REDIS_MEMORY_LIMIT=256m
+   REDIS_MAXMEMORY=192mb
+   ```
+
+2 GB is the realistic minimum for production traffic.
+
+**Region.** NYC1 is ~250 ms from Dhaka. Cloudflare's cache hides that for cached
+pages, but cache misses, admin actions and every API call pay it — the CMS will
+feel slow to the newsroom. SGP1 or BLR1 would be materially better, and the R2
+bucket is already APAC.
 
 ## First deployment
 
 ### 1. Server prerequisites
 
-- Docker Engine with the Compose plugin
-- A non-root user in the `docker` group
-- The repository cloned to a stable path, e.g. `/srv/dhakalive`
+One script does all of it — Docker, swap, firewall, deploy user, log rotation,
+directory layout. Read it before running it as root:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/msriaj/dhakalive/main/scripts/server-bootstrap.sh -o bootstrap.sh
+```
+
+```bash
+sudo bash bootstrap.sh
+```
+
+It is idempotent, so re-running after a change is safe.
 
 ### 2. Environment
 
@@ -72,6 +127,14 @@ pnpm verify:r2
 ```
 
 ### 3. Database
+
+Start Postgres first — it is a separate stack:
+
+```bash
+docker compose -f docker/docker-compose.postgres.yml up -d
+```
+
+Then apply migrations, before the app starts:
 
 ```bash
 docker compose -f docker/docker-compose.prod.yml run --rm migrate
@@ -176,7 +239,44 @@ cookies are redacted at the serialiser.
 The database is the only thing that cannot be rebuilt. Media lives in R2, and
 both images are reproducible from a commit.
 
-- Enable automated daily backups and PITR on the managed database.
-- **Rehearse a restore.** An untested backup is not a backup.
-- R2 has no automatic versioning; enable it if you want protection against a
-  bad bulk media operation.
+Self-hosted Postgres has no automated backups. Set this up on day one:
+
+```bash
+crontab -e -u deploy
+```
+
+```
+15 2 * * * cd /srv/dhakalive && ./scripts/backup-postgres.sh >> /var/log/dhakalive-backup.log 2>&1
+```
+
+The script dumps in custom format, **verifies the archive is readable** with
+`pg_restore --list`, then prunes anything older than 14 days — pruning only
+after verification, so a failed backup never takes the last good one with it.
+
+### Get them off the box
+
+A backup on the same droplet protects against a bad migration or a dropped
+table. It does not protect against losing the droplet. Sync to R2 nightly:
+
+```bash
+rclone sync docker/postgres/backups r2:dhakalive-backups
+```
+
+Use a **separate bucket** from media, with a token scoped to it.
+
+### Restore
+
+```bash
+docker compose -f docker/docker-compose.postgres.yml exec -T postgres \
+  pg_restore -U dhakalive -d dhakalive --clean --if-exists /backups/<file>.dump
+```
+
+Stop the app and worker first, or they will write into a half-restored schema.
+
+**Rehearse this.** An untested backup is not a backup — restore into a throwaway
+database and check an article renders before you need it at 3am.
+
+### Media
+
+R2 has no automatic versioning; enable it if you want protection against a bad
+bulk media operation.

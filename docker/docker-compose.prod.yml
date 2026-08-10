@@ -64,7 +64,10 @@ services:
       replicas: 1
       resources:
         limits:
-          memory: 1g
+          # Sized for a 1 GB droplet sharing the box with worker, Postgres and
+          # Redis. These are caps, not reservations, so the sum may exceed RAM —
+          # swap absorbs the overlap. Raise them all after a resize.
+          memory: ${APP_MEMORY_LIMIT:-512m}
 
   worker:
     image: ${WORKER_IMAGE:-ghcr.io/msriaj/dhakalive-worker:latest}
@@ -83,7 +86,7 @@ services:
       replicas: 1
       resources:
         limits:
-          memory: 768m
+          memory: ${WORKER_MEMORY_LIMIT:-288m}
 
   redis:
     image: redis:7-alpine
@@ -98,7 +101,7 @@ services:
         '--save',
         '',
         '--maxmemory',
-        '256mb',
+        '${REDIS_MAXMEMORY:-64mb}',
         '--maxmemory-policy',
         'allkeys-lru',
       ]
@@ -111,7 +114,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 320m
+          memory: ${REDIS_MEMORY_LIMIT:-96m}
 
   # One-shot migration runner. Not started by `up`; invoked explicitly by the
   # deploy script *before* the new app image starts serving, so the schema is
