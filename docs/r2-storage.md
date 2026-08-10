@@ -60,6 +60,39 @@ With and without R2 credentials set, it must report _no schema changes_.
 Use separate buckets per environment. A staging deploy writing into the
 production bucket is a content incident, not a config mistake.
 
+## Filling in the configuration
+
+The Cloudflare MCP connector exposes R2, D1, KV and Workers — but **no zone,
+DNS, cache-rule or token endpoints**. So the bucket can be inspected and created
+through it; credentials and CDN settings cannot. Secrets are issued by the
+dashboard by design.
+
+| Variable                          | Source                                                             | Connector? |
+| --------------------------------- | ------------------------------------------------------------------ | ---------- |
+| `CLOUDFLARE_R2_BUCKET`            | Bucket name                                                        | yes        |
+| `CLOUDFLARE_R2_REGION`            | Always `auto`                                                      | n/a        |
+| `CLOUDFLARE_R2_FORCE_PATH_STYLE`  | Always `true`                                                      | n/a        |
+| `CLOUDFLARE_ACCOUNT_ID`           | R2 → Overview, or the dashboard URL after `/accounts/`             | no         |
+| `CLOUDFLARE_R2_ENDPOINT`          | `https://<account-id>.r2.cloudflarestorage.com`                    | no         |
+| `CLOUDFLARE_R2_ACCESS_KEY_ID`     | R2 → API → Create API token → **Object Read & Write**              | no         |
+| `CLOUDFLARE_R2_SECRET_ACCESS_KEY` | Shown once when the token is created                               | no         |
+| `CLOUDFLARE_MEDIA_PUBLIC_URL`     | Custom domain bound to the bucket, or its `r2.dev` URL for testing | no         |
+| `CLOUDFLARE_ZONE_ID`              | Zone → Overview (needs a domain on the account)                    | no         |
+| `CLOUDFLARE_API_TOKEN`            | My Profile → API Tokens → `Zone → Cache Purge`, this zone only     | no         |
+
+Put them in `.env` — it is gitignored, and secrets must never be pasted into a
+chat transcript or committed.
+
+Then prove it actually works, rather than assuming:
+
+```bash
+pnpm verify:r2
+```
+
+It heads the bucket, writes an object, reads it back, compares bytes, checks
+public delivery and cleans up. A wrong endpoint or a read-only token is
+otherwise invisible until the first editor upload fails.
+
 ## CORS
 
 Only needed if the browser fetches objects directly with scripted requests.

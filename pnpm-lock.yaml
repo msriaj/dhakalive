@@ -98,6 +98,9 @@ importers:
         specifier: 0.35.3
         version: 0.35.3(@types/node@26.2.0)
     devDependencies:
+      '@aws-sdk/client-s3':
+        specifier: 3.1106.0
+        version: 3.1106.0
       '@tailwindcss/postcss':
         specifier: 4.3.3
         version: 4.3.3
