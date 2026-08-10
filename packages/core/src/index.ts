@@ -96,3 +96,20 @@ export type {
   PersonInput,
   WebSiteInput,
 } from './seo/json-ld.js'
+
+export {
+  MAX_NEWS_SITEMAP_ENTRIES,
+  MAX_SITEMAP_ENTRIES,
+  escapeXml,
+  sanitiseXmlText,
+  sitemapIndex,
+  urlset,
+  xmlText,
+} from './seo/xml.js'
+export type {
+  AlternateLink,
+  NewsMetadata,
+  SitemapEntry,
+  SitemapIndexEntry,
+  UrlsetOptions,
+} from './seo/xml.js'
