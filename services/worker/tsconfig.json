@@ -8,7 +8,11 @@
     "declarationMap": false,
     "types": ["node"],
     "paths": {
-      "@payload-config": ["../../apps/web/src/payload.config.ts"]
+      "@payload-config": ["../../apps/web/src/payload.config.ts"],
+      // The worker shares the job definitions with the CMS: the tasks it runs
+      // are the same objects the Payload config registers. Aliased rather than
+      // reached for with `../../../apps/web/src/...`.
+      "@web/*": ["../../apps/web/src/*"]
     }
   },
   "include": ["src/**/*.ts"],

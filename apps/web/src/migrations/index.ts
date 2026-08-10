@@ -5,6 +5,8 @@ import * as migration_20260810_060319_pages_and_globals from './20260810_060319_
 import * as migration_20260810_092502_jobs_infrastructure from './20260810_092502_jobs_infrastructure'
 import * as migration_20260810_093000_search_documents from './20260810_093000_search_documents'
 import * as migration_20260810_094311_search_index_task from './20260810_094311_search_index_task'
+import * as migration_20260810_095314_scheduled_tasks from './20260810_095314_scheduled_tasks'
+import * as migration_20260810_100138_drop_job_schedules from './20260810_100138_drop_job_schedules'
 
 export const migrations = [
   {
@@ -41,5 +43,15 @@ export const migrations = [
     up: migration_20260810_094311_search_index_task.up,
     down: migration_20260810_094311_search_index_task.down,
     name: '20260810_094311_search_index_task',
+  },
+  {
+    up: migration_20260810_095314_scheduled_tasks.up,
+    down: migration_20260810_095314_scheduled_tasks.down,
+    name: '20260810_095314_scheduled_tasks',
+  },
+  {
+    up: migration_20260810_100138_drop_job_schedules.up,
+    down: migration_20260810_100138_drop_job_schedules.down,
+    name: '20260810_100138_drop_job_schedules',
   },
 ]

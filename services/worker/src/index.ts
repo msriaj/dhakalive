@@ -4,6 +4,8 @@ import { getPayload } from 'payload'
 import { getServerEnv } from '@dhakalive/config'
 import { initLogger, newCorrelationId } from '@dhakalive/observability'
 
+import { createSweepState, queueDueSweeps } from '@web/jobs/sweeps'
+
 /**
  * Background job runner.
  *
@@ -15,10 +17,10 @@ import { initLogger, newCorrelationId } from '@dhakalive/observability'
  *
  * Each tick does two things, in order:
  *
- *   1. `handleSchedules` — turns cron-scheduled tasks into queued jobs. It is
- *      idempotent by design: Payload will not schedule a second job while one
- *      of the same type is queued, running, or retrying.
- *   2. `run` — executes whatever is due across every queue.
+ *   1. Queues whichever recurring sweeps are due — scheduled publication,
+ *      breaking-flag expiry, job pruning. See `jobs/sweeps.ts` for why this is
+ *      driven from here rather than by Payload's own cron scheduling.
+ *   2. Runs whatever is due across every queue.
  *
  * Both are driven from this one loop rather than from Payload's `autoRun`,
  * because `autoRun` would start a cron inside any process that loads the config
@@ -47,12 +49,13 @@ let activeRun: Promise<unknown> | null = null
 
 async function main(): Promise<void> {
   const payload = await getPayload({ config })
+  const sweeps = createSweepState()
 
   /**
    * `payload.jobs.run()` is NOT a safe no-op when nothing is registered: with no
    * tasks or workflows Payload never creates the `payload-jobs` collection, and
-   * the run throws while writing job status. Phase 6 registers the real tasks;
-   * until then the loop idles instead of throwing on every tick.
+   * the run throws while writing job status. Guarded rather than assumed, so a
+   * config that registers no tasks idles instead of erroring every tick.
    */
   const taskCount = payload.config.jobs?.tasks?.length ?? 0
   const workflowCount = payload.config.jobs?.workflows?.length ?? 0
@@ -73,18 +76,13 @@ async function main(): Promise<void> {
 
       const tick = (async () => {
         /**
-         * Scheduling first, so a task whose cron has just come due is picked up
-         * by this same tick rather than waiting for the next one. A failure here
-         * must not stop the run below — a missed schedule is recoverable on the
-         * next tick, but skipping the run would stall every already-queued job.
+         * Sweeps first, so one that has just come due runs in this same tick
+         * rather than waiting for the next one. `queueDueSweeps` never throws;
+         * a missed sweep is recoverable, whereas skipping the run below would
+         * stall every job already waiting.
          */
-        try {
-          const scheduled = await payload.jobs.handleSchedules({ allQueues: true })
-          const queued = scheduled.queued?.length ?? 0
-          if (queued > 0) logger.info({ correlationId, queued }, 'Scheduled jobs queued')
-        } catch (error) {
-          logger.error({ correlationId, err: error }, 'Scheduling pass failed')
-        }
+        const queued = await queueDueSweeps({ payload, state: sweeps })
+        if (queued.length > 0) logger.info({ correlationId, queued }, 'Sweeps queued')
 
         return payload.jobs.run({ allQueues: true, limit: JOB_BATCH_LIMIT })
       })()

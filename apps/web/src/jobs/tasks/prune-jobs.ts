@@ -1,6 +1,6 @@
 import type { TaskConfig } from 'payload'
 
-import { QUEUE, RETRY_SWEEP } from '../queues'
+import { RETRY_SWEEP } from '../queues'
 import { correlationIdField, logFailure, taskLogger } from '../telemetry'
 import type { PruneJobsInput } from '../types'
 
@@ -47,9 +47,17 @@ export const pruneJobs: TaskConfig<{ input: PruneJobsInput; output: PruneJobsOut
    * One sweep at a time, and a newly queued sweep replaces a pending one. Two
    * concurrent sweeps would race on the same rows for no benefit.
    */
-  concurrency: { key: () => 'prune-jobs', exclusive: true, supersedes: true },
-
-  schedule: [{ cron: '0 4 * * *', queue: QUEUE.maintenance }],
+  /**
+   * `exclusive` without `supersedes`.
+   *
+   * `supersedes` deletes pending jobs sharing this key when a new one is queued,
+   * which is right for event-driven work and catastrophic for a cron sweep: the
+   * scheduler queues each run with `waitUntil` set to the next cron time, so
+   * every tick would delete the job that was waiting and replace it with one
+   * waiting slightly longer. The sweep would be perpetually rescheduled and
+   * never actually run.
+   */
+  concurrency: { key: () => 'prune-jobs', exclusive: true },
 
   onFail: logFailure('prune-jobs', RETRY_SWEEP.attempts ?? 0),
 

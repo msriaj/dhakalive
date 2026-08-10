@@ -109,7 +109,6 @@ export interface Config {
     footer: Footer;
     'site-settings': SiteSetting;
     'seo-defaults': SeoDefault;
-    'payload-jobs-stats': PayloadJobsStat;
   };
   globalsSelect: {
     homepage: HomepageSelect<false> | HomepageSelect<true>;
@@ -117,7 +116,6 @@ export interface Config {
     footer: FooterSelect<false> | FooterSelect<true>;
     'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
     'seo-defaults': SeoDefaultsSelect<false> | SeoDefaultsSelect<true>;
-    'payload-jobs-stats': PayloadJobsStatsSelect<false> | PayloadJobsStatsSelect<true>;
   };
   locale: 'bn' | 'en';
   widgets: {
@@ -126,6 +124,8 @@ export interface Config {
   user: User;
   jobs: {
     tasks: {
+      'publish-scheduled': TaskPublishScheduled;
+      'expire-breaking': TaskExpireBreaking;
       'search-index': TaskSearchIndex;
       'prune-jobs': TaskPruneJobs;
       inline: {
@@ -806,7 +806,7 @@ export interface PayloadJob {
     | {
         executedAt: string;
         completedAt: string;
-        taskSlug: 'inline' | 'search-index' | 'prune-jobs';
+        taskSlug: 'inline' | 'publish-scheduled' | 'expire-breaking' | 'search-index' | 'prune-jobs';
         taskID: string;
         input?:
           | {
@@ -837,13 +837,13 @@ export interface PayloadJob {
           | boolean
           | null;
         parent?: {
-          taskSlug?: ('inline' | 'search-index' | 'prune-jobs') | null;
+          taskSlug?: ('inline' | 'publish-scheduled' | 'expire-breaking' | 'search-index' | 'prune-jobs') | null;
           taskID?: string | null;
         };
         id?: string | null;
       }[]
     | null;
-  taskSlug?: ('inline' | 'search-index' | 'prune-jobs') | null;
+  taskSlug?: ('inline' | 'publish-scheduled' | 'expire-breaking' | 'search-index' | 'prune-jobs') | null;
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
@@ -851,15 +851,6 @@ export interface PayloadJob {
    * Used for concurrency control. Jobs with the same key are subject to exclusive/supersedes rules.
    */
   concurrencyKey?: string | null;
-  meta?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1292,7 +1283,6 @@ export interface PayloadJobsSelect<T extends boolean = true> {
   waitUntil?: T;
   processing?: T;
   concurrencyKey?: T;
-  meta?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1522,24 +1512,6 @@ export interface SeoDefault {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "payload-jobs-stats".
- */
-export interface PayloadJobsStat {
-  id: number;
-  stats?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "homepage_select".
  */
 export interface HomepageSelect<T extends boolean = true> {
@@ -1696,16 +1668,6 @@ export interface SeoDefaultsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "payload-jobs-stats_select".
- */
-export interface PayloadJobsStatsSelect<T extends boolean = true> {
-  stats?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "collections_widget".
  */
 export interface CollectionsWidget {
@@ -1713,6 +1675,37 @@ export interface CollectionsWidget {
     [k: string]: unknown;
   };
   width: 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskPublish-scheduled".
+ */
+export interface TaskPublishScheduled {
+  input: {
+    /**
+     * Ties this job back to the request that queued it.
+     */
+    correlationId?: string | null;
+  };
+  output: {
+    published?: number | null;
+    failed?: number | null;
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskExpire-breaking".
+ */
+export interface TaskExpireBreaking {
+  input: {
+    /**
+     * Ties this job back to the request that queued it.
+     */
+    correlationId?: string | null;
+  };
+  output: {
+    cleared?: number | null;
+  };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

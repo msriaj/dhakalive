@@ -29,9 +29,19 @@ export interface SearchIndexInput extends JobInput {
   documentId: string
 }
 
+/**
+ * Clock-driven sweeps. Both are cron-scheduled and take no arguments — what
+ * they act on is "everything that is due", which is a query, not an input.
+ */
+export type PublishScheduledInput = JobInput
+
+export type ExpireBreakingInput = JobInput
+
 export interface TaskInputs {
   'prune-jobs': PruneJobsInput
   'search-index': SearchIndexInput
+  'publish-scheduled': PublishScheduledInput
+  'expire-breaking': ExpireBreakingInput
 }
 
 export type TaskName = keyof TaskInputs

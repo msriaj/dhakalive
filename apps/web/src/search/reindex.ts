@@ -70,16 +70,17 @@ async function rebuild(payload: Payload, collection: Indexable): Promise<Progres
 
   for (;;) {
     /**
-     * `draft: true` and `overrideAccess: true` so unpublished documents are
-     * *seen* — they still have to be visited, because a document that used to be
-     * public may have stale rows in the index that need removing.
+     * `overrideAccess: true` so unpublished documents are *seen* — they still
+     * have to be visited, because a document that used to be public may have
+     * stale rows in the index that need removing. Deliberately without
+     * `draft: true`, which pivots the query onto the versions table; the main
+     * row is what carries the current status.
      */
     const result = await payload.find({
       collection,
       limit: PAGE_SIZE,
       page,
       depth: 0,
-      draft: true,
       overrideAccess: true,
       sort: 'id',
     })
