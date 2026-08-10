@@ -1,0 +1,152 @@
+name: Deploy
+
+# Deploys only after CI has passed on main. Chaining on workflow_run rather than
+# duplicating the test steps means a red build can never reach production, and
+# the tests are not run twice.
+on:
+  workflow_run:
+    workflows: ['CI']
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Commit SHA or ref to deploy'
+        required: false
+
+concurrency:
+  # Never let two deploys interleave: the second could roll the database forward
+  # while the first is still starting containers on the old image.
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  WEB_IMAGE: ghcr.io/${{ github.repository_owner }}/dhakalive-web
+  WORKER_IMAGE: ghcr.io/${{ github.repository_owner }}/dhakalive-worker
+
+jobs:
+  build:
+    name: Build and publish images
+    # Skip when CI failed. workflow_run fires on completion, not on success.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref || github.event.workflow_run.head_sha || github.sha }}
+
+      - id: resolve
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.web
+          push: true
+          # Tagged by commit so a rollback is `deploy <previous-sha>`, not a
+          # rebuild of whatever main happens to be now.
+          tags: |
+            ${{ env.WEB_IMAGE }}:${{ steps.resolve.outputs.sha }}
+            ${{ env.WEB_IMAGE }}:latest
+          build-args: |
+            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
+            NEXT_PUBLIC_MEDIA_URL=${{ vars.NEXT_PUBLIC_MEDIA_URL }}
+            NEXT_PUBLIC_DEFAULT_LOCALE=${{ vars.NEXT_PUBLIC_DEFAULT_LOCALE }}
+            NEXT_PUBLIC_APP_VERSION=${{ steps.resolve.outputs.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push worker
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.worker
+          push: true
+          tags: |
+            ${{ env.WORKER_IMAGE }}:${{ steps.resolve.outputs.sha }}
+            ${{ env.WORKER_IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Release to server
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # A GitHub Environment gives you the approval gate and holds the secrets.
+    environment: production
+
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          SHA: ${{ needs.build.outputs.sha }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          envs: SHA
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.DEPLOY_PATH }}"
+
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            git fetch --all --tags
+            git checkout "$SHA"
+
+            export WEB_IMAGE="ghcr.io/${{ github.repository_owner }}/dhakalive-web:$SHA"
+            export WORKER_IMAGE="ghcr.io/${{ github.repository_owner }}/dhakalive-worker:$SHA"
+
+            docker compose -f docker/docker-compose.prod.yml pull app worker
+
+            # Schema first, and only then the code that depends on it. Migrations
+            # are written to be backward compatible, so the old container keeps
+            # serving correctly while this runs.
+            docker compose -f docker/docker-compose.prod.yml run --rm migrate
+
+            docker compose -f docker/docker-compose.prod.yml up -d --remove-orphans
+
+            # Fail the deploy if the new container never becomes healthy, rather
+            # than reporting success over a broken release.
+            for i in $(seq 1 30); do
+              if [ "$(docker inspect -f '{{.State.Health.Status}}' $(docker compose -f docker/docker-compose.prod.yml ps -q app) 2>/dev/null)" = "healthy" ]; then
+                echo "app healthy after $((i*5))s"; exit 0
+              fi
+              sleep 5
+            done
+            echo "app did not become healthy; rolling back is: deploy the previous SHA"
+            docker compose -f docker/docker-compose.prod.yml logs --tail=50 app
+            exit 1
+
+      - name: Verify the release is actually serving
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 20); do
+            body=$(curl -fsS "${{ vars.NEXT_PUBLIC_SITE_URL }}/api/health" || true)
+            version=$(echo "$body" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')
+            if [ "$version" = "${{ needs.build.outputs.sha }}" ]; then
+              echo "live version matches deployed SHA"; exit 0
+            fi
+            sleep 10
+          done
+          echo "health endpoint never reported the deployed SHA"
+          exit 1

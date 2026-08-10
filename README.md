@@ -109,6 +109,7 @@ packaging change rather than a rewrite.
 - [SEO, feeds and ads](docs/seo.md)
 - [Cloudflare setup](docs/cloudflare.md)
 - [R2 media storage](docs/r2-storage.md)
+- [Deployment](docs/deployment.md)
 
 Deployment, backup/restore, scaling and incident notes are written as the
 phases that introduce them land.

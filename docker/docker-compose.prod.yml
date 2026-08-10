@@ -1,0 +1,128 @@
+# Production stack.
+#
+# Runs prebuilt images from the registry — production hosts do not compile
+# anything. The image that was tested in CI is the image that runs.
+#
+# Postgres is deliberately NOT here. Use a managed database: it gives you
+# automated backups, point-in-time recovery and failover, none of which a
+# container on one box provides. If you must self-host it, run it outside this
+# file with its own volume and backup schedule, so a `docker compose down -v`
+# during an incident cannot delete the newspaper.
+#
+#   docker compose -f docker/docker-compose.prod.yml up -d
+#
+# Requires a .env alongside it. See docs/deployment.md.
+
+name: dhakalive
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+x-app-env: &app-env
+  env_file: [../.env]
+  environment:
+    APP_ENV: production
+    NODE_ENV: production
+
+services:
+  app:
+    image: ${WEB_IMAGE:-ghcr.io/msriaj/dhakalive-web:latest}
+    restart: always
+    <<: *app-env
+    environment:
+      APP_ENV: production
+      NODE_ENV: production
+      # Web replicas must never run the job queue: each replica would race the
+      # others to publish the same scheduled article.
+      JOBS_RUN_IN_PROCESS: 'false'
+    expose:
+      - '3000'
+    ports:
+      - '${APP_PORT:-3000}:3000'
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    logging: *logging
+    deploy:
+      # Scale with `docker compose up -d --scale app=N` behind a load balancer.
+      # Remove the fixed host port above before scaling past one.
+      replicas: 1
+      resources:
+        limits:
+          memory: 1g
+
+  worker:
+    image: ${WORKER_IMAGE:-ghcr.io/msriaj/dhakalive-worker:latest}
+    restart: always
+    <<: *app-env
+    environment:
+      APP_ENV: production
+      NODE_ENV: production
+      JOBS_RUN_IN_PROCESS: 'true'
+    depends_on:
+      redis:
+        condition: service_healthy
+    logging: *logging
+    deploy:
+      # Exactly one. Scheduled publication is not safe to run concurrently.
+      replicas: 1
+      resources:
+        limits:
+          memory: 768m
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    # No persistence: Redis holds rate-limit counters and ephemeral cache here.
+    # Losing it costs nothing; persisting it invites a stale-state incident.
+    command:
+      [
+        'redis-server',
+        '--appendonly',
+        'no',
+        '--save',
+        '',
+        '--maxmemory',
+        '256mb',
+        '--maxmemory-policy',
+        'allkeys-lru',
+      ]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          memory: 320m
+
+  # One-shot migration runner. Not started by `up`; invoked explicitly by the
+  # deploy script *before* the new app image starts serving, so the schema is
+  # never behind the code that expects it.
+  #
+  #   docker compose -f docker/docker-compose.prod.yml run --rm migrate
+  migrate:
+    image: ${WEB_IMAGE:-ghcr.io/msriaj/dhakalive-web:latest}
+    profiles: ['tools']
+    <<: *app-env
+    working_dir: /app/apps/web
+    command: ['node', 'node_modules/payload/bin.js', 'migrate']
+    restart: 'no'
+    logging: *logging
