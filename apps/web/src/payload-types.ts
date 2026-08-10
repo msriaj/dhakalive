@@ -126,6 +126,7 @@ export interface Config {
     tasks: {
       'publish-scheduled': TaskPublishScheduled;
       'expire-breaking': TaskExpireBreaking;
+      revalidate: TaskRevalidate;
       'search-index': TaskSearchIndex;
       'prune-jobs': TaskPruneJobs;
       inline: {
@@ -806,7 +807,7 @@ export interface PayloadJob {
     | {
         executedAt: string;
         completedAt: string;
-        taskSlug: 'inline' | 'publish-scheduled' | 'expire-breaking' | 'search-index' | 'prune-jobs';
+        taskSlug: 'inline' | 'publish-scheduled' | 'expire-breaking' | 'revalidate' | 'search-index' | 'prune-jobs';
         taskID: string;
         input?:
           | {
@@ -837,13 +838,14 @@ export interface PayloadJob {
           | boolean
           | null;
         parent?: {
-          taskSlug?: ('inline' | 'publish-scheduled' | 'expire-breaking' | 'search-index' | 'prune-jobs') | null;
+          taskSlug?:
+            ('inline' | 'publish-scheduled' | 'expire-breaking' | 'revalidate' | 'search-index' | 'prune-jobs') | null;
           taskID?: string | null;
         };
         id?: string | null;
       }[]
     | null;
-  taskSlug?: ('inline' | 'publish-scheduled' | 'expire-breaking' | 'search-index' | 'prune-jobs') | null;
+  taskSlug?: ('inline' | 'publish-scheduled' | 'expire-breaking' | 'revalidate' | 'search-index' | 'prune-jobs') | null;
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
@@ -1705,6 +1707,34 @@ export interface TaskExpireBreaking {
   };
   output: {
     cleared?: number | null;
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskRevalidate".
+ */
+export interface TaskRevalidate {
+  input: {
+    /**
+     * Ties this job back to the request that queued it.
+     */
+    correlationId?: string | null;
+    /**
+     * The content change, as `RevalidationEvent`.
+     */
+    event:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+  };
+  output: {
+    paths?: number | null;
+    purged?: boolean | null;
   };
 }
 /**

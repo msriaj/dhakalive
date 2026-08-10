@@ -7,6 +7,7 @@ import * as migration_20260810_093000_search_documents from './20260810_093000_s
 import * as migration_20260810_094311_search_index_task from './20260810_094311_search_index_task'
 import * as migration_20260810_095314_scheduled_tasks from './20260810_095314_scheduled_tasks'
 import * as migration_20260810_100138_drop_job_schedules from './20260810_100138_drop_job_schedules'
+import * as migration_20260810_100853_revalidate_task from './20260810_100853_revalidate_task'
 
 export const migrations = [
   {
@@ -53,5 +54,10 @@ export const migrations = [
     up: migration_20260810_100138_drop_job_schedules.up,
     down: migration_20260810_100138_drop_job_schedules.down,
     name: '20260810_100138_drop_job_schedules',
+  },
+  {
+    up: migration_20260810_100853_revalidate_task.up,
+    down: migration_20260810_100853_revalidate_task.down,
+    name: '20260810_100853_revalidate_task',
   },
 ]

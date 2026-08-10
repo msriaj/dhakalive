@@ -8,25 +8,25 @@ import type { TaskName } from './types'
 /**
  * Clock-driven sweeps, scheduled by the worker rather than by Payload.
  *
- * Payload can attach a `schedule: [{ cron }]` to a task, and this deliberately
- * does not use it. Two problems made it unusable here:
+ * Payload can attach a `schedule: [{ cron }]` to a task. This deliberately does
+ * not use it, for one observed defect and one design mismatch.
  *
- * 1. `handleSchedules` reads the `payload-jobs-stats` global once, then passes
- *    that same snapshot to every schedule's `afterSchedule`, each of which
- *    writes the whole object back. With schedules in more than one queue the
- *    last write wins and the others' `lastScheduledRun` is lost — so those
- *    tasks look due on every tick, forever.
- * 2. The built-in duplicate guard filters on `meta.scheduled`, a path inside a
- *    JSON column, rather than on the indexed columns beside it.
+ * The defect: `handleSchedules` reads the `payload-jobs-stats` global once, then
+ * hands that same snapshot to every schedule's `afterSchedule`, each of which
+ * writes the whole object back. With schedules in more than one queue the last
+ * write drops the earlier queues' entries — observed directly here, where the
+ * stats global recorded only `maintenance` while the `scheduled` queue's tasks
+ * were being scheduled repeatedly. A task whose `lastScheduledRun` is never
+ * recorded looks due on every tick.
  *
- * The result was a scheduled job that was re-queued every ten seconds with a
- * `waitUntil` slightly further out each time, and therefore never ran. An
- * article scheduled for 09:00 would simply never publish, silently.
+ * The mismatch: the duplicate guard filters on `meta.scheduled`, a path inside a
+ * JSON column, rather than on the indexed columns beside it.
  *
- * What replaces it is smaller than what it replaces: an interval per sweep, and
- * a check for an outstanding job of the same kind against indexed columns. The
- * sweeps are idempotent — each one is "do whatever is due right now" — so the
- * worst case of an extra run is a query that finds nothing.
+ * Neither is worth debugging inside a dependency for something this small. What
+ * replaces it is an interval per sweep and a check for an outstanding job of the
+ * same kind against indexed columns — about forty lines, entirely inspectable.
+ * The sweeps are idempotent ("do whatever is due right now"), so the worst case
+ * of an extra run is a query that finds nothing.
  */
 
 export interface Sweep {

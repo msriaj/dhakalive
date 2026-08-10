@@ -67,6 +67,7 @@ export {
   allLocaleHomes,
   computeRevalidationTargets,
   mergeTargets,
+  parseRevalidationEvent,
 } from './cache/index.js'
 export type { ArticleChange, RevalidationEvent, RevalidationTargets } from './cache/index.js'
 

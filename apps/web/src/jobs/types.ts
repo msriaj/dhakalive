@@ -1,3 +1,5 @@
+import type { RevalidationEvent } from '@dhakalive/core'
+
 import type { JobInput } from './telemetry'
 
 /**
@@ -37,11 +39,23 @@ export type PublishScheduledInput = JobInput
 
 export type ExpireBreakingInput = JobInput
 
+/**
+ * A cache invalidation that could not be performed in place.
+ *
+ * Carries the change itself rather than a target list. The endpoint that
+ * receives it recomputes the paths, so a job cannot describe a purge that no
+ * real edit could have produced.
+ */
+export interface RevalidateInput extends JobInput {
+  event: RevalidationEvent
+}
+
 export interface TaskInputs {
   'prune-jobs': PruneJobsInput
   'search-index': SearchIndexInput
   'publish-scheduled': PublishScheduledInput
   'expire-breaking': ExpireBreakingInput
+  revalidate: RevalidateInput
 }
 
 export type TaskName = keyof TaskInputs

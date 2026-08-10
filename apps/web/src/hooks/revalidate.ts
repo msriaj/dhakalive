@@ -21,12 +21,27 @@ import type {
  */
 
 /**
- * Runs invalidation after the response is sent.
+ * Invalidates the caches a change affects, from wherever the change happened.
  *
- * An editor pressing Publish must not wait on the Cloudflare API; a slow or
- * failing CDN would otherwise present as a hanging save.
+ * Two paths, and which one is taken is not a preference — it is a constraint.
+ *
+ * **Inside a Next request** (an editor saving in the admin UI) the work is
+ * deferred with `after()` and runs once the response is sent. An editor pressing
+ * Publish must not wait on the Cloudflare API; a slow CDN would present as a
+ * hanging save.
+ *
+ * **Outside one** (the scheduled-publication job, the CLI, a seed) the work is
+ * queued instead. `revalidatePath` throws when called outside a request scope,
+ * and it used to be called anyway: the throw was caught, the origin kept serving
+ * the previous page, and the CDN purge that did succeed made it worse by
+ * refetching that stale page and caching it. The `revalidate` job posts the
+ * change to `/api/revalidate`, which performs it inside a real request — the
+ * only place `revalidatePath` works.
+ *
+ * Awaited by its callers, so the queue insert joins the request's transaction:
+ * a save that rolls back takes its revalidation with it.
  */
-function schedule(req: PayloadRequest, buildEvent: () => RevalidationEvent): void {
+async function schedule(req: PayloadRequest, buildEvent: () => RevalidationEvent): Promise<void> {
   /**
    * Bulk writers — the seed, imports, migrations — opt out through
    * `req.context`. A run that touches hundreds of documents would otherwise fan
@@ -35,9 +50,11 @@ function schedule(req: PayloadRequest, buildEvent: () => RevalidationEvent): voi
    */
   if (req.context?.disableRevalidation === true) return
 
-  const run = async (): Promise<void> => {
+  const event = buildEvent()
+
+  const runInline = async (): Promise<void> => {
     const { revalidateFor } = await import('../lib/cache/revalidation-service')
-    await revalidateFor(buildEvent())
+    await revalidateFor(event)
   }
 
   const fail = (error: unknown): void => {
@@ -46,16 +63,37 @@ function schedule(req: PayloadRequest, buildEvent: () => RevalidationEvent): voi
     getLogger().error({ err: error }, 'Revalidation failed')
   }
 
-  void (async () => {
-    try {
-      const { after } = await import('next/server')
-      after(() => run().catch(fail))
-    } catch {
-      // Outside a Next request — CLI, seeds, worker. Run inline; those contexts
-      // are not latency-sensitive. Phase 6 moves this onto the job queue.
-      await run().catch(fail)
-    }
-  })()
+  /**
+   * `after()` throws outside a request scope, and in a non-Next process the
+   * import itself fails. Either way the answer is the same, so both are caught
+   * together and treated as "not in a request".
+   */
+  try {
+    const { after } = await import('next/server')
+    after(() => runInline().catch(fail))
+    return
+  } catch {
+    // Fall through to the queue.
+  }
+
+  const { enqueue } = await import('../jobs/enqueue')
+  const { QUEUE } = await import('../jobs/queues')
+
+  const queued = await enqueue({
+    payload: req.payload,
+    task: 'revalidate',
+    input: { event },
+    queue: QUEUE.content,
+    req,
+  })
+
+  /**
+   * Last resort. If the job could not be queued, run what can still be run from
+   * here: `revalidatePath` will fail, but the CDN purge does not need a request
+   * scope, and a purged edge with a stale origin is bounded by the route's own
+   * revalidate window — whereas doing nothing is not bounded at all.
+   */
+  if (!queued) await runInline().catch(fail)
 }
 
 /**
@@ -116,7 +154,7 @@ function slugsOf(value: unknown): string[] {
 }
 
 /** Articles carry the most invalidation surface: URL, section, authors, tags, archive. */
-export const revalidateArticle: CollectionAfterChangeHook = ({ doc, previousDoc, req }) => {
+export const revalidateArticle: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
   const current = asDoc(doc)
   const previous = asDoc(previousDoc)
 
@@ -139,13 +177,13 @@ export const revalidateArticle: CollectionAfterChangeHook = ({ doc, previousDoc,
     isPublic: isPubliclyVisible(current.workflowStatus),
   }
 
-  schedule(req, () => event)
+  await schedule(req, () => event)
 }
 
-export const revalidateArticleDeletion: CollectionAfterDeleteHook = ({ doc, req }) => {
+export const revalidateArticleDeletion: CollectionAfterDeleteHook = async ({ doc, req }) => {
   const removed = asDoc(doc)
 
-  schedule(req, () => ({
+  await schedule(req, () => ({
     type: 'article',
     locale: localeOf(req.locale),
     article: { id: removed.id, slug: typeof removed.slug === 'string' ? removed.slug : null },
@@ -166,7 +204,7 @@ type SimpleEntity = 'category' | 'tag' | 'author' | 'page' | 'live-blog'
 
 /** Hook factory for collections whose invalidation is just "this thing changed". */
 export function revalidateEntity(type: SimpleEntity): CollectionAfterChangeHook {
-  return ({ doc, previousDoc, req }) => {
+  return async ({ doc, previousDoc, req }) => {
     const current = asDoc(doc)
     const previous = asDoc(previousDoc)
     const locale = localeOf(req.locale)
@@ -187,18 +225,18 @@ export function revalidateEntity(type: SimpleEntity): CollectionAfterChangeHook 
               ? { type, locale, page: ref }
               : { type, locale, liveBlog: ref }
 
-    schedule(req, () => event)
+    await schedule(req, () => event)
   }
 }
 
 /** A live-blog entry invalidates its parent blog's page, nothing wider. */
-export const revalidateLiveBlogUpdate: CollectionAfterChangeHook = ({ doc, req }) => {
+export const revalidateLiveBlogUpdate: CollectionAfterChangeHook = async ({ doc, req }) => {
   const entry = asDoc(doc)
   const locale = localeOf(req.locale)
   const liveBlogId = idOf(entry.liveBlog)
   if (liveBlogId === null) return
 
-  schedule(req, () => ({
+  await schedule(req, () => ({
     type: 'live-blog-update',
     locale,
     liveBlog: { id: liveBlogId, slug: slugOf(entry.liveBlog) },
@@ -208,7 +246,7 @@ export const revalidateLiveBlogUpdate: CollectionAfterChangeHook = ({ doc, req }
 export function revalidateGlobal(
   global: 'homepage' | 'header' | 'footer' | 'site-settings' | 'seo-defaults',
 ): GlobalAfterChangeHook {
-  return ({ req }) => {
-    schedule(req, () => ({ type: 'global', locale: localeOf(req.locale), global }))
+  return async ({ req }) => {
+    await schedule(req, () => ({ type: 'global', locale: localeOf(req.locale), global }))
   }
 }

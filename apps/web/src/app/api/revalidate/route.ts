@@ -3,6 +3,7 @@ import { timingSafeEqual } from 'node:crypto'
 import { NextResponse } from 'next/server'
 
 import { isLocale } from '@dhakalive/config'
+import { parseRevalidationEvent } from '@dhakalive/core'
 import { correlationIdFromHeaders, getLogger } from '@dhakalive/observability'
 
 import { env } from '../../../lib/env'
@@ -11,13 +12,17 @@ import { revalidateFor } from '../../../lib/cache/revalidation-service'
 /**
  * On-demand revalidation.
  *
- * Exists for operators and for the background worker: publishing through the
- * CMS already revalidates through collection hooks, so this is the manual and
- * out-of-process path — "the CDN is serving something stale, clear it".
+ * Exists for operators and, more importantly, for the background worker.
+ * `revalidatePath` only works inside a Next request scope, so a change made by
+ * the worker — a scheduled article going live — cannot clear the origin's route
+ * cache from where it happens. The `revalidate` job posts the change here
+ * instead, and this handler performs it inside a real request.
  *
- * Deliberately narrow. It accepts a described *event*, not a list of paths, so
- * a caller cannot ask the site to purge arbitrary URLs; the target set is still
- * computed by the same pure function every other caller uses.
+ * Deliberately narrow in the one way that matters: it accepts a described
+ * *event*, never a list of paths. The targets are computed by the same pure
+ * function every in-process caller uses, so possession of the shared secret
+ * does not confer the ability to purge arbitrary URLs, and no caller can invent
+ * a purge set that a real edit would not have produced.
  */
 export const dynamic = 'force-dynamic'
 
@@ -75,37 +80,52 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   /**
-   * Only whole-locale invalidation is exposed. Per-document events come from
-   * the collection hooks, which have the document to hand; accepting arbitrary
-   * ids here would mean trusting the caller's view of what changed.
+   * `locale` is the operator's blunt instrument — "clear this locale" — and is
+   * kept because it is what a human reaches for at 3am. Everything else must be
+   * a real event, validated field by field, because the caller is the worker
+   * and its input is data from another process.
    */
-  if (candidate.type !== 'locale') {
-    return NextResponse.json(
-      { error: 'Unsupported type. Only "locale" is accepted.' },
-      { status: 400, headers },
-    )
+  const event =
+    candidate.type === 'locale'
+      ? ({ type: 'global', locale: candidate.locale, global: 'site-settings' } as const)
+      : parseRevalidationEvent(body)
+
+  if (!event) {
+    // No detail about *which* field was wrong: the caller is our own worker, so
+    // a validation error is a bug to be read in our logs, not a hint to give out.
+    logger.warn({ correlationId, type: candidate.type }, 'Revalidation rejected: malformed event')
+    return NextResponse.json({ error: 'Unsupported or malformed event' }, { status: 400, headers })
   }
 
-  const outcome = await revalidateFor({
-    type: 'global',
-    locale: candidate.locale,
-    global: 'site-settings',
-  })
+  const outcome = await revalidateFor(event)
 
   logger.info(
-    { correlationId, paths: outcome.targets.paths.length, errors: outcome.errors.length },
-    'Manual revalidation performed',
+    {
+      correlationId,
+      type: event.type,
+      locale: event.locale,
+      paths: outcome.targets.paths.length,
+      errors: outcome.errors.length,
+    },
+    'Out-of-request revalidation performed',
   )
+
+  /**
+   * A revalidation that partly failed is reported as a failure. The caller is a
+   * job with retries, and answering 200 to "the CDN purge was rejected" would
+   * convert a recoverable error into a permanently stale page.
+   */
+  const status = outcome.errors.length > 0 ? 502 : 200
 
   return NextResponse.json(
     {
-      revalidated: true,
-      locale: candidate.locale,
+      revalidated: outcome.errors.length === 0,
+      locale: event.locale,
       paths: outcome.targets.paths.length,
       purged: outcome.purged,
       errors: outcome.errors,
     },
-    { headers },
+    { status, headers },
   )
 }
 
