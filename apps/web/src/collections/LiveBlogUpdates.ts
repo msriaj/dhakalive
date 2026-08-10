@@ -2,6 +2,7 @@ import { can } from '@dhakalive/core'
 import type { CollectionConfig, Where } from 'payload'
 
 import { hasCapability, toAuthUser } from '../access'
+import { revalidateLiveBlogUpdate } from '../hooks/revalidate'
 
 /**
  * A single entry in a live blog.
@@ -48,6 +49,7 @@ export const LiveBlogUpdates: CollectionConfig = {
         return data
       },
     ],
+    afterChange: [revalidateLiveBlogUpdate],
   },
 
   fields: [

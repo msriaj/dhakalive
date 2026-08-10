@@ -12,6 +12,7 @@ import { hasCapability, toAuthUser } from '../access'
 import { seoField } from '../fields/seo'
 import { slugField } from '../fields/slug'
 import { enforceArticleWorkflow } from '../hooks/article-workflow'
+import { revalidateArticle, revalidateArticleDeletion } from '../hooks/revalidate'
 
 const TYPE_LABELS: Record<ArticleType, string> = {
   standard: 'Standard article',
@@ -109,6 +110,8 @@ export const Articles: CollectionConfig = {
 
   hooks: {
     beforeChange: [enforceArticleWorkflow],
+    afterChange: [revalidateArticle],
+    afterDelete: [revalidateArticleDeletion],
   },
 
   fields: [

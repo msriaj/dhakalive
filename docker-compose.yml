@@ -40,6 +40,45 @@ services:
       timeout: 3s
       retries: 10
 
+  # S3-compatible storage standing in for Cloudflare R2 locally.
+  #
+  # R2 speaks the S3 API, so the same adapter, credentials shape and
+  # path-style addressing are exercised here as in production. Started with
+  # `--profile storage`; without it, uploads fall back to local disk.
+  minio:
+    image: minio/minio:latest
+    profiles: ['storage']
+    restart: unless-stopped
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: dhakalive
+      MINIO_ROOT_PASSWORD: dhakalive-dev-secret
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # One-shot: creates the bucket and makes it publicly readable, which is how an
+  # R2 bucket bound to a custom domain behaves.
+  minio-init:
+    image: minio/mc:latest
+    profiles: ['storage']
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 dhakalive dhakalive-dev-secret &&
+      mc mb --ignore-existing local/dhakalive-media-dev &&
+      mc anonymous set download local/dhakalive-media-dev
+      "
+
   app:
     build:
       context: .
@@ -82,3 +121,4 @@ services:
 
 volumes:
   postgres-data:
+  minio-data:

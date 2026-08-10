@@ -1,8 +1,17 @@
 {
   "files": [],
   "references": [
-    { "path": "./packages/config" },
-    { "path": "./packages/observability" },
-    { "path": "./packages/core" }
+    {
+      "path": "./packages/config"
+    },
+    {
+      "path": "./packages/observability"
+    },
+    {
+      "path": "./packages/core"
+    },
+    {
+      "path": "./packages/cache"
+    }
   ]
 }

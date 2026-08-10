@@ -4,6 +4,7 @@ import type { CollectionConfig, Where } from 'payload'
 import { hasCapability, toAuthUser } from '../access'
 import { seoField } from '../fields/seo'
 import { slugField } from '../fields/slug'
+import { revalidateEntity } from '../hooks/revalidate'
 
 /**
  * Standing pages — privacy, terms, about, contact, editorial policy.
@@ -38,6 +39,10 @@ export const Pages: CollectionConfig = {
   versions: {
     drafts: { autosave: { interval: 1000 } },
     maxPerDoc: 20,
+  },
+
+  hooks: {
+    afterChange: [revalidateEntity('page')],
   },
 
   fields: [

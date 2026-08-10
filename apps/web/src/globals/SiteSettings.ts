@@ -1,6 +1,7 @@
 import type { GlobalConfig } from 'payload'
 
 import { hasCapability } from '../access'
+import { revalidateGlobal } from '../hooks/revalidate'
 
 /**
  * Organisation-level settings.
@@ -18,6 +19,10 @@ export const SiteSettings: GlobalConfig = {
   },
 
   admin: { group: 'Settings' },
+
+  hooks: {
+    afterChange: [revalidateGlobal('site-settings')],
+  },
 
   fields: [
     {

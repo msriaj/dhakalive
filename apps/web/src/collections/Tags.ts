@@ -3,6 +3,7 @@ import type { CollectionConfig } from 'payload'
 import { hasCapability } from '../access'
 import { seoField } from '../fields/seo'
 import { slugField } from '../fields/slug'
+import { revalidateEntity } from '../hooks/revalidate'
 
 /**
  * Free-form topical tags. Unlike categories these are flat — a story has one
@@ -22,6 +23,10 @@ export const Tags: CollectionConfig = {
     useAsTitle: 'title',
     defaultColumns: ['title', 'slug', 'updatedAt'],
     group: 'Content',
+  },
+
+  hooks: {
+    afterChange: [revalidateEntity('tag')],
   },
 
   fields: [

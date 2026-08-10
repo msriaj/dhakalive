@@ -4,6 +4,7 @@ import type { CollectionConfig, Where } from 'payload'
 import { hasCapability, toAuthUser } from '../access'
 import { seoField } from '../fields/seo'
 import { slugField } from '../fields/slug'
+import { revalidateEntity } from '../hooks/revalidate'
 
 export const LIVE_BLOG_STATUSES = ['draft', 'live', 'paused', 'ended', 'archived'] as const
 
@@ -61,6 +62,7 @@ export const LiveBlogs: CollectionConfig = {
         return data
       },
     ],
+    afterChange: [revalidateEntity('live-blog')],
   },
 
   fields: [

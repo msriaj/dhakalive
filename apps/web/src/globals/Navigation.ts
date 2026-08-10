@@ -1,6 +1,7 @@
 import type { Field, GlobalConfig } from 'payload'
 
 import { hasCapability } from '../access'
+import { revalidateGlobal } from '../hooks/revalidate'
 
 /**
  * A navigation entry.
@@ -80,6 +81,10 @@ export const Header: GlobalConfig = {
 
   admin: { group: 'Navigation' },
 
+  hooks: {
+    afterChange: [revalidateGlobal('header')],
+  },
+
   fields: [
     {
       name: 'primary',
@@ -123,6 +128,10 @@ export const Footer: GlobalConfig = {
   },
 
   admin: { group: 'Navigation' },
+
+  hooks: {
+    afterChange: [revalidateGlobal('footer')],
+  },
 
   fields: [
     {

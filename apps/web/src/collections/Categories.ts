@@ -4,6 +4,7 @@ import { APIError } from 'payload'
 import { hasCapability } from '../access'
 import { seoField } from '../fields/seo'
 import { slugField } from '../fields/slug'
+import { revalidateEntity } from '../hooks/revalidate'
 
 /** Depth beyond which a section tree stops being navigable. */
 const MAX_CATEGORY_DEPTH = 4
@@ -78,6 +79,7 @@ export const Categories: CollectionConfig = {
 
   hooks: {
     beforeChange: [preventCircularParent],
+    afterChange: [revalidateEntity('category')],
   },
 
   fields: [

@@ -1,6 +1,7 @@
 import type { GlobalConfig } from 'payload'
 
 import { hasCapability } from '../access'
+import { revalidateGlobal } from '../hooks/revalidate'
 
 /**
  * Homepage composition.
@@ -19,6 +20,10 @@ export const Homepage: GlobalConfig = {
   },
 
   admin: { group: 'Navigation' },
+
+  hooks: {
+    afterChange: [revalidateGlobal('homepage')],
+  },
 
   fields: [
     {

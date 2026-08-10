@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url'
 import { withPayload } from '@payloadcms/next/withPayload'
 import type { NextConfig } from 'next'
 
+import { cacheHeaderRules } from './src/lib/cache/cache-policy'
+
 const appDir = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(appDir, '../..')
 
@@ -85,6 +87,9 @@ const nextConfig: NextConfig = {
     // Payload's admin bundle is large; this keeps dev rebuilds from re-walking it.
     optimizePackageImports: ['@payloadcms/ui'],
   },
+
+  // Cache policy lives in lib/cache/cache-policy.ts so it can be unit-tested.
+  headers: () => Promise.resolve(cacheHeaderRules()),
 }
 
 export default withPayload(nextConfig, { devBundleServerPackages: false })

@@ -5,6 +5,7 @@ import { APIError } from 'payload'
 import { hasCapability, toAuthUser } from '../access'
 import { seoField } from '../fields/seo'
 import { slugField } from '../fields/slug'
+import { revalidateEntity } from '../hooks/revalidate'
 
 /**
  * Public author profiles, kept separate from `users`.
@@ -75,6 +76,7 @@ export const Authors: CollectionConfig = {
 
   hooks: {
     beforeChange: [guardUserLink],
+    afterChange: [revalidateEntity('author')],
   },
 
   fields: [

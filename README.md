@@ -3,10 +3,10 @@
 A bilingual (Bengali / English) news publishing platform built on Payload CMS,
 Next.js, PostgreSQL and Cloudflare.
 
-> **Status: Phases 1–4 of 8 complete.**
-> Foundation, permissions, the editorial content model and the public website
-> are in place, with Docker images built and verified. Caching, search, jobs and
-> SEO are built in later phases. See
+> **Status: Phases 1–5 of 8 complete.**
+> Foundation, permissions, the editorial content model, the public website and
+> the caching/CDN layer are in place, with Docker images built and verified.
+> Search, jobs and SEO are built in later phases. See
 > [Implementation phases](#implementation-phases).
 
 ---
@@ -104,9 +104,11 @@ packaging change rather than a rewrite.
 - [Roles and permissions](docs/roles-and-permissions.md)
 - [Content model](docs/content-model.md)
 - [Editorial workflow](docs/editorial-workflow.md)
+- [Cloudflare setup](docs/cloudflare.md)
+- [R2 media storage](docs/r2-storage.md)
 
-Cloudflare setup, R2 CORS, deployment, backup/restore, scaling and incident
-notes are written as the phases that introduce them land.
+Deployment, backup/restore, scaling and incident notes are written as the
+phases that introduce them land.
 
 ## Implementation phases
 
@@ -116,8 +118,8 @@ notes are written as the phases that introduce them land.
 | 2     | Authentication and permissions — roles, capabilities, access control       | ✅ done |
 | 3     | Editorial content — Articles, Categories, Tags, Authors, Media, Live Blogs | ✅ done |
 | 4     | Public website — layout, homepage, article, listings, accessibility        | ✅ done |
-| 5     | Cloudflare and caching — R2, cache headers, revalidation, purge            | next    |
-| 6     | Search, jobs and scheduling                                                | —       |
+| 5     | Cloudflare and caching — R2, cache headers, revalidation, purge            | ✅ done |
+| 6     | Search, jobs and scheduling                                                | next    |
 | 7     | SEO and feeds                                                              | —       |
 | 8     | Hardening — security headers, rate limiting, audit logs, observability     | —       |
 

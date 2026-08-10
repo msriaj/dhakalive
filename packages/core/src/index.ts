@@ -61,3 +61,11 @@ export type {
   PublishValidation,
   ResolvedMedia,
 } from './workflow/index.js'
+
+export {
+  CacheTag,
+  allLocaleHomes,
+  computeRevalidationTargets,
+  mergeTargets,
+} from './cache/index.js'
+export type { ArticleChange, RevalidationEvent, RevalidationTargets } from './cache/index.js'

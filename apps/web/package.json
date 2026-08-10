@@ -18,6 +18,7 @@
     "normalize:migrations": "node scripts/normalize-migrations.mjs"
   },
   "dependencies": {
+    "@dhakalive/cache": "workspace:*",
     "@dhakalive/config": "workspace:*",
     "@dhakalive/core": "workspace:*",
     "@dhakalive/observability": "workspace:*",

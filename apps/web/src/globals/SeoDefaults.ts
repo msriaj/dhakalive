@@ -1,6 +1,7 @@
 import type { GlobalConfig } from 'payload'
 
 import { hasCapability } from '../access'
+import { revalidateGlobal } from '../hooks/revalidate'
 
 /**
  * Site-wide metadata fallbacks.
@@ -17,6 +18,10 @@ export const SeoDefaults: GlobalConfig = {
   },
 
   admin: { group: 'Settings' },
+
+  hooks: {
+    afterChange: [revalidateGlobal('seo-defaults')],
+  },
 
   fields: [
     {
