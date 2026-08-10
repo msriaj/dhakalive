@@ -133,7 +133,20 @@ them. Verify before deploying:
 pnpm verify:r2
 ```
 
-### 3. Database
+### 3. Shared network
+
+Both stacks join one network so the app reaches the database by hostname while
+the database publishes nothing beyond loopback. `server-bootstrap.sh` creates it;
+if it is missing:
+
+```bash
+docker network create dhakalive_default
+```
+
+Both compose files declare it `external`, because Compose refuses to adopt a
+network it did not create itself.
+
+### 4. Database
 
 Start Postgres first — it is a separate stack:
 
@@ -150,7 +163,7 @@ docker compose --env-file .env -f docker/docker-compose.prod.yml run --rm migrat
 Migrations are committed to the repository and are the only way production
 schema changes. `DATABASE_PUSH` is refused when `APP_ENV=production`.
 
-### 4. Start
+### 5. Start
 
 ```bash
 docker compose --env-file .env -f docker/docker-compose.prod.yml up -d
@@ -160,7 +173,7 @@ Then create the first user by visiting `/admin`. That path is open exactly once 
 while the users table is empty — and the account is forced to `super-admin`. Do
 it immediately after the first deploy, before the site is publicly announced.
 
-### 5. Put Cloudflare in front
+### 6. Put Cloudflare in front
 
 See [cloudflare.md](cloudflare.md) for cache rules, WAF, rate limiting and origin
 protection. The origin must not be reachable except through Cloudflare.

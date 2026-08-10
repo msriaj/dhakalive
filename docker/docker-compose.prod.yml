@@ -129,3 +129,17 @@ services:
     command: ['node', 'node_modules/payload/bin.js', 'migrate']
     restart: 'no'
     logging: *logging
+
+# Both stacks share one pre-created network so the app can reach the database by
+# hostname while the database publishes no port beyond loopback.
+#
+# Declared external because `server-bootstrap.sh` creates it. Compose refuses to
+# adopt a network it did not create itself — it checks its own labels and fails
+# with "was found but has incorrect label com.docker.compose.network" — so the
+# ownership has to be stated rather than implied.
+#
+# If it is missing:  docker network create dhakalive_default
+networks:
+  default:
+    name: dhakalive_default
+    external: true
