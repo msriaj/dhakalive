@@ -18,6 +18,9 @@ export interface HeaderRule {
 }
 
 export const NO_STORE = 'private, no-store, max-age=0, must-revalidate'
+/** Sitemaps and feeds: crawler-facing, cheap to serve stale. */
+export const CRAWLER_CACHE = 'public, s-maxage=600, stale-while-revalidate=3600, max-age=0'
+export const ROBOTS_CACHE = 'public, s-maxage=3600, stale-while-revalidate=86400, max-age=0'
 export const HOME_CACHE = 'public, s-maxage=60, stale-while-revalidate=300, max-age=0'
 export const PUBLIC_CACHE = 'public, s-maxage=300, stale-while-revalidate=3600, max-age=0'
 
@@ -38,6 +41,16 @@ export function cacheHeaderRules(): HeaderRule[] {
       source: `/${LOCALE_MATCH}/search`,
       headers: [...noStore, { key: 'X-Robots-Tag', value: 'noindex, follow' }],
     },
+
+    /**
+     * Root-level crawler files. They sit outside the locale prefix, so without
+     * their own rules they would fall through to Next's dynamic default of
+     * `no-store` and never be cached at the edge — every crawler hit would
+     * reach the origin and query the database.
+     */
+    { source: '/robots.txt', headers: [{ key: 'Cache-Control', value: ROBOTS_CACHE }] },
+    { source: '/sitemap.xml', headers: [{ key: 'Cache-Control', value: CRAWLER_CACHE }] },
+    { source: '/sitemaps/:path*', headers: [{ key: 'Cache-Control', value: CRAWLER_CACHE }] },
 
     // Home: shortest window, highest churn.
     { source: `/${LOCALE_MATCH}`, headers: [{ key: 'Cache-Control', value: HOME_CACHE }] },

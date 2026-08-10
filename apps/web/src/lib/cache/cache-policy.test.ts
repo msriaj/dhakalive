@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import { HOME_CACHE, NO_STORE, PUBLIC_CACHE, cacheHeaderRules } from './cache-policy'
+import {
+  CRAWLER_CACHE,
+  HOME_CACHE,
+  NO_STORE,
+  PUBLIC_CACHE,
+  ROBOTS_CACHE,
+  cacheHeaderRules,
+} from './cache-policy'
 
 /**
  * These assertions encode the cache-security requirements directly: authenticated
@@ -79,6 +86,26 @@ describe('public pages', () => {
   })
 })
 
+describe('crawler files', () => {
+  it('caches robots, the sitemap index and its shards', () => {
+    // These sit outside the locale prefix, so they need their own rules or they
+    // fall through to Next's dynamic default of no-store and every crawler hit
+    // reaches the database.
+    for (const source of ['/robots.txt', '/sitemap.xml', '/sitemaps/:path*']) {
+      const value = cacheControlOf(source)
+      expect(value, `${source} has no cache policy`).toBeDefined()
+      expect(value).toContain('public')
+      expect(value).toContain('s-maxage')
+    }
+  })
+
+  it('caches robots for longer than the sitemap, since it changes least', () => {
+    const robots = Number(/s-maxage=(\d+)/.exec(ROBOTS_CACHE)?.[1])
+    const sitemap = Number(/s-maxage=(\d+)/.exec(CRAWLER_CACHE)?.[1])
+    expect(robots).toBeGreaterThan(sitemap)
+  })
+})
+
 describe('rule set', () => {
   it('gives every rule exactly one Cache-Control header', () => {
     for (const rule of rules) {
@@ -97,6 +124,10 @@ describe('rule set', () => {
       '/bn/archive/2026/08/10',
       '/api/articles',
       '/admin/collections/articles',
+      '/robots.txt',
+      '/sitemap.xml',
+      '/sitemaps/articles-1.xml',
+      '/bn/rss.xml',
     ]
 
     for (const path of paths) {

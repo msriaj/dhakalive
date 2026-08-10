@@ -5,6 +5,19 @@ import { env } from '../lib/env'
 import { getSeoDefaults } from '../lib/queries/globals'
 
 /**
+ * Rendered on demand, never at build.
+ *
+ * This route reads from the database. Prerendering it would make `next build`
+ * require a live database, which breaks the Docker image build — and an image
+ * that only builds when infrastructure is up cannot be rebuilt in a clean CI
+ * runner or during an incident.
+ *
+ * Caching is not lost: the edge caches it under the Cache-Control policy in
+ * lib/cache/cache-policy.ts.
+ */
+export const dynamic = 'force-dynamic'
+
+/**
  * robots.txt.
  *
  * Generated rather than static, because whether this site may be crawled at all
