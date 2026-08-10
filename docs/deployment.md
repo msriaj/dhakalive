@@ -138,13 +138,13 @@ pnpm verify:r2
 Start Postgres first — it is a separate stack:
 
 ```bash
-docker compose -f docker/docker-compose.postgres.yml up -d
+docker compose --env-file .env -f docker/docker-compose.postgres.yml up -d
 ```
 
 Then apply migrations, before the app starts:
 
 ```bash
-docker compose -f docker/docker-compose.prod.yml run --rm migrate
+docker compose --env-file .env -f docker/docker-compose.prod.yml run --rm migrate
 ```
 
 Migrations are committed to the repository and are the only way production
@@ -153,7 +153,7 @@ schema changes. `DATABASE_PUSH` is refused when `APP_ENV=production`.
 ### 4. Start
 
 ```bash
-docker compose -f docker/docker-compose.prod.yml up -d
+docker compose --env-file .env -f docker/docker-compose.prod.yml up -d
 ```
 
 Then create the first user by visiting `/admin`. That path is open exactly once —
@@ -241,7 +241,7 @@ Images are tagged by commit, so rolling back is deploying an older SHA:
 ```bash
 export WEB_IMAGE=ghcr.io/msriaj/dhakalive-web:<previous-sha>
 export WORKER_IMAGE=ghcr.io/msriaj/dhakalive-worker:<previous-sha>
-docker compose -f docker/docker-compose.prod.yml up -d
+docker compose --env-file .env -f docker/docker-compose.prod.yml up -d
 ```
 
 **Migrations do not roll back automatically.** Write them backward compatible —
@@ -252,7 +252,7 @@ change needs two releases: stop using the column, then remove it.
 ## Scaling
 
 ```bash
-docker compose -f docker/docker-compose.prod.yml up -d --scale app=3
+docker compose --env-file .env -f docker/docker-compose.prod.yml up -d --scale app=3
 ```
 
 Remove the fixed host port mapping from `app` first and put a load balancer or
@@ -307,7 +307,7 @@ Use a **separate bucket** from media, with a token scoped to it.
 ### Restore
 
 ```bash
-docker compose -f docker/docker-compose.postgres.yml exec -T postgres \
+docker compose --env-file .env -f docker/docker-compose.postgres.yml exec -T postgres \
   pg_restore -U dhakalive -d dhakalive --clean --if-exists /backups/<file>.dump
 ```
 

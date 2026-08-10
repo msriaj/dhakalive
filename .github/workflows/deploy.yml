@@ -128,7 +128,7 @@ jobs:
             export WEB_IMAGE="ghcr.io/${{ github.repository_owner }}/dhakalive-web:$SHA"
             export WORKER_IMAGE="ghcr.io/${{ github.repository_owner }}/dhakalive-worker:$SHA"
 
-            docker compose -f docker/docker-compose.prod.yml pull app worker
+            docker compose --env-file .env -f docker/docker-compose.prod.yml pull app worker
 
             # Drop the credential as soon as the images are local. The token
             # expires with this run anyway, but leaving it in
@@ -138,20 +138,20 @@ jobs:
             # Schema first, and only then the code that depends on it. Migrations
             # are written to be backward compatible, so the old container keeps
             # serving correctly while this runs.
-            docker compose -f docker/docker-compose.prod.yml run --rm migrate
+            docker compose --env-file .env -f docker/docker-compose.prod.yml run --rm migrate
 
-            docker compose -f docker/docker-compose.prod.yml up -d --remove-orphans
+            docker compose --env-file .env -f docker/docker-compose.prod.yml up -d --remove-orphans
 
             # Fail the deploy if the new container never becomes healthy, rather
             # than reporting success over a broken release.
             for i in $(seq 1 30); do
-              if [ "$(docker inspect -f '{{.State.Health.Status}}' $(docker compose -f docker/docker-compose.prod.yml ps -q app) 2>/dev/null)" = "healthy" ]; then
+              if [ "$(docker inspect -f '{{.State.Health.Status}}' $(docker compose --env-file .env -f docker/docker-compose.prod.yml ps -q app) 2>/dev/null)" = "healthy" ]; then
                 echo "app healthy after $((i*5))s"; exit 0
               fi
               sleep 5
             done
             echo "app did not become healthy; rolling back is: deploy the previous SHA"
-            docker compose -f docker/docker-compose.prod.yml logs --tail=50 app
+            docker compose --env-file .env -f docker/docker-compose.prod.yml logs --tail=50 app
             exit 1
 
       - name: Verify the release is actually serving

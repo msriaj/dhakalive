@@ -18,6 +18,10 @@
 set -euo pipefail
 
 COMPOSE_FILE="${COMPOSE_FILE:-docker/docker-compose.postgres.yml}"
+# Compose resolves `.env` relative to the compose file's directory, not the
+# working directory, so it must be pointed at the project root explicitly.
+# Without this the file's required POSTGRES_PASSWORD interpolation fails.
+COMPOSE=(docker compose --env-file .env -f "$COMPOSE_FILE")
 BACKUP_DIR="${BACKUP_DIR:-docker/postgres/backups}"
 RETAIN_DAYS="${RETAIN_DAYS:-14}"
 DB_USER="${POSTGRES_USER:-dhakalive}"
@@ -29,7 +33,7 @@ log() { printf '[%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1"; }
 # dump is structurally intact — far better than trusting a non-zero file size.
 verify() {
   local file="$1"
-  if docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  if "${COMPOSE[@]}" exec -T postgres \
       pg_restore --list "/backups/$(basename "$file")" >/dev/null 2>&1; then
     log "verified: $(basename "$file") is a readable archive"
     return 0
@@ -50,7 +54,7 @@ NAME="dhakalive-${STAMP}.dump"
 log "starting backup -> ${NAME}"
 
 # Custom format (-Fc): compressed, and restorable selectively with pg_restore.
-docker compose -f "$COMPOSE_FILE" exec -T postgres \
+"${COMPOSE[@]}" exec -T postgres \
   pg_dump -U "$DB_USER" -d "$DB_NAME" -Fc -f "/backups/${NAME}"
 
 SIZE="$(du -h "${BACKUP_DIR}/${NAME}" | cut -f1)"

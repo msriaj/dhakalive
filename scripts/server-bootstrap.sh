@@ -133,9 +133,9 @@ Next:
 
   2. Start the database, then the app:
        cd ${DEPLOY_PATH}
-       docker compose -f docker/docker-compose.postgres.yml up -d
-       docker compose -f docker/docker-compose.prod.yml run --rm migrate
-       docker compose -f docker/docker-compose.prod.yml up -d
+       docker compose --env-file .env -f docker/docker-compose.postgres.yml up -d
+       docker compose --env-file .env -f docker/docker-compose.prod.yml run --rm migrate
+       docker compose --env-file .env -f docker/docker-compose.prod.yml up -d
 
   3. Add the deploy key to GitHub so CI can release:
        sudo -u ${DEPLOY_USER} ssh-keygen -t ed25519 -C deploy -f /home/${DEPLOY_USER}/.ssh/deploy_key
