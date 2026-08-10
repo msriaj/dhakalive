@@ -96,6 +96,7 @@ export default tseslint.config(
       'tests/**/*.ts',
       'e2e/**/*.ts',
       'vitest.config.ts',
+      'vitest.integration.config.ts',
       'playwright.config.ts',
     ],
     languageOptions: {

@@ -18,9 +18,11 @@
   },
   "include": [
     "packages/*/src/**/*.test.ts",
+    "apps/web/tests/**/*.ts",
     "tests/**/*.ts",
     "e2e/**/*.ts",
     "vitest.config.ts",
+    "vitest.integration.config.ts",
     "playwright.config.ts"
   ]
 }

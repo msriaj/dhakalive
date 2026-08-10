@@ -24,7 +24,7 @@ jobs:
         env:
           POSTGRES_USER: dhakalive
           POSTGRES_PASSWORD: dhakalive
-          POSTGRES_DB: dhakalive_test
+          POSTGRES_DB: dhakalive
         ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U dhakalive"
@@ -65,6 +65,12 @@ jobs:
           PAYLOAD_SECRET: ci-only-secret-value-at-least-32-chars-long
           REVALIDATION_SECRET: ci-only-revalidation-secret
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
+
+      - name: Integration tests (real database)
+        run: pnpm test:integration
+        env:
+          TEST_ADMIN_DATABASE_URI: postgres://dhakalive:dhakalive@localhost:5432/postgres
+          TEST_DATABASE_URI: postgres://dhakalive:dhakalive@localhost:5432/dhakalive_test
 
       - name: Production build
         run: pnpm build

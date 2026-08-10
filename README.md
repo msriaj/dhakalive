@@ -3,9 +3,9 @@
 A bilingual (Bengali / English) news publishing platform built on Payload CMS,
 Next.js, PostgreSQL and Cloudflare.
 
-> **Status: Phase 1 of 8 complete — Foundation.**
-> The workspace, Payload/Next wiring, environment validation, Docker setup and
-> the quality gate are in place. Editorial collections, the public site, caching,
+> **Status: Phases 1–2 of 8 complete.**
+> Foundation and the authentication/permission model are in place, with Docker
+> images built and verified. Editorial collections, the public site, caching,
 > search, jobs and SEO are built in later phases. See
 > [Implementation phases](#implementation-phases).
 
@@ -87,7 +87,8 @@ packaging change rather than a rewrite.
 | `pnpm verify`                                 | Format check, lint, typecheck, tests — the CI gate |
 | `pnpm lint` / `lint:fix`                      | ESLint                                             |
 | `pnpm typecheck`                              | Build workspace packages, then typecheck apps      |
-| `pnpm test`                                   | Vitest unit and integration suite                  |
+| `pnpm test`                                   | Vitest unit suite (no database needed)             |
+| `pnpm test:integration`                       | Permission tests against a real PostgreSQL         |
 | `pnpm build:packages`                         | Compile `packages/*` to `dist`                     |
 | `pnpm --filter @dhakalive/web migrate`        | Apply database migrations                          |
 | `pnpm --filter @dhakalive/web generate:types` | Regenerate `payload-types.ts`                      |
@@ -100,18 +101,19 @@ packaging change rather than a rewrite.
 - [Local setup](docs/local-setup.md)
 - [Environment variables](docs/environment.md)
 - [Architecture](docs/architecture.md)
+- [Roles and permissions](docs/roles-and-permissions.md)
 
-Content model, roles matrix, editorial workflow, Cloudflare setup, R2 CORS,
-deployment, backup/restore, scaling and incident notes are written as the
-phases that introduce them land.
+Content model, editorial workflow, Cloudflare setup, R2 CORS, deployment,
+backup/restore, scaling and incident notes are written as the phases that
+introduce them land.
 
 ## Implementation phases
 
 | Phase | Scope                                                                      | Status  |
 | ----- | -------------------------------------------------------------------------- | ------- |
 | 1     | Foundation — workspace, Payload + Next, Postgres, env, Docker, CI          | ✅ done |
-| 2     | Authentication and permissions — roles, capabilities, access control       | next    |
-| 3     | Editorial content — Articles, Categories, Tags, Authors, Media, Live Blogs | —       |
+| 2     | Authentication and permissions — roles, capabilities, access control       | ✅ done |
+| 3     | Editorial content — Articles, Categories, Tags, Authors, Media, Live Blogs | next    |
 | 4     | Public website — layout, homepage, article, listings, accessibility        | —       |
 | 5     | Cloudflare and caching — R2, cache headers, revalidation, purge            | —       |
 | 6     | Search, jobs and scheduling                                                | —       |

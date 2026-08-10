@@ -30,7 +30,8 @@ export type AppEnvName = (typeof APP_ENVS)[number]
 const SEARCH_PROVIDERS = ['postgres', 'meilisearch', 'opensearch'] as const
 export type SearchProviderName = (typeof SEARCH_PROVIDERS)[number]
 
-const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace'] as const
+// `silent` is a real pino level and the right setting for test runs.
+const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const
 
 const optionalString = z.string().trim().min(1).optional()
 

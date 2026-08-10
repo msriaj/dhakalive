@@ -8,3 +8,26 @@
  * rather than a rewrite. Nothing framework-shaped belongs here.
  */
 export { slugify, isValidSlug, uniqueSlug, MAX_SLUG_LENGTH } from './slug/slugify.js'
+
+export {
+  ROLES,
+  ROLE_RANK,
+  isRole,
+  toRoles,
+  CAPABILITIES,
+  capabilitiesForRole,
+  capabilitiesForRoles,
+  roleHasCapability,
+  can,
+  canAll,
+  canAny,
+  canAssignRole,
+  canManageUser,
+  capabilitiesOf,
+  effectiveRank,
+  isSameUser,
+  isSuperAdmin,
+  rolesOf,
+  validateRoleAssignment,
+} from './access/index.js'
+export type { Role, Capability, AuthUser, RoleAssignmentResult } from './access/index.js'

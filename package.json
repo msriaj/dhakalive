@@ -18,7 +18,7 @@
     "lint:fix": "eslint . --fix",
     "build:packages": "tsc --build packages/config packages/observability packages/core",
     "watch:packages": "tsc --build --watch packages/config packages/observability packages/core",
-    "typecheck": "pnpm build:packages && pnpm -r --filter './apps/*' --filter './services/*' typecheck",
+    "typecheck": "pnpm build:packages && pnpm -r --filter './apps/*' --filter './services/*' typecheck && tsc -p tsconfig.eslint.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -28,7 +28,8 @@
     "migrate:create": "pnpm --filter @dhakalive/web migrate:create",
     "generate:types": "pnpm --filter @dhakalive/web generate:types",
     "seed": "pnpm --filter @dhakalive/web seed",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test"
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",

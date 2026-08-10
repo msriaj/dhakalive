@@ -95,12 +95,18 @@ importers:
       '@types/node':
         specifier: 26.2.0
         version: 26.2.0
+      '@types/pg':
+        specifier: 8.20.0
+        version: 8.20.0
       '@types/react':
         specifier: 19.2.18
         version: 19.2.18
       '@types/react-dom':
         specifier: 19.2.4
         version: 19.2.4(@types/react@19.2.18)
+      pg:
+        specifier: 8.20.0
+        version: 8.20.0
       postcss:
         specifier: 8.5.26
         version: 8.5.26

@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "payload": "node --env-file-if-exists=../../.env node_modules/payload/bin.js",
     "migrate": "node --env-file-if-exists=../../.env node_modules/payload/bin.js migrate",
-    "migrate:create": "node --env-file-if-exists=../../.env node_modules/payload/bin.js migrate:create && node scripts/normalize-migrations.mjs",
+    "migrate:create": "node scripts/migrate-create.mjs",
     "migrate:status": "node --env-file-if-exists=../../.env node_modules/payload/bin.js migrate:status",
     "generate:types": "node --env-file-if-exists=../../.env node_modules/payload/bin.js generate:types",
     "generate:importmap": "node --env-file-if-exists=../../.env node_modules/payload/bin.js generate:importmap",
@@ -35,8 +35,10 @@
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "26.2.0",
+    "@types/pg": "8.20.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
+    "pg": "8.20.0",
     "postcss": "8.5.26",
     "tailwindcss": "4.3.3",
     "typescript": "5.9.3"

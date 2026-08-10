@@ -163,8 +163,19 @@ Starts `postgres`, `redis`, `app` and `worker` together. Slower to iterate than
 pnpm verify
 ```
 
-Runs format check, lint, typecheck and tests — the same gate as CI. Add a
-production build before opening a pull request:
+Runs format check, lint, typecheck and the unit suite — no database required.
+
+The permission tests run separately, against a real PostgreSQL:
+
+```bash
+pnpm test:integration
+```
+
+That suite drops and recreates a `dhakalive_test` database on each run and
+builds its schema by dev push, so it never touches your development data. It
+needs `docker compose up -d postgres` to be running.
+
+Add a production build before opening a pull request:
 
 ```bash
 pnpm build

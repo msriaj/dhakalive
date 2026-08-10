@@ -121,7 +121,14 @@ export interface UserAuthOperations {
  */
 export interface User {
   id: number;
+  /**
+   * Internal display name, shown in the CMS.
+   */
   name: string;
+  /**
+   * Roles grant capabilities. You cannot assign a role at or above your own level, and you cannot change your own roles.
+   */
+  roles: ('contributor' | 'reporter' | 'editor' | 'publisher' | 'admin' | 'super-admin')[];
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -216,6 +223,7 @@ export interface PayloadMigration {
  */
 export interface UsersSelect<T extends boolean = true> {
   name?: T;
+  roles?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;
