@@ -34,6 +34,18 @@ const STRINGS = {
   previous: { bn: 'পূর্ববর্তী', en: 'Previous' },
   next: { bn: 'পরবর্তী', en: 'Next' },
   noResults: { bn: 'কোনো ফলাফল পাওয়া যায়নি', en: 'No results found' },
+  searchPlaceholder: { bn: 'সংবাদ খুঁজুন', en: 'Search the news' },
+  searchPrompt: { bn: 'কী খুঁজছেন তা লিখুন।', en: 'Type what you are looking for.' },
+  /** Rendered after a formatted number, so it is a bare noun in both languages. */
+  resultsLabel: { bn: 'ফলাফল', en: 'results' },
+  approximateResults: {
+    bn: 'হুবহু মিল পাওয়া যায়নি। কাছাকাছি ফলাফল দেখানো হচ্ছে।',
+    en: 'No exact matches. Showing close results instead.',
+  },
+  searchUnavailable: {
+    bn: 'অনুসন্ধান এই মুহূর্তে কাজ করছে না। কিছুক্ষণ পর আবার চেষ্টা করুন।',
+    en: 'Search is unavailable right now. Please try again shortly.',
+  },
   notFoundTitle: { bn: 'পৃষ্ঠাটি পাওয়া যায়নি', en: 'Page not found' },
   notFoundBody: {
     bn: 'আপনি যে পৃষ্ঠাটি খুঁজছেন তা সরানো হয়েছে বা কখনো ছিল না।',

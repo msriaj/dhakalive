@@ -62,9 +62,22 @@ const nextConfig: NextConfig = {
   // Never advertise the framework; it is free reconnaissance for an attacker.
   poweredByHeader: false,
 
+  /**
+   * Next writes an `AGENTS.md` and a `CLAUDE.md` into the app directory on every
+   * dev boot. They are generated, uncommitted and would reappear as untracked
+   * noise in every working tree; project-level agent instructions belong at the
+   * repository root where they are reviewed like anything else.
+   */
+  agentRules: false,
+
   // Workspace packages ship compiled ESM, but Next still needs to be told they
   // are first-party so source maps and tree shaking behave.
-  transpilePackages: ['@dhakalive/config', '@dhakalive/core', '@dhakalive/observability'],
+  transpilePackages: [
+    '@dhakalive/config',
+    '@dhakalive/core',
+    '@dhakalive/observability',
+    '@dhakalive/search',
+  ],
 
   // pino picks its transport at runtime; bundling it breaks worker threads.
   serverExternalPackages: ['pino', 'pino-pretty'],

@@ -52,16 +52,27 @@ export function Pagination({
   basePath,
   page,
   totalPages,
+  params,
 }: {
   locale: Locale
   basePath: string
   page: number
   totalPages: number
+  /** Query parameters to carry across pages — the search term, for instance. */
+  params?: Record<string, string>
 }) {
   if (totalPages <= 1) return null
 
   const d = dictionary(locale)
-  const hrefFor = (target: number) => (target === 1 ? basePath : `${basePath}?page=${target}`)
+
+  // Built through URLSearchParams so a term containing `&`, `#` or Bengali
+  // characters survives the round trip, and so page 1 keeps a clean URL.
+  const hrefFor = (target: number) => {
+    const search = new URLSearchParams(params)
+    if (target > 1) search.set('page', String(target))
+    const query = search.toString()
+    return query.length > 0 ? `${basePath}?${query}` : basePath
+  }
 
   return (
     <nav aria-label={d('page')} className="mt-10 flex items-center justify-between gap-4">
