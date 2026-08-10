@@ -112,7 +112,18 @@ if (!publicUrl) {
     if (response.ok) pass(`public delivery works (${publicUrl})`)
     else fail(`public URL returned ${response.status} — is a custom domain bound to the bucket?`)
   } catch (error) {
-    fail(`public URL unreachable — ${error.name}`)
+    // fetch collapses everything into TypeError; the useful part is the cause.
+    const cause = error.cause?.code ?? error.cause?.message ?? error.message
+    fail(`public URL unreachable — ${cause}`)
+
+    if (cause === 'ENOTFOUND') {
+      console.error(
+        '      DNS could not resolve the host. Either the custom domain is still\n' +
+          '      initialising, or this machine has a stale negative DNS cache.\n' +
+          '      Check independently:  dig +short ' +
+          new URL(publicUrl).hostname,
+      )
+    }
   }
 }
 

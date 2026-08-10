@@ -93,6 +93,20 @@ It heads the bucket, writes an object, reads it back, compares bytes, checks
 public delivery and cleans up. A wrong endpoint or a read-only token is
 otherwise invisible until the first editor upload fails.
 
+A newly added custom domain sits in **Initializing** while Cloudflare creates
+the DNS record and issues the certificate. During that window — and for a while
+afterwards, if the host was queried before it existed — a machine can hold a
+negative DNS cache while the domain is already serving. The public-delivery
+check reports `ENOTFOUND` in that case. Confirm which it is:
+
+```bash
+dig +short media.dhakalive.com
+curl -I --resolve media.dhakalive.com:443:<one-of-those-ips> https://media.dhakalive.com/x
+```
+
+A `404` there means the bucket is wired correctly and only the local resolver is
+behind. The other four checks are what actually prove the configuration.
+
 ## CORS
 
 Only needed if the browser fetches objects directly with scripted requests.
