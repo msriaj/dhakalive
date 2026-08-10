@@ -5,6 +5,7 @@ import type {
   CollectionAfterChangeHook,
   CollectionAfterDeleteHook,
   GlobalAfterChangeHook,
+  PayloadRequest,
 } from 'payload'
 
 /**
@@ -25,7 +26,15 @@ import type {
  * An editor pressing Publish must not wait on the Cloudflare API; a slow or
  * failing CDN would otherwise present as a hanging save.
  */
-function schedule(buildEvent: () => RevalidationEvent): void {
+function schedule(req: PayloadRequest, buildEvent: () => RevalidationEvent): void {
+  /**
+   * Bulk writers — the seed, imports, migrations — opt out through
+   * `req.context`. A run that touches hundreds of documents would otherwise fan
+   * out to thousands of purges for content that is not live, and the CDN would
+   * rate-limit long before the run finished.
+   */
+  if (req.context?.disableRevalidation === true) return
+
   const run = async (): Promise<void> => {
     const { revalidateFor } = await import('../lib/cache/revalidation-service')
     await revalidateFor(buildEvent())
@@ -130,13 +139,13 @@ export const revalidateArticle: CollectionAfterChangeHook = ({ doc, previousDoc,
     isPublic: isPubliclyVisible(current.workflowStatus),
   }
 
-  schedule(() => event)
+  schedule(req, () => event)
 }
 
 export const revalidateArticleDeletion: CollectionAfterDeleteHook = ({ doc, req }) => {
   const removed = asDoc(doc)
 
-  schedule(() => ({
+  schedule(req, () => ({
     type: 'article',
     locale: localeOf(req.locale),
     article: { id: removed.id, slug: typeof removed.slug === 'string' ? removed.slug : null },
@@ -178,7 +187,7 @@ export function revalidateEntity(type: SimpleEntity): CollectionAfterChangeHook 
               ? { type, locale, page: ref }
               : { type, locale, liveBlog: ref }
 
-    schedule(() => event)
+    schedule(req, () => event)
   }
 }
 
@@ -189,7 +198,7 @@ export const revalidateLiveBlogUpdate: CollectionAfterChangeHook = ({ doc, req }
   const liveBlogId = idOf(entry.liveBlog)
   if (liveBlogId === null) return
 
-  schedule(() => ({
+  schedule(req, () => ({
     type: 'live-blog-update',
     locale,
     liveBlog: { id: liveBlogId, slug: slugOf(entry.liveBlog) },
@@ -200,6 +209,6 @@ export function revalidateGlobal(
   global: 'homepage' | 'header' | 'footer' | 'site-settings' | 'seo-defaults',
 ): GlobalAfterChangeHook {
   return ({ req }) => {
-    schedule(() => ({ type: 'global', locale: localeOf(req.locale), global }))
+    schedule(req, () => ({ type: 'global', locale: localeOf(req.locale), global }))
   }
 }

@@ -16,6 +16,7 @@
     "generate:importmap": "node --env-file-if-exists=../../.env node_modules/payload/bin.js generate:importmap",
     "migrate:down": "node --env-file-if-exists=../../.env node_modules/payload/bin.js migrate:down",
     "normalize:migrations": "node scripts/normalize-migrations.mjs",
+    "seed": "node --env-file-if-exists=../../.env node_modules/payload/bin.js run src/seed/index.ts",
     "verify:r2": "node scripts/verify-r2.mjs"
   },
   "dependencies": {
