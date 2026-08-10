@@ -14,9 +14,15 @@ services:
       POSTGRES_USER: dhakalive
       POSTGRES_PASSWORD: dhakalive
       POSTGRES_DB: dhakalive
-      # Bengali content requires a UTF-8 database; the C collation keeps index
-      # ordering deterministic across platforms.
-      POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=C'
+      # Bengali content requires a UTF-8 database. `C.UTF-8` keeps collation at
+      # byte order — deterministic index ordering across platforms — while giving
+      # the *ctype* real Unicode character classes.
+      #
+      # That second half is not cosmetic. `pg_trgm` decides what a word character
+      # is through ctype, so under a plain `C` locale it extracts no trigrams at
+      # all from Bengali text and the fuzzy search fallback silently matches
+      # nothing. The search migration refuses to run on such a database.
+      POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=C.UTF-8'
     ports:
       - '5432:5432'
     volumes:

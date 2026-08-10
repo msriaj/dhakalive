@@ -69,3 +69,6 @@ export {
   mergeTargets,
 } from './cache/index.js'
 export type { ArticleChange, RevalidationEvent, RevalidationTargets } from './cache/index.js'
+
+export { richTextToPlainText } from './rich-text/plain-text.js'
+export type { PlainTextOptions } from './rich-text/plain-text.js'

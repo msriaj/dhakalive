@@ -5,6 +5,7 @@ import { hasCapability, toAuthUser } from '../access'
 import { seoField } from '../fields/seo'
 import { slugField } from '../fields/slug'
 import { revalidateEntity } from '../hooks/revalidate'
+import { deindexOnDelete, indexOnChange } from '../hooks/search'
 
 /**
  * Standing pages — privacy, terms, about, contact, editorial policy.
@@ -42,7 +43,8 @@ export const Pages: CollectionConfig = {
   },
 
   hooks: {
-    afterChange: [revalidateEntity('page')],
+    afterChange: [revalidateEntity('page'), indexOnChange('pages')],
+    afterDelete: [deindexOnDelete('pages')],
   },
 
   fields: [

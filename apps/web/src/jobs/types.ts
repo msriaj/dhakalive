@@ -17,8 +17,21 @@ export interface PruneJobsInput extends JobInput {
   olderThanDays?: number | null
 }
 
+/**
+ * Reconciles one document with the search index.
+ *
+ * Carries only an identity, never the content. By the time the job runs the
+ * document may have changed again, and the job that eventually executes should
+ * index what is true then — not a snapshot taken when an editor pressed save.
+ */
+export interface SearchIndexInput extends JobInput {
+  collection: string
+  documentId: string
+}
+
 export interface TaskInputs {
   'prune-jobs': PruneJobsInput
+  'search-index': SearchIndexInput
 }
 
 export type TaskName = keyof TaskInputs

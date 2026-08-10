@@ -17,6 +17,7 @@
     "migrate:down": "node --env-file-if-exists=../../.env node_modules/payload/bin.js migrate:down",
     "normalize:migrations": "node scripts/normalize-migrations.mjs",
     "seed": "node --env-file-if-exists=../../.env node_modules/payload/bin.js run src/seed/index.ts",
+    "reindex": "node --env-file-if-exists=../../.env node_modules/payload/bin.js run src/search/reindex.ts",
     "verify:r2": "node scripts/verify-r2.mjs"
   },
   "dependencies": {
@@ -24,6 +25,7 @@
     "@dhakalive/config": "workspace:*",
     "@dhakalive/core": "workspace:*",
     "@dhakalive/observability": "workspace:*",
+    "@dhakalive/search": "workspace:*",
     "@payloadcms/db-postgres": "3.87.1",
     "@payloadcms/next": "3.87.1",
     "@payloadcms/richtext-lexical": "3.87.1",

@@ -39,7 +39,17 @@ export async function setup(): Promise<void> {
     // Identifiers cannot be parameterised, hence the interpolation. The value is
     // an internal constant, never request-derived.
     await client.query(`DROP DATABASE IF EXISTS "${TEST_DATABASE}"`)
-    await client.query(`CREATE DATABASE "${TEST_DATABASE}" ENCODING 'UTF8'`)
+    /**
+     * `template0` plus an explicit ctype, matching the development database.
+     * Inheriting from `template1` would take whatever locale the cluster was
+     * initialised with — usually `C`, under which `pg_trgm` extracts no trigrams
+     * from Bengali and every fuzzy-search assertion would pass locally and fail
+     * on a correctly configured machine, or the reverse.
+     */
+    await client.query(
+      `CREATE DATABASE "${TEST_DATABASE}"
+       TEMPLATE template0 ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C.UTF-8'`,
+    )
   } finally {
     await client.end()
   }

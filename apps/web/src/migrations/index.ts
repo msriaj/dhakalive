@@ -3,6 +3,8 @@ import * as migration_20260810_045718_add_user_roles from './20260810_045718_add
 import * as migration_20260810_054426_editorial_content from './20260810_054426_editorial_content'
 import * as migration_20260810_060319_pages_and_globals from './20260810_060319_pages_and_globals'
 import * as migration_20260810_092502_jobs_infrastructure from './20260810_092502_jobs_infrastructure'
+import * as migration_20260810_093000_search_documents from './20260810_093000_search_documents'
+import * as migration_20260810_094311_search_index_task from './20260810_094311_search_index_task'
 
 export const migrations = [
   {
@@ -29,5 +31,15 @@ export const migrations = [
     up: migration_20260810_092502_jobs_infrastructure.up,
     down: migration_20260810_092502_jobs_infrastructure.down,
     name: '20260810_092502_jobs_infrastructure',
+  },
+  {
+    up: migration_20260810_093000_search_documents.up,
+    down: migration_20260810_093000_search_documents.down,
+    name: '20260810_093000_search_documents',
+  },
+  {
+    up: migration_20260810_094311_search_index_task.up,
+    down: migration_20260810_094311_search_index_task.down,
+    name: '20260810_094311_search_index_task',
   },
 ]

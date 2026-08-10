@@ -4,6 +4,7 @@ import type { JobsConfig } from 'payload'
 import { toAuthUser } from '../access'
 import { jobsCollectionOverrides } from './collection'
 import { pruneJobs } from './tasks/prune-jobs'
+import { searchIndex } from './tasks/search-index'
 
 /**
  * Background jobs.
@@ -30,7 +31,7 @@ import { pruneJobs } from './tasks/prune-jobs'
  */
 export function buildJobsConfig(): JobsConfig {
   return {
-    tasks: [pruneJobs],
+    tasks: [searchIndex, pruneJobs],
 
     /**
      * Adds the `concurrencyKey` column that `concurrency` on a task needs. It is

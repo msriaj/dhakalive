@@ -126,6 +126,7 @@ export interface Config {
   user: User;
   jobs: {
     tasks: {
+      'search-index': TaskSearchIndex;
       'prune-jobs': TaskPruneJobs;
       inline: {
         input: unknown;
@@ -805,7 +806,7 @@ export interface PayloadJob {
     | {
         executedAt: string;
         completedAt: string;
-        taskSlug: 'inline' | 'prune-jobs';
+        taskSlug: 'inline' | 'search-index' | 'prune-jobs';
         taskID: string;
         input?:
           | {
@@ -836,13 +837,13 @@ export interface PayloadJob {
           | boolean
           | null;
         parent?: {
-          taskSlug?: ('inline' | 'prune-jobs') | null;
+          taskSlug?: ('inline' | 'search-index' | 'prune-jobs') | null;
           taskID?: string | null;
         };
         id?: string | null;
       }[]
     | null;
-  taskSlug?: ('inline' | 'prune-jobs') | null;
+  taskSlug?: ('inline' | 'search-index' | 'prune-jobs') | null;
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
@@ -1712,6 +1713,24 @@ export interface CollectionsWidget {
     [k: string]: unknown;
   };
   width: 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskSearch-index".
+ */
+export interface TaskSearchIndex {
+  input: {
+    /**
+     * Ties this job back to the request that queued it.
+     */
+    correlationId?: string | null;
+    collection: string;
+    documentId: string;
+  };
+  output: {
+    indexed?: number | null;
+    removed?: boolean | null;
+  };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

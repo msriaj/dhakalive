@@ -59,8 +59,11 @@ docker compose up -d postgres redis
 ```
 
 Both have health checks; `docker compose ps` shows when they are ready. Postgres
-is initialised with `--encoding=UTF8 --locale=C`, which is required for Bengali
-content and keeps index ordering deterministic across platforms.
+is initialised with `--encoding=UTF8 --locale=C.UTF-8`: byte-order collation, so
+index ordering is deterministic across platforms, but real Unicode character
+classes, which `pg_trgm` needs in order to see Bengali words at all. The search
+migration refuses to run on a `C`-ctype database — see [search.md](search.md) if
+you have an older volume.
 
 Apply the schema:
 
