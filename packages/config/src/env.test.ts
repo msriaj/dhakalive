@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { EnvValidationError, getServerEnv, resetEnvCache } from './env.js'
+import { EnvValidationError, getServerEnv, resetEnvCache, shouldUseSecureCookies } from './env.js'
 
 const SECRET = 'a'.repeat(48)
 
@@ -190,5 +190,35 @@ describe('production safety rules', () => {
       const env = getServerEnv({ ...productionBase(), DATABASE_ALLOW_UNENCRYPTED: 'true' })
       expect(env.DATABASE_SSL).toBe(true)
     })
+  })
+})
+
+describe('shouldUseSecureCookies', () => {
+  it.each(['https://dhakalive.com', 'https://dhakalive.com:8443', 'https://staging.dhakalive.com'])(
+    'marks the cookie Secure for %s',
+    (url) => {
+      expect(shouldUseSecureCookies(url)).toBe(true)
+    },
+  )
+
+  it.each(['http://localhost:3000', 'http://127.0.0.1:8080', 'http://localhost'])(
+    'allows a plain cookie on %s',
+    (url) => {
+      // Browsers class localhost as a trustworthy origin and will store a
+      // Secure cookie from it, but marking it Secure buys nothing and an SSH
+      // tunnel is the sanctioned way in before DNS exists.
+      expect(shouldUseSecureCookies(url)).toBe(false)
+    },
+  )
+
+  it('still marks the cookie Secure for a plain-http public host', () => {
+    // Bare http to a public address is a misconfiguration. Dropping the cookie
+    // fails loudly; sending the session in clear fails silently.
+    expect(shouldUseSecureCookies('http://159.223.87.97:3000')).toBe(true)
+    expect(shouldUseSecureCookies('http://dhakalive.com')).toBe(true)
+  })
+
+  it('defaults to Secure when the URL cannot be parsed', () => {
+    expect(shouldUseSecureCookies('not a url')).toBe(true)
   })
 })

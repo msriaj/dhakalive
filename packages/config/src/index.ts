@@ -4,6 +4,7 @@ export {
   getServerEnv,
   getClientEnv,
   resetEnvCache,
+  shouldUseSecureCookies,
   EnvValidationError,
 } from './env.js'
 export type { ServerEnv, ClientEnv, NodeEnvName, AppEnvName, SearchProviderName } from './env.js'

@@ -89,6 +89,34 @@ export function isLocalDatabaseHost(uri: string): boolean {
   return host.length > 0 && !host.includes('.') && !host.includes(':')
 }
 
+/**
+ * Whether the session cookie should carry the `Secure` flag.
+ *
+ * Derived from the scheme the site is actually served over, not from APP_ENV.
+ * A browser silently discards a Secure cookie sent over http://, and the
+ * symptom is invisible: the login request returns 200 and the admin bounces
+ * straight back to the login form with no error anywhere.
+ *
+ * https:// is the normal production answer, including behind a TLS-terminating
+ * proxy — what matters is the scheme the browser used, not the origin hop.
+ * http://localhost is treated as secure because browsers class localhost as a
+ * trustworthy origin and will store Secure cookies from it, which is what makes
+ * an SSH tunnel a usable way in before DNS exists.
+ */
+export function shouldUseSecureCookies(siteUrl: string): boolean {
+  let url: URL
+  try {
+    url = new URL(siteUrl)
+  } catch {
+    // Unparseable: choose the safe side. A dropped cookie is a visible failure;
+    // a cookie sent in clear is a silent one.
+    return true
+  }
+
+  if (url.protocol === 'https:') return true
+  return url.hostname !== 'localhost' && url.hostname !== '127.0.0.1' && url.hostname !== '::1'
+}
+
 export const clientEnvSchema = z.object({
   NEXT_PUBLIC_SITE_URL: z.url(),
   NEXT_PUBLIC_MEDIA_URL: z.url().optional(),

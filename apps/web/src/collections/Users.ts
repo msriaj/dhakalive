@@ -1,3 +1,4 @@
+import { shouldUseSecureCookies } from '@dhakalive/config'
 import {
   ROLES,
   can,
@@ -148,8 +149,10 @@ export const Users: CollectionConfig = {
       // Lax (not None) so the session cookie is not sent on cross-site requests,
       // which is the first line of CSRF defence alongside Payload's csrf list.
       sameSite: 'Lax',
-      // Secure everywhere except local development, where there is no TLS.
-      secure: env().APP_ENV !== 'development',
+      // Follows the scheme the site is served over, not APP_ENV. A Secure
+      // cookie sent over http:// is discarded by the browser, and the failure
+      // is silent: login returns 200 and the admin bounces back to the form.
+      secure: shouldUseSecureCookies(env().NEXT_PUBLIC_SITE_URL),
     },
   },
 
