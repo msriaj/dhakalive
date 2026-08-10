@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation'
 
 import { DEFAULT_LOCALE, LOCALES, isLocale } from '@dhakalive/config'
 
+import { AdSlot } from '../../../../../components/AdSlot'
 import { ArticleList } from '../../../../../components/ArticleList'
 import { Breadcrumbs } from '../../../../../components/Breadcrumbs'
 import { Byline } from '../../../../../components/Byline'
@@ -228,6 +229,22 @@ export default async function ArticlePage({ params }: RouteParams) {
       <RichText
         data={article.body}
         className="prose-article mt-8 space-y-5 text-lg leading-relaxed"
+      />
+
+      {/*
+        After the body, not inside it. Interrupting the story mid-paragraph is
+        the placement readers most object to, and it would also mean the ad
+        moving whenever an editor adds a paragraph.
+
+        The category is passed through so a section-targeted booking can match,
+        and the article id seeds rotation so two stories in the same section do
+        not show the identical creative.
+      */}
+      <AdSlot
+        placement="in-article"
+        locale={locale}
+        categoryId={category?.id ?? null}
+        pageKey={`article-${String(article.id)}`}
       />
 
       {tags.length > 0 ? (

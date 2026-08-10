@@ -626,6 +626,46 @@ export const PAGES: readonly SeedPage[] = [
   },
 ]
 
+export interface SeedAdvertisement {
+  key: string
+  name: string
+  advertiser: string
+  placement: 'leaderboard' | 'in-article' | 'footer'
+  mediaKey: string
+  destinationUrl: string
+  weight: number
+  /** Section slug, when the booking is targeted. */
+  categoryKey?: string
+}
+
+/**
+ * Two bookings, so the slots render in development and so the weighting and
+ * targeting rules have something to act on. `example.com` is reserved by
+ * RFC 2606 and cannot be registered, so a seeded creative cannot link anywhere
+ * real.
+ */
+export const ADVERTISEMENTS: readonly SeedAdvertisement[] = [
+  {
+    key: 'leaderboard-house',
+    name: 'Seed — leaderboard',
+    advertiser: 'Seed Advertiser',
+    placement: 'leaderboard',
+    mediaKey: 'masthead',
+    destinationUrl: 'https://example.com/',
+    weight: 3,
+  },
+  {
+    key: 'in-article-business',
+    name: 'Seed — in-article, business only',
+    advertiser: 'Seed Advertiser',
+    placement: 'in-article',
+    mediaKey: 'market',
+    destinationUrl: 'https://example.com/business',
+    weight: 1,
+    categoryKey: 'business',
+  },
+]
+
 export interface SeedLiveBlogUpdate {
   key: string
   minutesAgo: number

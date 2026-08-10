@@ -215,7 +215,7 @@ export const revalidateArticleDeletion: CollectionAfterDeleteHook = async ({ doc
   }))
 }
 
-type SimpleEntity = 'category' | 'tag' | 'author' | 'page' | 'live-blog'
+type SimpleEntity = 'category' | 'tag' | 'author' | 'page' | 'live-blog' | 'advertisement'
 
 /** Hook factory for collections whose invalidation is just "this thing changed". */
 export function revalidateEntity(type: SimpleEntity): CollectionAfterChangeHook {
@@ -238,7 +238,9 @@ export function revalidateEntity(type: SimpleEntity): CollectionAfterChangeHook 
             ? { type, locale, author: ref }
             : type === 'page'
               ? { type, locale, page: ref }
-              : { type, locale, liveBlog: ref }
+              : type === 'advertisement'
+                ? { type, locale, advertisement: ref }
+                : { type, locale, liveBlog: ref }
 
     await schedule(req, () => event)
   }

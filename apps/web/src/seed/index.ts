@@ -8,6 +8,7 @@ import { initLogger, newCorrelationId } from '@dhakalive/observability'
 
 import type { User } from '../payload-types'
 import {
+  ADVERTISEMENTS,
   ARTICLES,
   AUTHORS,
   CATEGORIES,
@@ -120,13 +121,18 @@ async function findId(
   payload: Payload,
   collection: CollectionSlug,
   where: Where,
-  locale: Locale,
+  /**
+   * `null` for collections with no localised fields. Passing a locale to one of
+   * those makes Payload build a join against a `_locales` table that does not
+   * exist, and the query fails deep inside Drizzle with
+   * `Cannot read properties of undefined (reading 'referencedTable')`.
+   */
+  locale: Locale | null,
 ): Promise<number | null> {
   const result = await payload.find({
     collection,
     where,
-    locale,
-    fallbackLocale: false,
+    ...(locale ? { locale, fallbackLocale: false } : {}),
     limit: 1,
     depth: 0,
     draft: true,
@@ -803,6 +809,72 @@ async function ensureLiveBlog(
   }
 }
 
+// ------------------------------------------------------------- advertisements
+
+/**
+ * Bookings are written by the publisher: `ads:manage` sits at that rank, and
+ * using an editor here would fail the seed's own access check rather than
+ * quietly succeeding.
+ */
+async function ensureAdvertisements(
+  payload: Payload,
+  actors: Actors,
+  media: Registry,
+  categories: Registry,
+): Promise<Registry> {
+  const registry: Registry = new Map()
+
+  for (const fixture of ADVERTISEMENTS) {
+    // No localised fields on this collection, so the query carries no locale.
+    const existingId = await findId(
+      payload,
+      'advertisements',
+      { name: { equals: fixture.name } },
+      null,
+    )
+
+    const data = {
+      name: fixture.name,
+      advertiser: fixture.advertiser,
+      placement: fixture.placement,
+      image: lookup(media, fixture.mediaKey, 'media'),
+      destinationUrl: fixture.destinationUrl,
+      weight: fixture.weight,
+      isActive: true,
+      ...(fixture.categoryKey
+        ? { categories: [lookup(categories, fixture.categoryKey, 'category')] }
+        : {}),
+    }
+
+    const id =
+      existingId ??
+      require(idOf(
+        await payload.create({
+          collection: 'advertisements',
+          data,
+          user: actors.publisher,
+          overrideAccess: false,
+          context: SEED_CONTEXT,
+        }),
+      ), `advertisement "${fixture.key}"`)
+
+    if (existingId !== null) {
+      await payload.update({
+        collection: 'advertisements',
+        id,
+        data,
+        user: actors.publisher,
+        overrideAccess: false,
+        context: SEED_CONTEXT,
+      })
+    }
+
+    registry.set(fixture.key, id)
+  }
+
+  return registry
+}
+
 // -------------------------------------------------------------------- globals
 
 /**
@@ -1113,6 +1185,7 @@ async function main(): Promise<void> {
   const authors = await ensureAuthors(payload, actors, media)
   const articles = await ensureArticles(payload, { actors, categories, tags, authors, media })
   const pages = await ensurePages(payload, actors)
+  await ensureAdvertisements(payload, actors, media, categories)
   await ensureLiveBlog(payload, actors, authors, articles)
   await ensureGlobals(payload, actors, { categories, pages, articles, media })
 

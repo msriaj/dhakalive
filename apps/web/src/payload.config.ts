@@ -9,6 +9,7 @@ import sharp from 'sharp'
 
 import { DEFAULT_LOCALE } from '@dhakalive/config'
 
+import { Advertisements } from './collections/Advertisements'
 import { Articles } from './collections/Articles'
 import { Authors } from './collections/Authors'
 import { Categories } from './collections/Categories'
@@ -105,6 +106,7 @@ export default buildConfig({
     LiveBlogs,
     LiveBlogUpdates,
     Pages,
+    Advertisements,
     Redirects,
     Users,
   ],

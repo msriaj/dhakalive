@@ -33,6 +33,7 @@ const STRINGS = {
   page: { bn: 'পৃষ্ঠা', en: 'Page' },
   previous: { bn: 'পূর্ববর্তী', en: 'Previous' },
   next: { bn: 'পরবর্তী', en: 'Next' },
+  advertisement: { bn: 'বিজ্ঞাপন', en: 'Advertisement' },
   noResults: { bn: 'কোনো ফলাফল পাওয়া যায়নি', en: 'No results found' },
   searchPlaceholder: { bn: 'সংবাদ খুঁজুন', en: 'Search the news' },
   searchPrompt: { bn: 'কী খুঁজছেন তা লিখুন।', en: 'Type what you are looking for.' },

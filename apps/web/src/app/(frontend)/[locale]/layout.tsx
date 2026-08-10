@@ -3,6 +3,7 @@ import type React from 'react'
 
 import { isLocale } from '@dhakalive/config'
 
+import { AdSlot } from '../../../components/AdSlot'
 import { SiteFooter } from '../../../components/SiteFooter'
 import { SiteHeader } from '../../../components/SiteHeader'
 import { dictionary } from '../../../lib/dictionary'
@@ -56,7 +57,16 @@ export default async function LocaleLayout({
 
       {/* tabIndex -1 makes the skip link's target focusable. */}
       <main id="main" tabIndex={-1} className="mx-auto max-w-6xl px-4 py-8">
+        {/*
+          Above the content rather than above the header: a leaderboard between
+          the masthead and the navigation pushes the navigation below the fold
+          on a phone, which is where most of this site's readers are.
+        */}
+        <AdSlot placement="leaderboard" locale={locale} className="mb-8" />
+
         {children}
+
+        <AdSlot placement="footer" locale={locale} className="mt-12" />
       </main>
 
       <SiteFooter locale={locale} />

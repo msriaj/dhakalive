@@ -54,6 +54,12 @@ export type RevalidationEvent =
   | { type: 'page'; locale: Locale; page: EntityRef }
   | { type: 'live-blog'; locale: Locale; liveBlog: EntityRef }
   | { type: 'live-blog-update'; locale: Locale; liveBlog: EntityRef }
+  /**
+   * A booked placement starting, ending or changing. It has no URL of its own —
+   * it appears inside other people's pages — so it invalidates the same
+   * site-wide surface a layout change does.
+   */
+  | { type: 'advertisement'; locale: Locale; advertisement: EntityRef }
   | {
       type: 'global'
       locale: Locale
@@ -189,6 +195,21 @@ export function computeRevalidationTargets(event: RevalidationEvent): Revalidati
           ...(event.type === 'live-blog' ? [CacheTag.sitemap()] : []),
         ]),
         paths: unique(slugPaths(event.locale, 'live', event.liveBlog)),
+      }
+
+    case 'advertisement':
+      /**
+       * Every page that carries a slot. There is no path list for that, so it
+       * goes by tag — the same reasoning as a header or footer change, and the
+       * reason ad slots are cheap to render but expensive to change.
+       */
+      return {
+        tags: unique([
+          CacheTag.layout(event.locale),
+          CacheTag.home(event.locale),
+          CacheTag.articleFeed(event.locale),
+        ]),
+        paths: [`/${event.locale}`],
       }
 
     case 'global': {

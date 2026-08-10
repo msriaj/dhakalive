@@ -75,6 +75,7 @@ export interface Config {
     'live-blogs': LiveBlog;
     'live-blog-updates': LiveBlogUpdate;
     pages: Page;
+    advertisements: Advertisement;
     redirects: Redirect;
     users: User;
     'payload-kv': PayloadKv;
@@ -93,6 +94,7 @@ export interface Config {
     'live-blogs': LiveBlogsSelect<false> | LiveBlogsSelect<true>;
     'live-blog-updates': LiveBlogUpdatesSelect<false> | LiveBlogUpdatesSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
+    advertisements: AdvertisementsSelect<false> | AdvertisementsSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
@@ -739,6 +741,59 @@ export interface Page {
   _status?: ('draft' | 'published') | null;
 }
 /**
+ * Booked placements. Creatives are images, never scripts.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "advertisements".
+ */
+export interface Advertisement {
+  id: number;
+  /**
+   * Internal name, e.g. "Bank X — August leaderboard".
+   */
+  name: string;
+  /**
+   * Who is paying. Shown to readers as part of the disclosure.
+   */
+  advertiser: string;
+  placement: 'leaderboard' | 'in-article' | 'footer';
+  /**
+   * The creative. Needs alt text on the media record — it is what a screen reader announces.
+   */
+  image: number | Media;
+  /**
+   * Where the advertisement links to. Must be http or https.
+   */
+  destinationUrl: string;
+  /**
+   * Leave empty to run immediately.
+   */
+  startsAt?: string | null;
+  /**
+   * Leave empty to run until deactivated.
+   */
+  endsAt?: string | null;
+  /**
+   * Uncheck to pause without losing the booking.
+   */
+  isActive?: boolean | null;
+  /**
+   * Leave empty to run in every language.
+   */
+  languages?: ('bn' | 'en')[] | null;
+  /**
+   * Leave empty to run across the whole site.
+   */
+  categories?: (number | Category)[] | null;
+  /**
+   * Share of impressions relative to other ads in the same slot. Zero pauses it without changing the booking.
+   */
+  weight?: number | null;
+  createdBy?: (number | null) | User;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Old URLs and where they should now go.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -929,6 +984,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'pages';
         value: number | Page;
+      } | null)
+    | ({
+        relationTo: 'advertisements';
+        value: number | Advertisement;
       } | null)
     | ({
         relationTo: 'redirects';
@@ -1256,6 +1315,26 @@ export interface PagesSelect<T extends boolean = true> {
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "advertisements_select".
+ */
+export interface AdvertisementsSelect<T extends boolean = true> {
+  name?: T;
+  advertiser?: T;
+  placement?: T;
+  image?: T;
+  destinationUrl?: T;
+  startsAt?: T;
+  endsAt?: T;
+  isActive?: T;
+  languages?: T;
+  categories?: T;
+  weight?: T;
+  createdBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

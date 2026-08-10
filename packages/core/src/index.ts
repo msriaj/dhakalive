@@ -127,3 +127,6 @@ export {
   parseRedirectTarget,
 } from './redirects/path.js'
 export type { ChainResult, RedirectPermanence, RedirectTarget } from './redirects/path.js'
+
+export { AD_PLACEMENTS, isAdEligible, isAdPlacement, selectAd } from './ads/selection.js'
+export type { AdCandidate, AdContext, AdPlacement } from './ads/selection.js'

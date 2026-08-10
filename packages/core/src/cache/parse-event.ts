@@ -134,6 +134,11 @@ export function parseRevalidationEvent(value: unknown): RevalidationEvent | null
       return liveBlog ? { type: candidate.type, locale, liveBlog } : null
     }
 
+    case 'advertisement': {
+      const advertisement = parseRef(candidate.advertisement)
+      return advertisement ? { type: 'advertisement', locale, advertisement } : null
+    }
+
     case 'global':
       return isGlobalName(candidate.global)
         ? { type: 'global', locale, global: candidate.global }
