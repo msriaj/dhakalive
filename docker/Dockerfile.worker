@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1.7
 #
-# Background job runner. Shares the dependency install with the web image but
-# keeps its own runtime so the two scale independently: web scales on request
-# volume, the worker stays at exactly one replica for the job queue.
+# Background job runner. Scales independently of the web service: web scales on
+# request volume, the worker stays at exactly one replica so the job queue has
+# exactly one runner.
 
 ARG NODE_VERSION=24.11.0-bookworm-slim
 
@@ -12,11 +12,8 @@ ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
 WORKDIR /repo
 
-FROM base AS deps
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 make g++ \
-  && rm -rf /var/lib/apt/lists/*
-
+# Manifests only — this layer is what makes dependency installs cacheable.
+FROM base AS manifests
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
 COPY apps/web/package.json apps/web/
 COPY packages/config/package.json packages/config/
@@ -24,13 +21,47 @@ COPY packages/core/package.json packages/core/
 COPY packages/observability/package.json packages/observability/
 COPY services/worker/package.json services/worker/
 
+# -----------------------------------------------------------------------------
+# builder — full dependency tree, needed to compile the workspace packages
+# -----------------------------------------------------------------------------
+FROM manifests AS builder
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
+
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
   pnpm install --frozen-lockfile
 
-FROM deps AS builder
 COPY . .
 ENV SKIP_ENV_VALIDATION=1
 RUN pnpm build:packages
+
+# -----------------------------------------------------------------------------
+# prod-deps — a clean production-only tree
+#
+# Built from `manifests` rather than from `builder` on purpose. Running
+# `pnpm install --prod` over an existing tree only rewrites the symlinks; the
+# .pnpm virtual store keeps every previously extracted package, so the image
+# still carries TypeScript, ESLint, drizzle-kit and friends. Starting from
+# manifests means those are never extracted in this stage at all.
+#
+# @dhakalive/web is included because `@payload-config` resolves to
+# apps/web/src/payload.config.ts, and Node resolves that module's imports from
+# apps/web/node_modules.
+# -----------------------------------------------------------------------------
+FROM manifests AS prod-deps
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
+
+# CI=true keeps pnpm non-interactive; otherwise replacing node_modules aborts
+# with ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY.
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+  CI=true pnpm install --frozen-lockfile --prod \
+  --filter "@dhakalive/worker..." \
+  --filter "@dhakalive/web..."
 
 # -----------------------------------------------------------------------------
 # runner
@@ -43,16 +74,35 @@ RUN apt-get update \
 
 ENV NODE_ENV=production
 
-WORKDIR /repo
-COPY --from=builder /repo ./
-
 RUN groupadd --system --gid 1001 nodejs \
-  && useradd --system --uid 1001 --gid nodejs worker \
-  && chown -R worker:nodejs /repo
+  && useradd --system --uid 1001 --gid nodejs worker
+
+WORKDIR /repo
+
+# Every COPY sets ownership inline. A trailing `chown -R` would rewrite every
+# file and so duplicate the entire tree in a second layer.
+COPY --from=prod-deps --chown=worker:nodejs /repo/node_modules ./node_modules
+COPY --from=prod-deps --chown=worker:nodejs /repo/apps/web/node_modules ./apps/web/node_modules
+COPY --from=prod-deps --chown=worker:nodejs /repo/services/worker/node_modules ./services/worker/node_modules
+COPY --from=prod-deps --chown=worker:nodejs /repo/packages ./packages
+
+COPY --from=builder --chown=worker:nodejs /repo/packages/config/dist ./packages/config/dist
+COPY --from=builder --chown=worker:nodejs /repo/packages/core/dist ./packages/core/dist
+COPY --from=builder --chown=worker:nodejs /repo/packages/observability/dist ./packages/observability/dist
+
+# tsconfig.base.json is required at runtime, not just at build time: the worker's
+# tsconfig `extends` it, and tsx reads that file to resolve the `@payload-config`
+# path mapping. Without it the alias silently fails to resolve.
+COPY --chown=worker:nodejs pnpm-workspace.yaml package.json tsconfig.base.json ./
+COPY --chown=worker:nodejs services/worker ./services/worker
+# The worker loads the Payload config, which pulls in the collections it defines.
+COPY --chown=worker:nodejs apps/web/package.json ./apps/web/package.json
+COPY --chown=worker:nodejs apps/web/src ./apps/web/src
 
 USER worker
+WORKDIR /repo/services/worker
 
-# The worker exposes no port; liveness is judged by the process staying up and
-# by job-failure metrics, not by an HTTP probe.
+# No port is exposed; liveness is judged by the process staying up and by
+# job-failure metrics, not by an HTTP probe.
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["pnpm", "--filter", "@dhakalive/worker", "start"]
+CMD ["node", "--import", "tsx", "src/index.ts"]
