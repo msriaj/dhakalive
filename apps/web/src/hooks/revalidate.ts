@@ -8,6 +8,8 @@ import type {
   PayloadRequest,
 } from 'payload'
 
+import { resolveCategorySlug } from './relationships'
+
 /**
  * Collection and global hooks that describe a change to the revalidation
  * service. They decide nothing about *which* pages to purge — that lives in
@@ -158,6 +160,13 @@ export const revalidateArticle: CollectionAfterChangeHook = async ({ doc, previo
   const current = asDoc(doc)
   const previous = asDoc(previousDoc)
 
+  /**
+   * The previous category is resolved rather than read directly. Payload
+   * populates `doc` but leaves `previousDoc` holding a bare id, so
+   * `previous.primaryCategory.slug` is always undefined — which meant a story
+   * moved between sections never purged the section it left, and that listing
+   * kept showing it until its own revalidate window expired.
+   */
   const event: RevalidationEvent = {
     type: 'article',
     locale: localeOf(req.locale),
@@ -166,8 +175,12 @@ export const revalidateArticle: CollectionAfterChangeHook = async ({ doc, previo
       slug: typeof current.slug === 'string' ? current.slug : null,
       previousSlug: typeof previous.slug === 'string' ? previous.slug : null,
     },
-    categorySlug: slugOf(current.primaryCategory),
-    previousCategorySlug: slugOf(previous.primaryCategory),
+    categorySlug: await resolveCategorySlug(req, current.primaryCategory),
+    previousCategorySlug: await resolveCategorySlug(
+      req,
+      previous.primaryCategory,
+      current.primaryCategory,
+    ),
     categoryId: idOf(current.primaryCategory),
     tagIds: idsOf(current.tags),
     authorIds: idsOf(current.authors),
@@ -188,6 +201,8 @@ export const revalidateArticleDeletion: CollectionAfterDeleteHook = async ({ doc
     locale: localeOf(req.locale),
     article: { id: removed.id, slug: typeof removed.slug === 'string' ? removed.slug : null },
     categorySlug: slugOf(removed.primaryCategory),
+    // `afterDelete` hands over the fully populated document, so the slug is
+    // present here without a lookup.
     categoryId: idOf(removed.primaryCategory),
     tagIds: idsOf(removed.tags),
     authorIds: idsOf(removed.authors),

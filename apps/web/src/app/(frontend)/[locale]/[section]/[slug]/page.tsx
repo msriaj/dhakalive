@@ -16,6 +16,7 @@ import { env } from '../../../../../lib/env'
 import { formatDate, isoDate } from '../../../../../lib/format'
 import { buildMetadata } from '../../../../../lib/metadata'
 import { getArticleBySlug, getRelatedArticles } from '../../../../../lib/queries/articles'
+import { redirectIfKnown } from '../../../../../lib/redirects'
 import { articleGraph } from '../../../../../lib/seo/structured-data'
 import { absoluteUrl, articlePath, categoryPath, tagPath } from '../../../../../lib/routes'
 import type { Category, Tag } from '../../../../../payload-types'
@@ -91,7 +92,12 @@ export default async function ArticlePage({ params }: RouteParams) {
 
   const decodedSlug = decodeURIComponent(slug)
   const article = await getArticleBySlug(decodedSlug, locale)
-  if (!article) notFound()
+  if (!article) {
+    // The story may simply have moved. Checked only here, on the path that was
+    // already going to fail, so a reader following a live URL never pays for it.
+    await redirectIfKnown(`/${locale}/${decodeURIComponent(sectionSlug)}/${decodedSlug}`)
+    notFound()
+  }
 
   const category = categoryOf(article)
 

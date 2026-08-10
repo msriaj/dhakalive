@@ -12,6 +12,7 @@ import { hasCapability, toAuthUser } from '../access'
 import { seoField } from '../fields/seo'
 import { slugField } from '../fields/slug'
 import { enforceArticleWorkflow } from '../hooks/article-workflow'
+import { recordArticleRedirect } from '../hooks/redirects'
 import { revalidateArticle, revalidateArticleDeletion } from '../hooks/revalidate'
 import { deindexOnDelete, indexOnChange } from '../hooks/search'
 
@@ -111,7 +112,7 @@ export const Articles: CollectionConfig = {
 
   hooks: {
     beforeChange: [enforceArticleWorkflow],
-    afterChange: [revalidateArticle, indexOnChange('articles')],
+    afterChange: [recordArticleRedirect, revalidateArticle, indexOnChange('articles')],
     afterDelete: [revalidateArticleDeletion, deindexOnDelete('articles')],
   },
 

@@ -16,6 +16,7 @@ import { LiveBlogUpdates } from './collections/LiveBlogUpdates'
 import { LiveBlogs } from './collections/LiveBlogs'
 import { MAX_UPLOAD_BYTES, Media } from './collections/Media'
 import { Pages } from './collections/Pages'
+import { Redirects } from './collections/Redirects'
 import { Tags } from './collections/Tags'
 import { Users } from './collections/Users'
 import { Homepage } from './globals/Homepage'
@@ -104,6 +105,7 @@ export default buildConfig({
     LiveBlogs,
     LiveBlogUpdates,
     Pages,
+    Redirects,
     Users,
   ],
   globals: [Homepage, Header, Footer, SiteSettings, SeoDefaults],

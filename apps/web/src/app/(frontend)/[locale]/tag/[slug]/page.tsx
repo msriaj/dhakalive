@@ -10,6 +10,7 @@ import { buildMetadata } from '../../../../../lib/metadata'
 import { getArticlesByTag } from '../../../../../lib/queries/articles'
 import { getTagBySlug } from '../../../../../lib/queries/taxonomy'
 import { tagPath } from '../../../../../lib/routes'
+import { redirectIfKnown } from '../../../../../lib/redirects'
 import { collectionGraph } from '../../../../../lib/seo/structured-data'
 
 export const revalidate = 120
@@ -49,7 +50,10 @@ export default async function TagPage({ params, searchParams }: RouteParams) {
   const page = pageNumber((await searchParams).page)
 
   const tag = await getTagBySlug(decoded, locale)
-  if (!tag) notFound()
+  if (!tag) {
+    await redirectIfKnown(`/${locale}/tag/${decoded}`)
+    notFound()
+  }
 
   const articles = await getArticlesByTag(tag.id, { locale, limit: 12, page })
 

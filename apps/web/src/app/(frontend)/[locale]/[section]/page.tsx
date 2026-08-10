@@ -17,6 +17,7 @@ import {
 } from '../../../../lib/queries/taxonomy'
 import { env } from '../../../../lib/env'
 import { absoluteUrl, categoryPath } from '../../../../lib/routes'
+import { redirectIfKnown } from '../../../../lib/redirects'
 import { collectionGraph } from '../../../../lib/seo/structured-data'
 
 /**
@@ -160,7 +161,11 @@ export default async function CategoryOrPage({ params, searchParams }: RoutePara
   }
 
   const standingPage = await getPageBySlug(decoded, locale)
-  if (!standingPage) notFound()
+  if (!standingPage) {
+    // Neither a section nor a page. It may be an old URL that has moved.
+    await redirectIfKnown(`/${locale}/${decoded}`)
+    notFound()
+  }
 
   return (
     <article className="mx-auto max-w-3xl">

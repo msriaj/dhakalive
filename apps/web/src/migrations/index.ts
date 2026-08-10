@@ -8,6 +8,7 @@ import * as migration_20260810_094311_search_index_task from './20260810_094311_
 import * as migration_20260810_095314_scheduled_tasks from './20260810_095314_scheduled_tasks'
 import * as migration_20260810_100138_drop_job_schedules from './20260810_100138_drop_job_schedules'
 import * as migration_20260810_100853_revalidate_task from './20260810_100853_revalidate_task'
+import * as migration_20260810_104804_redirects from './20260810_104804_redirects'
 
 export const migrations = [
   {
@@ -59,5 +60,10 @@ export const migrations = [
     up: migration_20260810_100853_revalidate_task.up,
     down: migration_20260810_100853_revalidate_task.down,
     name: '20260810_100853_revalidate_task',
+  },
+  {
+    up: migration_20260810_104804_redirects.up,
+    down: migration_20260810_104804_redirects.down,
+    name: '20260810_104804_redirects',
   },
 ]

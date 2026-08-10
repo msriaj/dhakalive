@@ -116,3 +116,14 @@ export type {
 
 export { MAX_FEED_ITEMS, renderAtom, renderRss } from './seo/feed.js'
 export type { FeedAuthor, FeedChannel, FeedEnclosure, FeedItem } from './seo/feed.js'
+
+export {
+  MAX_REDIRECT_HOPS,
+  REDIRECT_PERMANENCE,
+  REDIRECT_STATUS,
+  followRedirectChain,
+  isRedirectPermanence,
+  normaliseRedirectPath,
+  parseRedirectTarget,
+} from './redirects/path.js'
+export type { ChainResult, RedirectPermanence, RedirectTarget } from './redirects/path.js'

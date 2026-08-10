@@ -75,6 +75,7 @@ export interface Config {
     'live-blogs': LiveBlog;
     'live-blog-updates': LiveBlogUpdate;
     pages: Page;
+    redirects: Redirect;
     users: User;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
@@ -92,6 +93,7 @@ export interface Config {
     'live-blogs': LiveBlogsSelect<false> | LiveBlogsSelect<true>;
     'live-blog-updates': LiveBlogUpdatesSelect<false> | LiveBlogUpdatesSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
+    redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
@@ -737,6 +739,39 @@ export interface Page {
   _status?: ('draft' | 'published') | null;
 }
 /**
+ * Old URLs and where they should now go.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "redirects".
+ */
+export interface Redirect {
+  id: number;
+  /**
+   * The old path, including the locale — /bn/politics/old-slug. Query strings are ignored.
+   */
+  from: string;
+  /**
+   * A path on this site, or an https URL on an allowed host.
+   */
+  to: string;
+  permanence: 'permanent' | 'temporary';
+  /**
+   * Uncheck to disable without deleting the record.
+   */
+  isActive?: boolean | null;
+  /**
+   * Automatic entries are created when a published URL changes.
+   */
+  source: 'manual' | 'automatic';
+  /**
+   * Why this redirect exists. Useful when auditing the table later.
+   */
+  note?: string | null;
+  createdBy?: (number | null) | User;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -894,6 +929,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'pages';
         value: number | Page;
+      } | null)
+    | ({
+        relationTo: 'redirects';
+        value: number | Redirect;
       } | null)
     | ({
         relationTo: 'users';
@@ -1217,6 +1256,21 @@ export interface PagesSelect<T extends boolean = true> {
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "redirects_select".
+ */
+export interface RedirectsSelect<T extends boolean = true> {
+  from?: T;
+  to?: T;
+  permanence?: T;
+  isActive?: T;
+  source?: T;
+  note?: T;
+  createdBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

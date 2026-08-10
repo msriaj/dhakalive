@@ -12,6 +12,7 @@ import { buildMetadata } from '../../../../../lib/metadata'
 import { getArticlesByAuthor } from '../../../../../lib/queries/articles'
 import { getAuthorBySlug } from '../../../../../lib/queries/taxonomy'
 import { authorPath } from '../../../../../lib/routes'
+import { redirectIfKnown } from '../../../../../lib/redirects'
 import { collectionGraph } from '../../../../../lib/seo/structured-data'
 
 export const revalidate = 300
@@ -53,7 +54,10 @@ export default async function AuthorPage({ params, searchParams }: RouteParams) 
   const page = pageNumber((await searchParams).page)
 
   const author = await getAuthorBySlug(decoded, locale)
-  if (!author) notFound()
+  if (!author) {
+    await redirectIfKnown(`/${locale}/author/${decoded}`)
+    notFound()
+  }
 
   const articles = await getArticlesByAuthor(author.id, { locale, limit: 12, page })
 
