@@ -1,0 +1,106 @@
+# syntax=docker/dockerfile:1.7
+#
+# Automated ingest.
+#
+# Its own image rather than a second command on the worker, for the same reason
+# it is its own service: an HTML parser and a model client are dependencies the
+# job runner has no use for, and a model outage should stall ingest without
+# touching scheduled publication or cache purging.
+#
+# Single replica. Two of these would read the same listing page and race on the
+# dedupe check, publishing the same story twice.
+
+ARG NODE_VERSION=24.11.0-bookworm-slim
+
+FROM node:${NODE_VERSION} AS base
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+RUN corepack enable
+WORKDIR /repo
+
+FROM base AS manifests
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
+COPY apps/web/package.json apps/web/
+COPY packages ./packages
+COPY services/ingest/package.json services/ingest/
+
+# -----------------------------------------------------------------------------
+# builder — full dependency tree, needed to compile the workspace packages
+# -----------------------------------------------------------------------------
+FROM manifests AS builder
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+  pnpm install --frozen-lockfile
+
+COPY . .
+ENV SKIP_ENV_VALIDATION=1
+RUN pnpm build:packages
+
+# -----------------------------------------------------------------------------
+# prod-deps — a clean production-only tree
+#
+# Built from `manifests`, not from `builder`: `pnpm install --prod` over an
+# existing tree only rewrites symlinks, leaving every dev package already
+# extracted in the virtual store. @dhakalive/web is included because
+# `@payload-config` resolves into apps/web/src, and Node resolves that module's
+# own imports from apps/web/node_modules.
+# -----------------------------------------------------------------------------
+FROM manifests AS prod-deps
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+  CI=true pnpm install --frozen-lockfile --prod \
+  --filter "@dhakalive/ingest..." \
+  --filter "@dhakalive/web..."
+
+# -----------------------------------------------------------------------------
+# runner
+# -----------------------------------------------------------------------------
+FROM base AS runner
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends dumb-init \
+  && rm -rf /var/lib/apt/lists/*
+
+ENV NODE_ENV=production
+
+RUN groupadd --system --gid 1001 nodejs \
+  && useradd --system --uid 1001 --gid nodejs ingest
+
+WORKDIR /repo
+
+COPY --from=prod-deps --chown=ingest:nodejs /repo/node_modules ./node_modules
+COPY --from=prod-deps --chown=ingest:nodejs /repo/apps/web/node_modules ./apps/web/node_modules
+COPY --from=prod-deps --chown=ingest:nodejs /repo/services/ingest/node_modules ./services/ingest/node_modules
+COPY --from=prod-deps --chown=ingest:nodejs /repo/packages ./packages
+
+COPY --from=builder --chown=ingest:nodejs /repo/packages/config/dist ./packages/config/dist
+COPY --from=builder --chown=ingest:nodejs /repo/packages/core/dist ./packages/core/dist
+COPY --from=builder --chown=ingest:nodejs /repo/packages/observability/dist ./packages/observability/dist
+COPY --from=builder --chown=ingest:nodejs /repo/packages/cache/dist ./packages/cache/dist
+COPY --from=builder --chown=ingest:nodejs /repo/packages/search/dist ./packages/search/dist
+
+# Fail here rather than at 3am on the server.
+RUN node -e "const fs=require('fs');for(const p of ['config','core','observability','cache','search']){fs.statSync('/repo/apps/web/node_modules/@dhakalive/'+p+'/dist')}" \
+  && echo "workspace packages linked and built"
+
+# tsconfig.base.json is needed at runtime, not just at build time: this service's
+# tsconfig `extends` it, and tsx reads that file to resolve `@payload-config`.
+COPY --chown=ingest:nodejs pnpm-workspace.yaml package.json tsconfig.base.json ./
+COPY --chown=ingest:nodejs services/ingest ./services/ingest
+COPY --chown=ingest:nodejs apps/web/package.json ./apps/web/package.json
+COPY --chown=ingest:nodejs apps/web/tsconfig.json ./apps/web/tsconfig.json
+COPY --chown=ingest:nodejs apps/web/src ./apps/web/src
+
+USER ingest
+WORKDIR /repo/services/ingest
+
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "--import", "tsx", "src/index.ts"]

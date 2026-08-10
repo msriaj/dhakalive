@@ -93,6 +93,28 @@ services:
         limits:
           memory: ${WORKER_MEMORY_LIMIT:-384m}
 
+  # Automated ingest. Separate from the worker so a model or upstream outage
+  # stalls only this, leaving scheduled publication and cache purging running.
+  #
+  # Idles unless INGEST_ENABLED is true in .env, so deploying it is not the same
+  # decision as turning it on.
+  ingest:
+    image: ${INGEST_IMAGE:-ghcr.io/msriaj/dhakalive-ingest:latest}
+    restart: always
+    <<: *app-env
+    environment:
+      APP_ENV: production
+      NODE_ENV: production
+      JOBS_RUN_IN_PROCESS: 'false'
+    logging: *logging
+    deploy:
+      # Exactly one. Two would read the same listing and race on the dedupe
+      # check, publishing the same story twice.
+      replicas: 1
+      resources:
+        limits:
+          memory: ${INGEST_MEMORY_LIMIT:-384m}
+
   # TLS termination and the only container published to the internet.
   #
   # Cloudflare cannot proxy to port 3000 — it reaches origins on 80/443 and a

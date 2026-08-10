@@ -130,3 +130,23 @@ export type { ChainResult, RedirectPermanence, RedirectTarget } from './redirect
 
 export { AD_PLACEMENTS, isAdEligible, isAdPlacement, selectAd } from './ads/selection.js'
 export type { AdCandidate, AdContext, AdPlacement } from './ads/selection.js'
+
+export {
+  INGEST_BLOCK_TYPES,
+  blocksToLexical,
+  describeBlockIssues,
+  validateBlocks,
+} from './ingest/index.js'
+export type {
+  BlockIssue,
+  BlockValidation,
+  DividerBlock,
+  ImageBlock,
+  IngestBlock,
+  IngestBlockType,
+  LexicalState,
+  ListBlock,
+  ParagraphBlock,
+  PullQuoteBlock,
+  SubheadBlock,
+} from './ingest/index.js'

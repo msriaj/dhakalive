@@ -57,9 +57,18 @@ describe('transition table integrity', () => {
 })
 
 describe('rejecting invalid edges', () => {
+  /**
+   * The edge exists for the ingest service, but only as a `systemOnly` row. No
+   * user holds it — not a publisher, not a super-admin — because the capability
+   * check is never reached: the system-only guard rejects first.
+   */
   it('refuses a jump straight from draft to published', () => {
     const result = checkTransition('draft', 'published', { user: publisher, ...owner })
-    expect(result).toMatchObject({ ok: false, reason: expect.stringContaining('Cannot move') })
+    expect(result).toMatchObject({ ok: false, reason: expect.stringContaining('scheduler') })
+  })
+
+  it('allows draft to published only for the system', () => {
+    expect(checkTransition('draft', 'published', { user: null, isSystem: true }).ok).toBe(true)
   })
 
   it('refuses draft to approved', () => {

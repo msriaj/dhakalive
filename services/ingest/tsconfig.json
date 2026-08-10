@@ -1,0 +1,23 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "types": ["node"],
+    "paths": {
+      // Writes go through the Local API, so the service loads the same Payload
+      // config the CMS does — the workflow hook, the publish guards and the
+      // revalidation hooks all run exactly as they do for an editor's save.
+      //
+      // Note the direction of the dependency: this service reads the config,
+      // and nothing in `apps/web` imports this service. That is what keeps
+      // `cheerio` and `openai` out of the Next bundle graph.
+      "@payload-config": ["../../apps/web/src/payload.config.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

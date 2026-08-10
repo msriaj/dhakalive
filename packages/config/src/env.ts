@@ -206,6 +206,20 @@ export const serverEnvSchema = z
     JOBS_RUN_IN_PROCESS: booleanFromString.default(false),
     JOBS_POLL_INTERVAL_MS: z.coerce.number().int().min(1000).default(10_000),
 
+    // --- Automated ingest -----------------------------------------------------
+    /**
+     * Off by default, and deliberately a separate switch from having the API key
+     * present. The key gets set in every environment that might one day want it;
+     * this is what decides whether a given deployment actually publishes
+     * unattended, so staging can hold credentials without going live.
+     */
+    INGEST_ENABLED: booleanFromString.default(false),
+    INGEST_SOURCE_URL: z.url().optional(),
+    /** Stories taken from the feed per sweep. A backlog drains over later runs. */
+    INGEST_MAX_PER_RUN: z.coerce.number().int().min(1).max(50).default(5),
+    OPENAI_API_KEY: optionalString,
+    OPENAI_MODEL: z.string().trim().default('gpt-4o'),
+
     // --- Observability --------------------------------------------------------
     LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
     ERROR_TRACKING_DSN: optionalString,
@@ -225,6 +239,29 @@ export const serverEnvSchema = z
     requireInProduction('CLOUDFLARE_R2_SECRET_ACCESS_KEY', 'R2 credentials incomplete')
     requireInProduction('CLOUDFLARE_R2_ENDPOINT', 'R2 credentials incomplete')
     requireInProduction('CLOUDFLARE_MEDIA_PUBLIC_URL', 'public media needs its own CDN hostname')
+
+    /**
+     * The ingest publishes without a human in the loop, so a half-configured
+     * one must not start. Missing credentials would surface as a sweep that
+     * fails every few minutes and fills the dead-letter table, which is a worse
+     * way to learn about it than refusing to boot.
+     */
+    if (env.INGEST_ENABLED) {
+      if (!env.OPENAI_API_KEY) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['OPENAI_API_KEY'],
+          message: 'Required when INGEST_ENABLED is true',
+        })
+      }
+      if (!env.INGEST_SOURCE_URL) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['INGEST_SOURCE_URL'],
+          message: 'Required when INGEST_ENABLED is true',
+        })
+      }
+    }
 
     if (isProduction && env.DATABASE_PUSH) {
       ctx.addIssue({

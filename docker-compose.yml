@@ -125,6 +125,26 @@ services:
     deploy:
       replicas: 1
 
+  ingest:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ingest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URI: postgres://dhakalive:dhakalive@postgres:5432/dhakalive
+      # Left unset here on purpose. The service idles unless INGEST_ENABLED is
+      # true in .env, so bringing the stack up locally does not start publishing
+      # to a real database because somebody ran `docker compose up`.
+      JOBS_RUN_IN_PROCESS: 'false'
+    # Exactly one. Two would read the same listing and race on the dedupe check.
+    deploy:
+      replicas: 1
+
 volumes:
   postgres-data:
   minio-data:

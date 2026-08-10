@@ -10,7 +10,12 @@ export default defineConfig({
   test: {
     globals: false,
     environment: 'node',
-    include: ['packages/*/src/**/*.test.ts', 'apps/web/src/**/*.test.ts', 'tests/**/*.test.ts'],
+    include: [
+      'packages/*/src/**/*.test.ts',
+      'apps/web/src/**/*.test.ts',
+      'services/*/src/**/*.test.ts',
+      'tests/**/*.test.ts',
+    ],
     exclude: ['**/node_modules/**', '**/dist/**', '**/.next/**', 'e2e/**'],
     reporters: ['default'],
     coverage: {
