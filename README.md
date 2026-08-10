@@ -104,6 +104,8 @@ packaging change rather than a rewrite.
 - [Roles and permissions](docs/roles-and-permissions.md)
 - [Content model](docs/content-model.md)
 - [Editorial workflow](docs/editorial-workflow.md)
+- [Background jobs](docs/jobs.md)
+- [Search](docs/search.md)
 - [Cloudflare setup](docs/cloudflare.md)
 - [R2 media storage](docs/r2-storage.md)
 
