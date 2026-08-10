@@ -184,6 +184,62 @@ it immediately after the first deploy, before the site is publicly announced.
 See [cloudflare.md](cloudflare.md) for cache rules, WAF, rate limiting and origin
 protection. The origin must not be reachable except through Cloudflare.
 
+#### The origin must listen on 80/443
+
+Cloudflare's proxy reaches an origin on a fixed set of ports. **3000 is not one
+of them**: HTTP is 80, 8080, 8880, 2052, 2082, 2086, 2095 and HTTPS is 443,
+2053, 2083, 2087, 2096, 8443. Point a proxied record at a box that only serves
+3000 and every request returns **521 — web server is down**, however healthy the
+app is.
+
+The `caddy` service in the production stack is what listens on 80/443 and
+forwards to `app:3000` over the Docker network. The app publishes only to
+`127.0.0.1`, so the only way in from outside is through Caddy.
+
+Set `SITE_DOMAIN` in `.env` to the hostname Cloudflare sends, or Caddy will
+serve a certificate for the wrong name:
+
+```
+SITE_DOMAIN=dhakalive.com
+```
+
+#### Choosing an SSL mode
+
+Caddy ships here with `tls internal` — a locally-signed certificate — which
+pairs with Cloudflare's **Full** mode. Browsers get Cloudflare's certificate;
+the Cloudflare-to-origin hop is encrypted but its certificate is not verified.
+
+**Full (strict)** is the stronger setting and needs a certificate Cloudflare
+trusts. Use a Cloudflare Origin CA certificate — free, valid for 15 years, and
+trusted only by Cloudflare:
+
+1. Cloudflare dashboard → SSL/TLS → Origin Server → Create Certificate.
+2. Save the certificate as `docker/caddy/certs/origin.pem` and the private key
+   as `docker/caddy/certs/origin.key` on the server. Both are gitignored; the
+   key must never be committed.
+3. In `docker/Caddyfile`, replace `tls internal` with:
+   `tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key`
+4. Restart Caddy, then switch Cloudflare to Full (strict).
+
+Do **not** use Flexible. It sends every request from Cloudflare to the origin in
+clear text across the public internet while showing readers a padlock.
+
+#### Close the origin to everyone but Cloudflare
+
+Once the site resolves through Cloudflare, the origin IP should stop answering
+anyone else — otherwise the WAF, rate limiting and cache are all one direct
+request away from being bypassed:
+
+```bash
+sudo ./scripts/firewall-cloudflare.sh
+```
+
+Review it first with `./scripts/firewall-cloudflare.sh --dry-run`. It permits
+SSH before touching anything else, so a failure mid-run cannot lock you out.
+Re-run it when Cloudflare changes its ranges, and update `trusted_proxies` in
+`docker/Caddyfile` to match — a range allowed through the firewall but absent
+from that list yields the wrong client IP in the logs.
+
 ## Where the build happens
 
 **On GitHub's runners. Never on the server.**

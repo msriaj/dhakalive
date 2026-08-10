@@ -1,0 +1,56 @@
+# Reverse proxy in front of the Next app.
+#
+# Cloudflare's proxy can only reach an origin on a fixed set of ports, and 3000
+# is not one of them (HTTP: 80, 8080, 8880, 2052, 2082, 2086, 2095 — HTTPS: 443,
+# 2053, 2083, 2087, 2096, 8443). With nothing listening on 80/443 the proxy
+# answers every request with 521.
+#
+# The app is no longer published to the internet; only this container is.
+
+{
+	# No admin API. It is unauthenticated and would otherwise be reachable from
+	# every other container on the shared network.
+	admin off
+
+	servers {
+		# Client IPs arrive in X-Forwarded-For, which anyone can forge. Caddy trusts
+		# it only from Cloudflare's published ranges (www.cloudflare.com/ips-v4 and
+		# ips-v6). Refresh with scripts/firewall-cloudflare.sh, which writes the same
+		# list into the firewall.
+		trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+	}
+}
+
+{$SITE_DOMAIN:dhakalive.com} {
+	# A locally-signed certificate, which pairs with Cloudflare's "Full" SSL mode:
+	# the browser hop is secured by Cloudflare's certificate, this secures the
+	# Cloudflare-to-origin hop.
+	#
+	# The stronger setting is "Full (strict)" with a Cloudflare Origin CA
+	# certificate — see docs/deployment.md. Then replace this line with:
+	#   tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+	tls internal
+
+	encode zstd gzip
+
+	# The app sets this itself. Repeating it here means a proxy misconfiguration
+	# alone cannot hand a logged-in response to the next visitor.
+	@private path /admin* /api*
+	header @private Cache-Control "private, no-store"
+
+	reverse_proxy app:3000 {
+		# Cloudflare puts the real client address here.
+		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+		header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+
+		# Return 502 rather than leaving a browser connection hanging.
+		transport http {
+			dial_timeout 5s
+		}
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

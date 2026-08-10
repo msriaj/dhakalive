@@ -33,3 +33,8 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# TLS material for the reverse proxy. The Cloudflare Origin CA private key must
+# never reach the repository; it is placed on the server by hand.
+docker/caddy/certs/*
+!docker/caddy/certs/.gitkeep

@@ -41,7 +41,12 @@ services:
     expose:
       - '3000'
     ports:
-      - '${APP_PORT:-3000}:3000'
+      # Loopback only. Caddy reaches the app over the Docker network, so this
+      # mapping exists purely so an operator can curl the app directly or reach
+      # the admin through an SSH tunnel. Publishing it on 0.0.0.0 would put an
+      # unencrypted copy of the site next to the TLS one and let anyone bypass
+      # Cloudflare by asking the origin IP.
+      - '127.0.0.1:${APP_PORT:-3000}:3000'
     depends_on:
       redis:
         condition: service_healthy
@@ -87,6 +92,49 @@ services:
       resources:
         limits:
           memory: ${WORKER_MEMORY_LIMIT:-384m}
+
+  # TLS termination and the only container published to the internet.
+  #
+  # Cloudflare cannot proxy to port 3000 — it reaches origins on 80/443 and a
+  # short list of alternates — so without this the proxy returns 521 no matter
+  # how healthy the app is.
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:-dhakalive.com}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates and OCSP staples. Without this volume Caddy re-issues on
+      # every restart, which burns rate limits on a real CA.
+      - caddy-data:/data
+      - caddy-config:/config
+      # Cloudflare Origin CA certificate, when moving to "Full (strict)".
+      # Optional: the directory may be empty.
+      - ./caddy/certs:/etc/caddy/certs:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    # Both listeners accepting connections. Deliberately not an HTTP request:
+    # port 80 answers every path with a 308 to https://<domain>, and busybox
+    # wget always follows redirects, so the probe would leave the box, go out
+    # through Cloudflare and come back — measuring the internet, not Caddy.
+    # Caddy exits on a bad config, so "listening" plus the app's own healthcheck
+    # covers the failure modes that matter.
+    healthcheck:
+      test: ['CMD-SHELL', 'nc -z 127.0.0.1 80 && nc -z 127.0.0.1 443']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          memory: ${CADDY_MEMORY_LIMIT:-128m}
 
   redis:
     image: redis:7-alpine
@@ -135,6 +183,14 @@ services:
     command: ['node', 'node_modules/payload/bin.js', 'migrate']
     restart: 'no'
     logging: *logging
+
+# Caddy's issued certificates. Losing these means re-issuing on every restart,
+# which hits certificate-authority rate limits on a real CA.
+volumes:
+  caddy-data:
+    name: dhakalive-caddy-data
+  caddy-config:
+    name: dhakalive-caddy-config
 
 # Both stacks share one pre-created network so the app can reach the database by
 # hostname while the database publishes no port beyond loopback.
