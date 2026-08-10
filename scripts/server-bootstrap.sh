@@ -127,6 +127,7 @@ Next:
        APP_ENV=production
        DATABASE_URI=postgres://dhakalive:<password>@postgres:5432/dhakalive
        DATABASE_SSL=false        # in-Docker traffic never leaves the host
+       DATABASE_ALLOW_UNENCRYPTED=true   # required alongside DATABASE_SSL=false
        PAYLOAD_SECRET=\$(openssl rand -base64 48)
        REVALIDATION_SECRET=\$(openssl rand -hex 32)
        POSTGRES_PASSWORD=<the same password as in DATABASE_URI>

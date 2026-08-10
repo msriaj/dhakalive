@@ -29,9 +29,11 @@ RUN apt-get update \
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
 COPY apps/web/package.json apps/web/
-COPY packages/config/package.json packages/config/
-COPY packages/core/package.json packages/core/
-COPY packages/observability/package.json packages/observability/
+# Every workspace package's manifest. Copied as a directory rather than listed
+# one by one: node_modules is excluded by .dockerignore, so this is just source,
+# and a package added later cannot be silently left out of the image — which is
+# exactly how @dhakalive/search went missing.
+COPY packages ./packages
 COPY services/worker/package.json services/worker/
 
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \

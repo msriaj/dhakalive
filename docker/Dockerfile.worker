@@ -16,9 +16,11 @@ WORKDIR /repo
 FROM base AS manifests
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
 COPY apps/web/package.json apps/web/
-COPY packages/config/package.json packages/config/
-COPY packages/core/package.json packages/core/
-COPY packages/observability/package.json packages/observability/
+# Every workspace package's manifest. Copied as a directory rather than listed
+# one by one: node_modules is excluded by .dockerignore, so this is just source,
+# and a package added later cannot be silently left out of the image — which is
+# exactly how @dhakalive/search went missing.
+COPY packages ./packages
 COPY services/worker/package.json services/worker/
 
 # -----------------------------------------------------------------------------
@@ -86,9 +88,22 @@ COPY --from=prod-deps --chown=worker:nodejs /repo/apps/web/node_modules ./apps/w
 COPY --from=prod-deps --chown=worker:nodejs /repo/services/worker/node_modules ./services/worker/node_modules
 COPY --from=prod-deps --chown=worker:nodejs /repo/packages ./packages
 
+# Compiled output for every package `build:packages` produces. Kept as separate
+# COPYs because the prod dependency tree above owns packages/*/node_modules and
+# must not be overwritten by the builder's dev tree.
 COPY --from=builder --chown=worker:nodejs /repo/packages/config/dist ./packages/config/dist
 COPY --from=builder --chown=worker:nodejs /repo/packages/core/dist ./packages/core/dist
 COPY --from=builder --chown=worker:nodejs /repo/packages/observability/dist ./packages/observability/dist
+COPY --from=builder --chown=worker:nodejs /repo/packages/cache/dist ./packages/cache/dist
+COPY --from=builder --chown=worker:nodejs /repo/packages/search/dist ./packages/search/dist
+
+# Fail the build here rather than at 3am on the server: every workspace package
+# the app imports must resolve from inside the image.
+# Checked with fs rather than require.resolve: a package's `exports` map may not
+# expose ./package.json, which would fail the check for the wrong reason.
+RUN node -e "const fs=require('fs');for(const p of ['config','core','observability','cache','search']){fs.statSync('/repo/apps/web/node_modules/@dhakalive/'+p+'/dist')}" \
+  && echo "workspace packages linked and built"
+
 
 # tsconfig.base.json is required at runtime, not just at build time: the worker's
 # tsconfig `extends` it, and tsx reads that file to resolve the `@payload-config`
@@ -97,6 +112,10 @@ COPY --chown=worker:nodejs pnpm-workspace.yaml package.json tsconfig.base.json .
 COPY --chown=worker:nodejs services/worker ./services/worker
 # The worker loads the Payload config, which pulls in the collections it defines.
 COPY --chown=worker:nodejs apps/web/package.json ./apps/web/package.json
+# The Payload CLI resolves `@payload-config` through tsconfig paths, so
+# `payload migrate` fails with "Cannot read properties of null (reading
+# 'config')" without this file present next to the source.
+COPY --chown=worker:nodejs apps/web/tsconfig.json ./apps/web/tsconfig.json
 COPY --chown=worker:nodejs apps/web/src ./apps/web/src
 
 USER worker

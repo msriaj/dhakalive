@@ -116,7 +116,6 @@ jobs:
           # Every variable the script reads must be listed here; the action does
           # not forward the job environment automatically.
           envs: SHA,GHCR_TOKEN,GHCR_USER
-          script_stop: true
           script: |
             set -euo pipefail
             cd "${{ secrets.DEPLOY_PATH }}"

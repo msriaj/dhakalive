@@ -8,3 +8,4 @@ pnpm-lock.yaml
 **/payload-types.ts
 **/importMap.js
 **/migrations/*.json
+**/next-env.d.ts

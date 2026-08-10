@@ -59,6 +59,36 @@ const booleanFromString = z
 
 const port = z.coerce.number().int().min(1).max(65535)
 
+/**
+ * True when a Postgres URI addresses a host that cannot be reached from off the
+ * machine: loopback, an RFC1918 address, or a single-label name (a Docker
+ * service alias such as `postgres`, which only resolves inside the network).
+ *
+ * Anything else — a public IP, or any dotted name that could leave the host —
+ * is treated as remote, so a typo in the hostname cannot quietly turn into
+ * plaintext Postgres traffic across the internet.
+ */
+export function isLocalDatabaseHost(uri: string): boolean {
+  let hostname: string
+  try {
+    hostname = new URL(uri).hostname
+  } catch {
+    // Unparseable URIs are rejected elsewhere; refuse the exemption here.
+    return false
+  }
+
+  // URL() keeps IPv6 literals in brackets.
+  const host = hostname.replace(/^\[|]$/g, '').toLowerCase()
+  if (host === 'localhost' || host === '::1' || host === '127.0.0.1') return true
+  if (host.startsWith('127.')) return true
+  if (host.startsWith('10.')) return true
+  if (host.startsWith('192.168.')) return true
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(host)) return true
+
+  // A name with no dot cannot be resolved by public DNS.
+  return host.length > 0 && !host.includes('.') && !host.includes(':')
+}
+
 export const clientEnvSchema = z.object({
   NEXT_PUBLIC_SITE_URL: z.url(),
   NEXT_PUBLIC_MEDIA_URL: z.url().optional(),
@@ -87,6 +117,17 @@ export const serverEnvSchema = z
     DATABASE_POOL_MIN: z.coerce.number().int().min(0).default(2),
     DATABASE_POOL_MAX: z.coerce.number().int().min(1).default(10),
     DATABASE_SSL: booleanFromString.default(false),
+    /**
+     * Deliberate opt-out from the production TLS requirement, for the case where
+     * Postgres runs on the same host as the app and is reachable only over a
+     * Docker bridge — the traffic never touches a network, and terminating TLS
+     * against a self-signed cert on localhost buys nothing.
+     *
+     * Only honoured when DATABASE_URI points at a loopback, private-range or
+     * single-label (container) host. Aimed at a public database it is ignored
+     * and the TLS requirement still fails the boot.
+     */
+    DATABASE_ALLOW_UNENCRYPTED: booleanFromString.default(false),
     /**
      * Drizzle `push` rewrites schema without a migration file. Safe in dev, a
      * data-loss vector anywhere else, so it is opt-in and refused in production.
@@ -166,11 +207,23 @@ export const serverEnvSchema = z
     }
 
     if (isProduction && !env.DATABASE_SSL) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['DATABASE_SSL'],
-        message: 'Database connections must be encrypted in production',
-      })
+      const localOnly = isLocalDatabaseHost(env.DATABASE_URI)
+      if (!env.DATABASE_ALLOW_UNENCRYPTED) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['DATABASE_SSL'],
+          message: localOnly
+            ? 'Database connections must be encrypted in production, or set DATABASE_ALLOW_UNENCRYPTED=true if Postgres is on this host and reachable only over the container network'
+            : 'Database connections must be encrypted in production',
+        })
+      } else if (!localOnly) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['DATABASE_ALLOW_UNENCRYPTED'],
+          message:
+            'DATABASE_ALLOW_UNENCRYPTED only applies to a database on this host; DATABASE_URI points somewhere else, so TLS is required',
+        })
+      }
     }
 
     if (env.DATABASE_POOL_MIN > env.DATABASE_POOL_MAX) {

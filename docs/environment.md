@@ -58,13 +58,14 @@ password-reset link.
 
 ### PostgreSQL
 
-| Variable            | Required | Default | Notes                                            |
-| ------------------- | -------- | ------- | ------------------------------------------------ |
-| `DATABASE_URI`      | **yes**  | —       | Connection string.                               |
-| `DATABASE_POOL_MIN` | no       | `2`     | Must not exceed the maximum.                     |
-| `DATABASE_POOL_MAX` | no       | `10`    | Per instance — multiply by replica count.        |
-| `DATABASE_SSL`      | no       | `false` | **Required `true` in production.**               |
-| `DATABASE_PUSH`     | no       | `false` | Dev-only schema sync. **Refused in production.** |
+| Variable                     | Required | Default | Notes                                            |
+| ---------------------------- | -------- | ------- | ------------------------------------------------ |
+| `DATABASE_URI`               | **yes**  | —       | Connection string.                               |
+| `DATABASE_POOL_MIN`          | no       | `2`     | Must not exceed the maximum.                     |
+| `DATABASE_POOL_MAX`          | no       | `10`    | Per instance — multiply by replica count.        |
+| `DATABASE_SSL`               | no       | `false` | **Required `true` in production.**               |
+| `DATABASE_ALLOW_UNENCRYPTED` | no       | `false` | Waives the above for a same-host database.       |
+| `DATABASE_PUSH`              | no       | `false` | Dev-only schema sync. **Refused in production.** |
 
 `DATABASE_POOL_MAX` is per application instance. Two web replicas at 10 plus a
 worker at 10 is 30 connections; size the database (or its pooler) accordingly.

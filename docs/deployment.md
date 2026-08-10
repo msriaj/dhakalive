@@ -122,6 +122,12 @@ Production-critical values, all enforced at startup:
 ```
 APP_ENV=production          # not NODE_ENV — see docs/environment.md
 DATABASE_SSL=true           # refused if false in production
+# Self-hosted Postgres on this same box, reachable only over the Docker bridge?
+# Then instead:
+#   DATABASE_SSL=false
+#   DATABASE_ALLOW_UNENCRYPTED=true
+# The waiver applies only to loopback/private/container hosts. Keep Postgres
+# published to 127.0.0.1 only, as docker-compose.postgres.yml does.
 DATABASE_PUSH=false         # destructive schema push is refused in production
 NEXT_PUBLIC_SITE_URL=https://dhakalive.com
 ```

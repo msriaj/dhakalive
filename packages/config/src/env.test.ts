@@ -150,4 +150,45 @@ describe('production safety rules', () => {
     const source = { ...productionBase(), DATABASE_SSL: 'false' }
     expect(expectIssues(source).join()).toContain('DATABASE_SSL')
   })
+
+  it('points at the opt-out when the database is on this host', () => {
+    // Without this the operator's only visible move is to lie about TLS.
+    const source = { ...productionBase(), DATABASE_SSL: 'false' }
+    expect(expectIssues(source).join()).toContain('DATABASE_ALLOW_UNENCRYPTED')
+  })
+
+  describe('DATABASE_ALLOW_UNENCRYPTED', () => {
+    const withoutTls = (uri: string) => ({
+      ...productionBase(),
+      DATABASE_SSL: 'false',
+      DATABASE_ALLOW_UNENCRYPTED: 'true',
+      DATABASE_URI: uri,
+    })
+
+    it.each([
+      ['postgres://u:p@postgres:5432/db', 'a container alias'],
+      ['postgres://u:p@localhost:5432/db', 'loopback by name'],
+      ['postgres://u:p@127.0.0.1:5432/db', 'loopback by address'],
+      ['postgres://u:p@10.0.1.5:5432/db', 'an RFC1918 address'],
+      ['postgres://u:p@172.20.0.3:5432/db', 'a Docker bridge address'],
+    ])('allows plaintext to %s (%s)', (uri) => {
+      const env = getServerEnv(withoutTls(uri))
+      expect(env.DATABASE_SSL).toBe(false)
+    })
+
+    it.each([
+      ['postgres://u:p@db.example.com:5432/db', 'a public hostname'],
+      ['postgres://u:p@203.0.113.10:5432/db', 'a public address'],
+      ['postgres://u:p@172.32.0.1:5432/db', 'an address just outside RFC1918'],
+    ])('still requires TLS for %s (%s)', (uri) => {
+      // The exemption is about traffic that never leaves the box. A remote
+      // database with the flag set is a misconfiguration, not a decision.
+      expect(expectIssues(withoutTls(uri)).join()).toContain('DATABASE_ALLOW_UNENCRYPTED')
+    })
+
+    it('does nothing when TLS is already on', () => {
+      const env = getServerEnv({ ...productionBase(), DATABASE_ALLOW_UNENCRYPTED: 'true' })
+      expect(env.DATABASE_SSL).toBe(true)
+    })
+  })
 })

@@ -120,12 +120,18 @@ services:
   # deploy script *before* the new app image starts serving, so the schema is
   # never behind the code that expects it.
   #
-  #   docker compose -f docker/docker-compose.prod.yml run --rm migrate
+  #   docker compose --env-file .env -f docker/docker-compose.prod.yml run --rm migrate
+  #
+  # Runs from the WORKER image, not the web image. The web image is a Next
+  # standalone build, and Next's output tracing only includes what the server
+  # actually imports at runtime — the Payload CLI is not imported, so
+  # `payload/bin.js` does not exist there at all. The worker image carries a
+  # real dependency tree along with the config and migration files.
   migrate:
-    image: ${WEB_IMAGE:-ghcr.io/msriaj/dhakalive-web:latest}
+    image: ${WORKER_IMAGE:-ghcr.io/msriaj/dhakalive-worker:latest}
     profiles: ['tools']
     <<: *app-env
-    working_dir: /app/apps/web
+    working_dir: /repo/apps/web
     command: ['node', 'node_modules/payload/bin.js', 'migrate']
     restart: 'no'
     logging: *logging
