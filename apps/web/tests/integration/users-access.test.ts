@@ -4,8 +4,9 @@ import type { Payload } from 'payload'
 import {
   createUserAs,
   expectRejection,
+  getOrCreateSuperAdmin,
   getTestPayload,
-  seedBootstrapSuperAdmin,
+  type ActingUser,
   type SeededUser,
 } from '../helpers/payload'
 
@@ -17,7 +18,7 @@ import {
  */
 
 let payload: Payload
-let superAdmin: SeededUser
+let superAdmin: ActingUser
 let admin: SeededUser
 let publisher: SeededUser
 let editor: SeededUser
@@ -27,10 +28,10 @@ let contributor: SeededUser
 beforeAll(async () => {
   payload = await getTestPayload()
 
-  // Only reachable while the users table is empty; the hook forces super-admin.
-  superAdmin = await seedBootstrapSuperAdmin(payload)
+  // Created by the bootstrap suite, which runs first.
+  superAdmin = await getOrCreateSuperAdmin(payload)
 
-  admin = await createUserAs(payload, superAdmin.doc, {
+  admin = await createUserAs(payload, superAdmin, {
     email: 'admin@dhakalive.test',
     name: 'Amina Admin',
     roles: ['admin'],
@@ -54,36 +55,6 @@ beforeAll(async () => {
     email: 'contributor@dhakalive.test',
     name: 'Chaya Contributor',
     roles: ['contributor'],
-  })
-})
-
-describe('bootstrap', () => {
-  it('forces the first user to super-admin regardless of what was requested', () => {
-    // The helper asks for `contributor`; the hook must override it.
-    expect(superAdmin.doc.roles).toEqual(['super-admin'])
-  })
-
-  it('closes the unauthenticated create path once a user exists', async () => {
-    const message = await expectRejection(
-      payload.create({
-        collection: 'users',
-        data: {
-          email: 'intruder@dhakalive.test',
-          password: 'dev-only-password-Aa1!',
-          name: 'Intruder',
-          roles: ['super-admin'],
-        },
-        overrideAccess: false,
-      }),
-    )
-    expect(message).toBeTruthy()
-
-    const found = await payload.find({
-      collection: 'users',
-      where: { email: { equals: 'intruder@dhakalive.test' } },
-      overrideAccess: true,
-    })
-    expect(found.totalDocs).toBe(0)
   })
 })
 
@@ -136,7 +107,7 @@ describe('creating users', () => {
   })
 
   it('lets a super-admin create an admin', async () => {
-    const created = await createUserAs(payload, superAdmin.doc, {
+    const created = await createUserAs(payload, superAdmin, {
       email: 'second-admin-ok@dhakalive.test',
       name: 'Second Admin',
       roles: ['admin'],
@@ -280,7 +251,7 @@ describe('updating users', () => {
   })
 
   it('refuses an admin modifying a peer admin', async () => {
-    const peer = await createUserAs(payload, superAdmin.doc, {
+    const peer = await createUserAs(payload, superAdmin, {
       email: 'peer-admin@dhakalive.test',
       name: 'Peer Admin',
       roles: ['admin'],
@@ -314,9 +285,9 @@ describe('updating users', () => {
     const message = await expectRejection(
       payload.update({
         collection: 'users',
-        id: superAdmin.doc.id,
+        id: superAdmin.id,
         data: { roles: ['admin'] },
-        user: superAdmin.doc,
+        user: superAdmin,
         overrideAccess: false,
       }),
     )
@@ -351,7 +322,7 @@ describe('deleting users', () => {
   })
 
   it('refuses an admin deleting a peer admin', async () => {
-    const peer = await createUserAs(payload, superAdmin.doc, {
+    const peer = await createUserAs(payload, superAdmin, {
       email: 'delete-peer@dhakalive.test',
       name: 'Delete Peer',
       roles: ['admin'],
@@ -394,8 +365,8 @@ describe('deleting users', () => {
     const message = await expectRejection(
       payload.delete({
         collection: 'users',
-        id: superAdmin.doc.id,
-        user: superAdmin.doc,
+        id: superAdmin.id,
+        user: superAdmin,
         overrideAccess: false,
       }),
     )
@@ -404,7 +375,7 @@ describe('deleting users', () => {
 
     const stillThere = await payload.findByID({
       collection: 'users',
-      id: superAdmin.doc.id,
+      id: superAdmin.id,
       overrideAccess: true,
     })
     expect(stillThere.roles).toEqual(['super-admin'])

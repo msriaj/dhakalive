@@ -31,3 +31,33 @@ export {
   validateRoleAssignment,
 } from './access/index.js'
 export type { Role, Capability, AuthUser, RoleAssignmentResult } from './access/index.js'
+
+export {
+  ARTICLE_STATUSES,
+  ARTICLE_TYPES,
+  PUBLIC_STATUSES,
+  AUTHOR_EDITABLE_STATUSES,
+  PRE_PUBLICATION_STATUSES,
+  isArticleStatus,
+  isArticleType,
+  isPubliclyVisible,
+  TRANSITIONS,
+  availableTransitions,
+  checkTransition,
+  transitionsFrom,
+  describeIssues,
+  hasRichTextContent,
+  validatePublishable,
+} from './workflow/index.js'
+export type {
+  ArticleStatus,
+  ArticleType,
+  Transition,
+  TransitionContext,
+  TransitionCheck,
+  FieldIssue,
+  PublishCandidate,
+  PublishGuardOptions,
+  PublishValidation,
+  ResolvedMedia,
+} from './workflow/index.js'

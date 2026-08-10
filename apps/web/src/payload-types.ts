@@ -67,6 +67,13 @@ export interface Config {
   };
   blocks: {};
   collections: {
+    articles: Article;
+    categories: Category;
+    tags: Tag;
+    authors: Author;
+    media: Media;
+    'live-blogs': LiveBlog;
+    'live-blog-updates': LiveBlogUpdate;
     users: User;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
@@ -75,6 +82,13 @@ export interface Config {
   };
   collectionsJoins: {};
   collectionsSelect: {
+    articles: ArticlesSelect<false> | ArticlesSelect<true>;
+    categories: CategoriesSelect<false> | CategoriesSelect<true>;
+    tags: TagsSelect<false> | TagsSelect<true>;
+    authors: AuthorsSelect<false> | AuthorsSelect<true>;
+    media: MediaSelect<false> | MediaSelect<true>;
+    'live-blogs': LiveBlogsSelect<false> | LiveBlogsSelect<true>;
+    'live-blog-updates': LiveBlogUpdatesSelect<false> | LiveBlogUpdatesSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -117,6 +131,221 @@ export interface UserAuthOperations {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "articles".
+ */
+export interface Article {
+  id: number;
+  headline: string;
+  subheadline?: string | null;
+  /**
+   * URL segment. Leave blank to generate it from the title. Bengali characters are preserved.
+   */
+  slug: string;
+  /**
+   * Used in listings, social cards and search results.
+   */
+  summary?: string | null;
+  body?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Bylines, in the order they should appear.
+   */
+  authors?: (number | Author)[] | null;
+  /**
+   * Determines the article URL and its position in navigation.
+   */
+  primaryCategory?: (number | null) | Category;
+  /**
+   * Additional sections this story belongs to.
+   */
+  categories?: (number | Category)[] | null;
+  tags?: (number | Tag)[] | null;
+  /**
+   * Required to publish, and it must already have alt text.
+   */
+  featuredImage?: (number | null) | Media;
+  articleType:
+    | 'standard'
+    | 'breaking-news'
+    | 'opinion'
+    | 'editorial'
+    | 'feature'
+    | 'interview'
+    | 'analysis'
+    | 'photo-story'
+    | 'video-story'
+    | 'live-blog';
+  /**
+   * Only transitions allowed by your role are accepted.
+   */
+  workflowStatus:
+    | 'draft'
+    | 'submitted'
+    | 'in-review'
+    | 'changes-requested'
+    | 'approved'
+    | 'scheduled'
+    | 'published'
+    | 'unpublished'
+    | 'archived';
+  /**
+   * Reason for this status change, e.g. what needs fixing. Recorded against the transition.
+   */
+  workflowNote?: string | null;
+  /**
+   * Every status change, who made it and when.
+   */
+  workflowHistory?:
+    | {
+        from?: string | null;
+        to?: string | null;
+        at?: string | null;
+        actor?: (number | null) | User;
+        note?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Set automatically on first publication.
+   */
+  publishedAt?: string | null;
+  /**
+   * When a scheduled article should go live. Published by the background worker.
+   */
+  scheduledAt?: string | null;
+  /**
+   * Shows in the breaking-news ticker.
+   */
+  isBreaking?: boolean | null;
+  /**
+   * When the breaking flag expires. Cleared by the worker.
+   */
+  breakingUntil?: string | null;
+  isFeatured?: boolean | null;
+  /**
+   * Links this story to the same story written separately in another language. Leave empty when both languages live in this document as translated fields.
+   */
+  translationOf?: (number | null) | Article;
+  correction?: {
+    hasCorrection?: boolean | null;
+    /**
+     * Shown to readers on the article. Say what was wrong and what changed.
+     */
+    note?: string | null;
+    correctedAt?: string | null;
+  };
+  createdBy?: (number | null) | User;
+  lastEditedBy?: (number | null) | User;
+  /**
+   * Leave blank to derive metadata from the content itself.
+   */
+  seo?: {
+    /**
+     * Overrides the page title. Around 60 characters renders best.
+     */
+    title?: string | null;
+    /**
+     * Overrides the meta description. Around 155 characters.
+     */
+    description?: string | null;
+    /**
+     * Overrides the Open Graph image. Falls back to the featured image.
+     */
+    image?: (number | null) | Media;
+    /**
+     * Absolute URL. Set this only when this page is a duplicate of a canonical page elsewhere.
+     */
+    canonicalUrl?: string | null;
+    /**
+     * Ask search engines not to index this page.
+     */
+    noIndex?: boolean | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "authors".
+ */
+export interface Author {
+  id: number;
+  /**
+   * The byline as it appears on the story.
+   */
+  displayName: string;
+  /**
+   * URL segment. Leave blank to generate it from the title. Bengali characters are preserved.
+   */
+  slug: string;
+  /**
+   * Links this public profile to a CMS account. Only administrators can set this.
+   */
+  user?: (number | null) | User;
+  avatar?: (number | null) | Media;
+  /**
+   * e.g. Senior Correspondent, Dhaka
+   */
+  designation?: string | null;
+  biography?: string | null;
+  /**
+   * Shown on the public profile. Leave blank to hide a link.
+   */
+  contact?: {
+    email?: string | null;
+    website?: string | null;
+    x?: string | null;
+    facebook?: string | null;
+    linkedin?: string | null;
+  };
+  /**
+   * Inactive authors keep their existing bylines but are hidden from author listings.
+   */
+  isActive?: boolean | null;
+  /**
+   * Leave blank to derive metadata from the content itself.
+   */
+  seo?: {
+    /**
+     * Overrides the page title. Around 60 characters renders best.
+     */
+    title?: string | null;
+    /**
+     * Overrides the meta description. Around 155 characters.
+     */
+    description?: string | null;
+    /**
+     * Overrides the Open Graph image. Falls back to the featured image.
+     */
+    image?: (number | null) | Media;
+    /**
+     * Absolute URL. Set this only when this page is a duplicate of a canonical page elsewhere.
+     */
+    canonicalUrl?: string | null;
+    /**
+     * Ask search engines not to index this page.
+     */
+    noIndex?: boolean | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users".
  */
 export interface User {
@@ -128,7 +357,7 @@ export interface User {
   /**
    * Roles grant capabilities. You cannot assign a role at or above your own level, and you cannot change your own roles.
    */
-  roles: ('contributor' | 'reporter' | 'editor' | 'publisher' | 'admin' | 'super-admin')[];
+  roles?: ('contributor' | 'reporter' | 'editor' | 'publisher' | 'admin' | 'super-admin')[] | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -147,6 +376,280 @@ export interface User {
     | null;
   password?: string | null;
   collection: 'users';
+}
+/**
+ * Images, video and documents. Alt text is required for images.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media".
+ */
+export interface Media {
+  id: number;
+  /**
+   * Describes the image for screen readers. Required for images; an image cannot be used as a featured image without it.
+   */
+  alt?: string | null;
+  /**
+   * Shown beneath the image on the public site.
+   */
+  caption?: string | null;
+  /**
+   * Photographer or agency, e.g. "Reuters / Jane Doe".
+   */
+  credit?: string | null;
+  copyright?: string | null;
+  /**
+   * Where the file came from — wire service, contributor, archive.
+   */
+  source?: string | null;
+  /**
+   * Derived from the file on upload; override if needed.
+   */
+  mediaType?: ('image' | 'video' | 'audio' | 'document') | null;
+  /**
+   * Shown to editors before they place the asset in a story.
+   */
+  usageRestrictions?: ('none' | 'editorial-only' | 'one-time' | 'internal') | null;
+  uploadedBy?: (number | null) | User;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+  sizes?: {
+    thumbnail?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    card?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    feature?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    wide?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    og?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories".
+ */
+export interface Category {
+  id: number;
+  /**
+   * Section name as readers see it, e.g. রাজনীতি / Politics.
+   */
+  title: string;
+  /**
+   * URL segment. Leave blank to generate it from the title. Bengali characters are preserved.
+   */
+  slug: string;
+  description?: string | null;
+  /**
+   * Leave empty for a top-level section. Maximum 4 levels.
+   */
+  parent?: (number | null) | Category;
+  image?: (number | null) | Media;
+  /**
+   * Lower numbers appear first in navigation.
+   */
+  displayOrder?: number | null;
+  /**
+   * Inactive sections stay published but disappear from navigation.
+   */
+  isActive?: boolean | null;
+  /**
+   * Leave blank to derive metadata from the content itself.
+   */
+  seo?: {
+    /**
+     * Overrides the page title. Around 60 characters renders best.
+     */
+    title?: string | null;
+    /**
+     * Overrides the meta description. Around 155 characters.
+     */
+    description?: string | null;
+    /**
+     * Overrides the Open Graph image. Falls back to the featured image.
+     */
+    image?: (number | null) | Media;
+    /**
+     * Absolute URL. Set this only when this page is a duplicate of a canonical page elsewhere.
+     */
+    canonicalUrl?: string | null;
+    /**
+     * Ask search engines not to index this page.
+     */
+    noIndex?: boolean | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tags".
+ */
+export interface Tag {
+  id: number;
+  title: string;
+  /**
+   * URL segment. Leave blank to generate it from the title. Bengali characters are preserved.
+   */
+  slug: string;
+  description?: string | null;
+  /**
+   * Leave blank to derive metadata from the content itself.
+   */
+  seo?: {
+    /**
+     * Overrides the page title. Around 60 characters renders best.
+     */
+    title?: string | null;
+    /**
+     * Overrides the meta description. Around 155 characters.
+     */
+    description?: string | null;
+    /**
+     * Overrides the Open Graph image. Falls back to the featured image.
+     */
+    image?: (number | null) | Media;
+    /**
+     * Absolute URL. Set this only when this page is a duplicate of a canonical page elsewhere.
+     */
+    canonicalUrl?: string | null;
+    /**
+     * Ask search engines not to index this page.
+     */
+    noIndex?: boolean | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "live-blogs".
+ */
+export interface LiveBlog {
+  id: number;
+  title: string;
+  /**
+   * URL segment. Leave blank to generate it from the title. Bengali characters are preserved.
+   */
+  slug: string;
+  summary?: string | null;
+  status: 'draft' | 'live' | 'paused' | 'ended' | 'archived';
+  authors?: (number | Author)[] | null;
+  /**
+   * The main story this coverage accompanies.
+   */
+  relatedArticle?: (number | null) | Article;
+  startedAt?: string | null;
+  endedAt?: string | null;
+  createdBy?: (number | null) | User;
+  /**
+   * Leave blank to derive metadata from the content itself.
+   */
+  seo?: {
+    /**
+     * Overrides the page title. Around 60 characters renders best.
+     */
+    title?: string | null;
+    /**
+     * Overrides the meta description. Around 155 characters.
+     */
+    description?: string | null;
+    /**
+     * Overrides the Open Graph image. Falls back to the featured image.
+     */
+    image?: (number | null) | Media;
+    /**
+     * Absolute URL. Set this only when this page is a duplicate of a canonical page elsewhere.
+     */
+    canonicalUrl?: string | null;
+    /**
+     * Ask search engines not to index this page.
+     */
+    noIndex?: boolean | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "live-blog-updates".
+ */
+export interface LiveBlogUpdate {
+  id: number;
+  liveBlog: number | LiveBlog;
+  /**
+   * Timestamp shown against the entry.
+   */
+  publishedAt: string;
+  headline?: string | null;
+  content?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  media?: (number | null) | Media;
+  author?: (number | null) | Author;
+  /**
+   * Pinned entries stay at the top of the timeline.
+   */
+  isPinned?: boolean | null;
+  /**
+   * Marks this entry as correcting an earlier one.
+   */
+  isCorrection?: boolean | null;
+  createdBy?: (number | null) | User;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -171,10 +674,39 @@ export interface PayloadKv {
  */
 export interface PayloadLockedDocument {
   id: number;
-  document?: {
-    relationTo: 'users';
-    value: number | User;
-  } | null;
+  document?:
+    | ({
+        relationTo: 'articles';
+        value: number | Article;
+      } | null)
+    | ({
+        relationTo: 'categories';
+        value: number | Category;
+      } | null)
+    | ({
+        relationTo: 'tags';
+        value: number | Tag;
+      } | null)
+    | ({
+        relationTo: 'authors';
+        value: number | Author;
+      } | null)
+    | ({
+        relationTo: 'media';
+        value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'live-blogs';
+        value: number | LiveBlog;
+      } | null)
+    | ({
+        relationTo: 'live-blog-updates';
+        value: number | LiveBlogUpdate;
+      } | null)
+    | ({
+        relationTo: 'users';
+        value: number | User;
+      } | null);
   globalSlug?: string | null;
   user: {
     relationTo: 'users';
@@ -216,6 +748,261 @@ export interface PayloadMigration {
   batch?: number | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "articles_select".
+ */
+export interface ArticlesSelect<T extends boolean = true> {
+  headline?: T;
+  subheadline?: T;
+  slug?: T;
+  summary?: T;
+  body?: T;
+  authors?: T;
+  primaryCategory?: T;
+  categories?: T;
+  tags?: T;
+  featuredImage?: T;
+  articleType?: T;
+  workflowStatus?: T;
+  workflowNote?: T;
+  workflowHistory?:
+    | T
+    | {
+        from?: T;
+        to?: T;
+        at?: T;
+        actor?: T;
+        note?: T;
+        id?: T;
+      };
+  publishedAt?: T;
+  scheduledAt?: T;
+  isBreaking?: T;
+  breakingUntil?: T;
+  isFeatured?: T;
+  translationOf?: T;
+  correction?:
+    | T
+    | {
+        hasCorrection?: T;
+        note?: T;
+        correctedAt?: T;
+      };
+  createdBy?: T;
+  lastEditedBy?: T;
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+        canonicalUrl?: T;
+        noIndex?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories_select".
+ */
+export interface CategoriesSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  description?: T;
+  parent?: T;
+  image?: T;
+  displayOrder?: T;
+  isActive?: T;
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+        canonicalUrl?: T;
+        noIndex?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tags_select".
+ */
+export interface TagsSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  description?: T;
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+        canonicalUrl?: T;
+        noIndex?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "authors_select".
+ */
+export interface AuthorsSelect<T extends boolean = true> {
+  displayName?: T;
+  slug?: T;
+  user?: T;
+  avatar?: T;
+  designation?: T;
+  biography?: T;
+  contact?:
+    | T
+    | {
+        email?: T;
+        website?: T;
+        x?: T;
+        facebook?: T;
+        linkedin?: T;
+      };
+  isActive?: T;
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+        canonicalUrl?: T;
+        noIndex?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media_select".
+ */
+export interface MediaSelect<T extends boolean = true> {
+  alt?: T;
+  caption?: T;
+  credit?: T;
+  copyright?: T;
+  source?: T;
+  mediaType?: T;
+  usageRestrictions?: T;
+  uploadedBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
+  sizes?:
+    | T
+    | {
+        thumbnail?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+        card?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+        feature?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+        wide?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+        og?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+      };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "live-blogs_select".
+ */
+export interface LiveBlogsSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  summary?: T;
+  status?: T;
+  authors?: T;
+  relatedArticle?: T;
+  startedAt?: T;
+  endedAt?: T;
+  createdBy?: T;
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+        canonicalUrl?: T;
+        noIndex?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "live-blog-updates_select".
+ */
+export interface LiveBlogUpdatesSelect<T extends boolean = true> {
+  liveBlog?: T;
+  publishedAt?: T;
+  headline?: T;
+  content?: T;
+  media?: T;
+  author?: T;
+  isPinned?: T;
+  isCorrection?: T;
+  createdBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

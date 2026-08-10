@@ -1,3 +1,4 @@
+import { sql } from '@payloadcms/db-postgres'
 import { getPayload, type Payload } from 'payload'
 import type { Role } from '@dhakalive/core'
 import config from '../../src/payload.config'
@@ -41,6 +42,47 @@ export async function seedBootstrapSuperAdmin(payload: Payload): Promise<SeededU
   })
 
   return { doc: { ...doc, collection: 'users' }, email, password: PASSWORD }
+}
+
+interface DrizzleLike {
+  execute: (query: unknown) => Promise<unknown>
+}
+
+/**
+ * Raw SQL escape hatch for test setup.
+ *
+ * Used only to create states the application refuses to create — a legacy media
+ * row with no alt text, or an empty users table for the bootstrap suite. Going
+ * through the Local API would be blocked by the very validation under test.
+ */
+export function rawDb(payload: Payload): DrizzleLike {
+  return (payload.db as unknown as { drizzle: DrizzleLike }).drizzle
+}
+
+/** Empties the users table, bypassing the delete hooks. */
+export async function truncateUsers(payload: Payload): Promise<void> {
+  await rawDb(payload).execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`)
+}
+
+/**
+ * Bootstraps the super-admin, or returns the existing one.
+ *
+ * Test files share one database and one process, so whichever suite runs first
+ * performs the real bootstrap and the rest reuse it.
+ */
+export async function getOrCreateSuperAdmin(payload: Payload): Promise<ActingUser> {
+  const existing = await payload.find({
+    collection: 'users',
+    where: { roles: { in: ['super-admin'] } },
+    limit: 1,
+    overrideAccess: true,
+  })
+
+  const found = existing.docs[0]
+  if (found) return { ...found, collection: 'users' }
+
+  const seeded = await seedBootstrapSuperAdmin(payload)
+  return seeded.doc
 }
 
 /** Creates a user as `actor`, exercising access control and the role guards. */

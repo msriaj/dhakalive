@@ -3,10 +3,10 @@
 A bilingual (Bengali / English) news publishing platform built on Payload CMS,
 Next.js, PostgreSQL and Cloudflare.
 
-> **Status: Phases 1–2 of 8 complete.**
-> Foundation and the authentication/permission model are in place, with Docker
-> images built and verified. Editorial collections, the public site, caching,
-> search, jobs and SEO are built in later phases. See
+> **Status: Phases 1–3 of 8 complete.**
+> Foundation, the permission model and the editorial content model are in place,
+> with Docker images built and verified. The public site, caching, search, jobs
+> and SEO are built in later phases. See
 > [Implementation phases](#implementation-phases).
 
 ---
@@ -102,10 +102,11 @@ packaging change rather than a rewrite.
 - [Environment variables](docs/environment.md)
 - [Architecture](docs/architecture.md)
 - [Roles and permissions](docs/roles-and-permissions.md)
+- [Content model](docs/content-model.md)
+- [Editorial workflow](docs/editorial-workflow.md)
 
-Content model, editorial workflow, Cloudflare setup, R2 CORS, deployment,
-backup/restore, scaling and incident notes are written as the phases that
-introduce them land.
+Cloudflare setup, R2 CORS, deployment, backup/restore, scaling and incident
+notes are written as the phases that introduce them land.
 
 ## Implementation phases
 
@@ -113,8 +114,8 @@ introduce them land.
 | ----- | -------------------------------------------------------------------------- | ------- |
 | 1     | Foundation — workspace, Payload + Next, Postgres, env, Docker, CI          | ✅ done |
 | 2     | Authentication and permissions — roles, capabilities, access control       | ✅ done |
-| 3     | Editorial content — Articles, Categories, Tags, Authors, Media, Live Blogs | next    |
-| 4     | Public website — layout, homepage, article, listings, accessibility        | —       |
+| 3     | Editorial content — Articles, Categories, Tags, Authors, Media, Live Blogs | ✅ done |
+| 4     | Public website — layout, homepage, article, listings, accessibility        | next    |
 | 5     | Cloudflare and caching — R2, cache headers, revalidation, purge            | —       |
 | 6     | Search, jobs and scheduling                                                | —       |
 | 7     | SEO and feeds                                                              | —       |
