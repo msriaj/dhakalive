@@ -303,6 +303,227 @@ function bodyFor(subject: Localized<string>): Localized<readonly string[]> {
   return { bn: placeholder('bn', subject.bn), en: placeholder('en', subject.en) }
 }
 
+/**
+ * Filler stories, generated from a table.
+ *
+ * The front page composes a lead assembly, a topics strip, a latest list, up to
+ * twenty section blocks and a picture strip — and every story it places is
+ * removed from the pool the next block draws from, so that one story never
+ * appears twice. Eleven published fixtures cannot fill that: the lead assembly
+ * alone consumes most of them and every section below renders empty, which
+ * makes the seed useless for looking at the layouts it exists to demonstrate.
+ *
+ * Written out as a table rather than as full fixtures because none of these
+ * carries anything a hand-written one would — they are volume, and the ones
+ * above are the ones worth reading.
+ */
+/** Cycles a list, and is total — `noUncheckedIndexedAccess` is on. */
+function rotate<T>(values: readonly [T, ...T[]], index: number): T {
+  return values[index % values.length] ?? values[0]
+}
+
+const FILLER: readonly SeedArticle[] = (
+  [
+    [
+      'ঢাকায় নতুন বাস র‌্যাপিড ট্রানজিট চালু',
+      'A new bus rapid transit line opens in Dhaka',
+      'bangladesh',
+      'standard',
+      'traffic',
+      2,
+    ],
+    [
+      'চালের দাম কমার আভাস দিচ্ছেন ব্যবসায়ীরা',
+      'Traders expect the price of rice to ease',
+      'business',
+      'standard',
+      'market',
+      2,
+    ],
+    [
+      'সংসদীয় কমিটির প্রতিবেদন জমা',
+      'Parliamentary committee files its report',
+      'politics',
+      'standard',
+      'parliament',
+      3,
+    ],
+    [
+      'ঘরের মাঠে টানা তৃতীয় জয়',
+      'A third straight win at home',
+      'sports',
+      'standard',
+      'stadium',
+      3,
+    ],
+    [
+      'নদীভাঙনে ক্ষতিগ্রস্ত পরিবারের সংখ্যা বাড়ছে',
+      'River erosion displaces more families',
+      'bangladesh',
+      'feature',
+      'river',
+      4,
+    ],
+    [
+      'রপ্তানি আয়ে পোশাকের বাইরের খাত',
+      'Beyond garments: where export earnings are growing',
+      'business',
+      'analysis',
+      'market',
+      4,
+    ],
+    [
+      'নির্বাচনী রোডম্যাপ নিয়ে প্রশ্ন',
+      'Questions over the election roadmap',
+      'politics',
+      'analysis',
+      'parliament',
+      5,
+    ],
+    [
+      'টেস্ট দলে দুই নতুন মুখ',
+      'Two new faces in the Test squad',
+      'cricket',
+      'standard',
+      'stadium',
+      5,
+    ],
+    [
+      'শহরের জলাবদ্ধতা: দায় কার',
+      'Who is responsible for the city flooding',
+      'opinion',
+      'opinion',
+      'traffic',
+      5,
+    ],
+    [
+      'পরিবহন খাতে সংস্কার কেন থেমে আছে',
+      'Why reform of the transport sector has stalled',
+      'opinion',
+      'editorial',
+      'traffic',
+      6,
+    ],
+    ['ছবিতে বর্ষার ঢাকা', 'Monsoon Dhaka, in pictures', 'bangladesh', 'photo-story', 'traffic', 6],
+    ['ভিডিওতে নদীপথের বাণিজ্য', 'River trade, on video', 'business', 'video-story', 'river', 7],
+    [
+      'কৃষিঋণ বিতরণে ধীরগতি',
+      'Farm credit is being disbursed slowly',
+      'business',
+      'standard',
+      'market',
+      8,
+    ],
+    [
+      'স্থানীয় সরকার নির্বাচনের প্রস্তুতি',
+      'Preparations for the local government polls',
+      'politics',
+      'standard',
+      'parliament',
+      8,
+    ],
+    ['একজন কোচের সঙ্গে কথা', 'A conversation with a coach', 'sports', 'interview', 'stadium', 9],
+    [
+      'জলবায়ু তহবিলের ব্যবহার নিয়ে বিতর্ক',
+      'A dispute over how the climate fund is spent',
+      'bangladesh',
+      'analysis',
+      'river',
+      10,
+    ],
+    [
+      'ঢাকার বাতাস আবার অস্বাস্থ্যকর',
+      "Dhaka's air is unhealthy again",
+      'bangladesh',
+      'standard',
+      'traffic',
+      11,
+    ],
+    [
+      'ব্যাংক একীভূতকরণের পরের ছবি',
+      'What the bank mergers left behind',
+      'business',
+      'feature',
+      'market',
+      12,
+    ],
+    [
+      'ছবিতে পুরান ঢাকার ভোর',
+      'Old Dhaka at dawn, in pictures',
+      'bangladesh',
+      'photo-story',
+      'traffic',
+      13,
+    ],
+    [
+      'ভিডিওতে স্টেডিয়ামের একদিন',
+      'A day at the stadium, on video',
+      'sports',
+      'video-story',
+      'stadium',
+      13,
+    ],
+    ['ছবিতে বাজারের ভিড়', 'Market crowds, in pictures', 'business', 'photo-story', 'market', 14],
+    [
+      'ভিডিওতে সংসদ অধিবেশন',
+      'The parliamentary session, on video',
+      'politics',
+      'video-story',
+      'parliament',
+      14,
+    ],
+    [
+      'রাজস্ব আদায়ে লক্ষ্যমাত্রা ছোঁয়া যায়নি',
+      'The revenue target was missed again',
+      'business',
+      'standard',
+      'market',
+      15,
+    ],
+    [
+      'বিভাগীয় শহরে ক্রীড়া অবকাঠামো',
+      'Sports facilities outside the capital',
+      'sports',
+      'feature',
+      'stadium',
+      15,
+    ],
+    [
+      'সংলাপ ছাড়া সমাধান নেই',
+      'There is no settlement without talks',
+      'opinion',
+      'opinion',
+      'parliament',
+      16,
+    ],
+    [
+      'উপজেলা প্রশাসনে জনবল সংকট',
+      'Staff shortages in upazila administration',
+      'politics',
+      'standard',
+      'parliament',
+      16,
+    ],
+  ] as const
+).map(([bn, en, categoryKey, articleType, mediaKey, publishedDaysAgo], index) => ({
+  key: `filler-${index + 1}`,
+  slug: { bn: `seed-story-${index + 1}`, en: `seed-story-${index + 1}` },
+  headline: { bn, en },
+  summary: {
+    bn: 'ডেভেলপমেন্ট পরিবেশের জন্য তৈরি একটি কাল্পনিক প্রতিবেদন।',
+    en: 'A fictional report written to populate a development environment.',
+  },
+  paragraphs: bodyFor({ bn, en }),
+  categoryKey,
+  // Rotated rather than fixed, so tag and author pages have a spread too.
+  tagKeys: [rotate(['election', 'dhaka', 'economy', 'climate', 'cricket', 'transport'], index)],
+  authorKeys: [rotate(['rahman', 'karim', 'haque', 'wire'], index)],
+  mediaKey,
+  articleType,
+  target: 'published' as const,
+  publishedDaysAgo,
+}))
+
 export const ARTICLES: readonly SeedArticle[] = [
   // --- Published ------------------------------------------------------------
   {
@@ -569,6 +790,8 @@ export const ARTICLES: readonly SeedArticle[] = [
     target: 'published',
     publishedDaysAgo: 7,
   },
+
+  ...FILLER,
 
   // --- Every other workflow state ------------------------------------------
   {

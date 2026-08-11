@@ -58,7 +58,7 @@ export async function SiteHeader({ locale }: { locale: Locale }) {
 
   return (
     <header className="border-b border-[var(--color-rule)]">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+      <div className="mx-auto flex max-w-[78rem] items-center justify-between gap-4 px-4 py-3">
         <Link href={homePath(locale)} className="text-2xl font-bold tracking-tight">
           {settings.siteName ?? 'DhakaLive'}
         </Link>
@@ -156,7 +156,7 @@ export async function SiteHeader({ locale }: { locale: Locale }) {
 
       {showTicker ? (
         <div className="bg-[var(--color-breaking)] text-[var(--color-on-brand)]">
-          <div className="mx-auto flex max-w-6xl items-center gap-3 overflow-hidden px-4 py-2">
+          <div className="mx-auto flex max-w-[78rem] items-center gap-3 overflow-hidden px-4 py-2">
             <span className="shrink-0 rounded-sm bg-white/20 px-2 py-0.5 text-xs font-bold uppercase">
               {header.tickerLabel ?? d('breaking')}
             </span>

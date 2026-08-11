@@ -6,19 +6,15 @@ import { DEFAULT_LOCALE, LOCALES, isLocale } from '@dhakalive/config'
 
 import { ArticleCard } from '../../../components/ArticleCard'
 import { ArticleList } from '../../../components/ArticleList'
+import { HomeSectionBlock, SectionHeading } from '../../../components/HomeSections'
 import { JsonLd } from '../../../components/JsonLd'
 import { dictionary } from '../../../lib/dictionary'
-import {
-  getArticlesByCategory,
-  getArticlesByType,
-  getLatestArticles,
-} from '../../../lib/queries/articles'
 import { buildMetadata } from '../../../lib/metadata'
+import { composeHomepage } from '../../../lib/queries/home'
 import { getHomepage, getSeoDefaults, getSiteSettings } from '../../../lib/queries/globals'
 import { env } from '../../../lib/env'
-import { absoluteUrl, categoryPath, homePath } from '../../../lib/routes'
+import { absoluteUrl, homePath } from '../../../lib/routes'
 import { homeGraph } from '../../../lib/seo/structured-data'
-import type { Article } from '../../../payload-types'
 
 /**
  * Homepage.
@@ -63,10 +59,6 @@ export async function generateMetadata({
   })
 }
 
-function populatedArticle(value: unknown): Article | null {
-  return typeof value === 'object' && value !== null ? (value as Article) : null
-}
-
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale: raw } = await params
   if (!isLocale(raw)) notFound()
@@ -75,101 +67,12 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 
   const homepage = await getHomepage(locale)
 
-  const lead = populatedArticle(homepage.leadStory)
-
   /**
-   * The rail cannot repeat the lead, or repeat itself.
-   *
-   * Nothing in the admin UI stops an editor putting one story in both the lead
-   * slot and the secondary list, and when that happens the front page runs the
-   * same headline twice side by side. Filtering here rather than asking editors
-   * to remember is the only version that stays true.
+   * Composition — which story goes where, and which block gets to keep it when
+   * two want the same one — lives in `composeHomepage`. This file is the
+   * arrangement of the page and nothing else.
    */
-  const secondary = (
-    Array.isArray(homepage.secondaryLeads)
-      ? homepage.secondaryLeads
-          .map(populatedArticle)
-          .filter((entry): entry is Article => entry !== null)
-      : []
-  ).filter(
-    (entry, index, all) =>
-      entry.id !== lead?.id && all.findIndex((other) => other.id === entry.id) === index,
-  )
-
-  const picks = Array.isArray(homepage.editorsPicks?.articles)
-    ? homepage.editorsPicks.articles
-        .map(populatedArticle)
-        .filter((entry): entry is Article => entry !== null)
-    : []
-
-  /**
-   * One story, one place on the page.
-   *
-   * The exclusion set has to grow as the page is composed. Computing it once
-   * from the lead and the rail — as this did — meant the latest list and every
-   * category block filtered against the same frozen set and never against each
-   * other, so a photo story could run in the latest list, again in its section,
-   * and a third time in the media block.
-   *
-   * Curated slots are reserved first and queries fill in around them: an editor
-   * who put a story in the lead, the rail or the picks chose that placement,
-   * and a query result should not be able to take it.
-   */
-  const shown = new Set<number>(
-    [lead?.id, ...secondary.map((entry) => entry.id), ...picks.map((entry) => entry.id)].filter(
-      (id): id is number => typeof id === 'number',
-    ),
-  )
-
-  const latest = await getLatestArticles({
-    locale,
-    limit: homepage.latestNews?.limit ?? 10,
-    exclude: [...shown],
-  })
-  for (const article of latest.docs) shown.add(article.id)
-
-  // With no curated lead, fall back to the newest story rather than an empty page.
-  const heroArticle = lead ?? latest.docs[0] ?? null
-  const latestArticles = lead ? latest.docs : latest.docs.slice(1)
-
-  const sections = homepage.categorySections ?? []
-  const sectionResults = await Promise.all(
-    sections.map(async (section) => {
-      const category = section.category
-      if (typeof category !== 'object' || category === null) return null
-
-      const result = await getArticlesByCategory(category.id, {
-        locale,
-        limit: section.limit ?? 4,
-        exclude: [...shown],
-      })
-      return { category: category, heading: section.heading, articles: result.docs }
-    }),
-  )
-
-  /**
-   * The section queries run concurrently against one snapshot of `shown`, so
-   * they cannot see each other. Sections are keyed on `primaryCategory` and a
-   * story has only one, which makes an overlap unlikely rather than impossible
-   * — this pass is what makes it impossible.
-   */
-  const dedupedSections = sectionResults.map((section) => {
-    if (!section) return null
-    const articles = section.articles.filter((article) => !shown.has(article.id))
-    for (const article of articles) shown.add(article.id)
-    return { ...section, articles }
-  })
-
-  const mediaEnabled = homepage.mediaSection?.enabled !== false
-  const mediaStories = mediaEnabled
-    ? (
-        await getArticlesByType(['photo-story', 'video-story'], {
-          locale,
-          limit: homepage.mediaSection?.limit ?? 4,
-          exclude: [...shown],
-        })
-      ).docs
-    : []
+  const page = await composeHomepage(homepage, locale)
 
   /**
    * The front page describes the publication, not one story. Emitting a
@@ -179,38 +82,97 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   const graph = await homeGraph(locale)
 
   return (
-    <div className="space-y-14">
+    /*
+     * Tighter than before. A front page at this density earns its separation
+     * from rules and heading weight, not from empty space — and every extra
+     * gap between blocks is a story pushed below the fold.
+     */
+    <div className="space-y-9">
       <JsonLd data={graph} />
 
-      {heroArticle ? (
+      {page.lead ? (
         <section aria-labelledby="lead-heading">
           <h1 id="lead-heading" className="sr-only">
             {d('latest')}
           </h1>
-          <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
-            <ArticleCard
-              article={heroArticle}
-              locale={locale}
-              size="lead"
-              headingLevel={2}
-              priority
-            />
+
+          {/*
+            Three columns on a wide screen: a headline column, the lead, and a
+            rail. This is the shape a Bengali daily's front page has had in
+            print for decades and the reason is unchanged — a reader arriving
+            at the page should be able to see the main story *and* a dozen
+            other headlines without scrolling, rather than one photograph.
+
+            On a phone the columns become one, and the order is set explicitly
+            so the lead comes first: source order puts the side column above
+            it, which would open the page on a list of secondary headlines.
+          */}
+          {/*
+            18rem a side, and the lead takes what is left.
+
+            The centre column is the one that can afford to lose width: its
+            headline is set large enough to survive a narrower measure, and its
+            picture is capped anyway. The side columns cannot — a compact card
+            spends 7rem on the thumbnail, so at 15rem the headline was down to
+            four words a line and the column stopped being scannable, which is
+            the only thing it is there to be. Taking 3rem from the middle buys
+            both of them a readable measure and puts more headlines above the
+            fold, which is what the row is for.
+          */}
+          {/*
+            `items-start`, so a short column ends where its stories end.
+
+            Grid items stretch by default, which made every column as tall as
+            the tallest — and a column of two stories then spread its own rows
+            across that height, opening gaps between headlines that had nothing
+            in them. Each column now sets its own height and the rules between
+            them run only as far as the column does.
+          */}
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_minmax(0,18rem)] lg:items-start lg:gap-5">
+            {page.side.length > 0 ? (
+              <ul className="order-2 lg:order-none lg:border-e lg:border-[var(--color-rule)] lg:pe-5">
+                {page.side.map((article) => (
+                  <li
+                    key={article.id}
+                    className="border-b border-[var(--color-rule)] py-3 first:pt-0 last:border-0 lg:last:pb-0"
+                  >
+                    <ArticleCard
+                      article={article}
+                      locale={locale}
+                      size="compact"
+                      headingLevel={2}
+                    />
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            <div className="order-1 lg:order-none">
+              <ArticleCard
+                article={page.lead}
+                locale={locale}
+                size="lead"
+                headingLevel={2}
+                priority
+              />
+            </div>
+
             {/*
              * Thumbnail-and-headline in the rail, full cards on narrow screens.
              *
              * Stacked beside the lead, four 16/9 cards run roughly twice its
              * height, and the difference shows up as empty space under the lead
-             * headline. Compact rows keep the two columns close enough that the
-             * row has no slack to leave behind. Below `lg` the rail is not a
-             * rail — it is the next thing down the page — so the pictures come
-             * back and the cards are hairline-separated instead.
+             * headline. Compact rows keep the columns close enough that the row
+             * has no slack to leave behind. Below `lg` the rail is not a rail —
+             * it is the next thing down the page — so the pictures come back and
+             * the cards are hairline-separated instead.
              */}
-            {secondary.length > 0 ? (
-              <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-1 lg:gap-0">
-                {secondary.map((article) => (
+            {page.rail.length > 0 ? (
+              <ul className="order-3 grid gap-6 sm:grid-cols-2 lg:order-none lg:block lg:gap-0 lg:border-s lg:border-[var(--color-rule)] lg:ps-5">
+                {page.rail.map((article) => (
                   <li
                     key={article.id}
-                    className="lg:border-b lg:border-[var(--color-rule)] lg:py-4 lg:first:pt-0 lg:last:border-0"
+                    className="lg:border-b lg:border-[var(--color-rule)] lg:py-3 lg:first:pt-0 lg:last:border-0 lg:last:pb-0"
                   >
                     <ArticleCard article={article} locale={locale} size="rail" headingLevel={2} />
                   </li>
@@ -221,69 +183,86 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         </section>
       ) : null}
 
-      {latestArticles.length > 0 ? (
-        <section aria-labelledby="latest-heading">
-          {/*
-            A section marker, not a title bar. The rule runs the full measure
-            and the label sits on it in mono at caption size — a section on a
-            front page is apparatus telling a reader where they are, and setting
-            it as a heavy heading makes it compete with the stories beneath it.
-          */}
-          <h2
-            id="latest-heading"
-            className="mb-6 border-t border-[var(--color-rule-strong)] pt-3 font-[family-name:var(--font-mono)] text-xs tracking-widest text-[var(--color-ink-muted)] uppercase"
-          >
-            {homepage.latestNews?.heading ?? d('latest')}
-          </h2>
-          <ArticleList articles={latestArticles} locale={locale} />
-        </section>
-      ) : null}
+      {/*
+        The topics strip.
 
-      {dedupedSections.map((section) =>
-        section && section.articles.length > 0 ? (
-          <section key={section.category.id} aria-labelledby={`section-${section.category.id}`}>
-            <div className="mb-6 flex items-baseline justify-between gap-4 border-t border-[var(--color-rule-strong)] pt-3">
-              <h2
-                id={`section-${section.category.id}`}
-                className="font-[family-name:var(--font-mono)] text-xs tracking-widest text-[var(--color-ink-muted)] uppercase"
-              >
-                {section.heading ?? section.category.title}
-              </h2>
-              {section.category.slug ? (
+        One line, scrolled sideways rather than wrapped to three rows: it is
+        navigation between the lead and the rest of the page, and a block of
+        chips that tall separates them instead of joining them.
+      */}
+      {page.topics.length > 0 ? (
+        <nav
+          aria-label={homepage.trendingTags?.heading ?? d('trendingTopics')}
+          className="flex items-center gap-3 border-y border-[var(--color-rule)] py-2"
+        >
+          <span className="shrink-0 text-xs font-bold tracking-wide text-[var(--color-brand)] uppercase">
+            {homepage.trendingTags?.heading ?? d('trendingTopics')}
+          </span>
+          <ul className="flex min-w-0 gap-2 overflow-x-auto">
+            {page.topics.map((topic) => (
+              <li key={topic.key} className="shrink-0">
                 <Link
-                  href={categoryPath(locale, section.category.slug)}
-                  className="shrink-0 font-[family-name:var(--font-mono)] text-xs tracking-widest text-[var(--color-brand)] uppercase hover:underline"
+                  href={topic.href}
+                  className="inline-flex rounded-full bg-[var(--color-surface-sunken)] px-3 py-1 text-sm hover:text-[var(--color-brand)]"
                 >
-                  {d('moreFrom')} {section.category.title}
+                  {topic.title}
                 </Link>
-              ) : null}
-            </div>
-            <ArticleList articles={section.articles} locale={locale} columns={4} />
-          </section>
-        ) : null,
-      )}
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ) : null}
 
-      {picks.length > 0 ? (
-        <section aria-labelledby="picks-heading">
-          <h2
-            id="picks-heading"
-            className="mb-6 border-t border-[var(--color-rule-strong)] pt-3 font-[family-name:var(--font-mono)] text-xs tracking-widest text-[var(--color-ink-muted)] uppercase"
-          >
-            {homepage.editorsPicks?.heading ?? "Editor's picks"}
-          </h2>
-          <ArticleList articles={picks} locale={locale} columns={3} />
+      {/* The row of cards under the lead assembly: still the top of the page. */}
+      {page.subLeads.length > 0 ? (
+        <section aria-label={d('moreTopStories')}>
+          <ul className="grid grid-cols-2 gap-x-5 gap-y-6 lg:grid-cols-3">
+            {page.subLeads.map((article) => (
+              <li key={article.id}>
+                <ArticleCard article={article} locale={locale} size="tile" headingLevel={2} />
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 
-      {mediaStories.length > 0 ? (
+      {page.latest.length > 0 ? (
+        <section aria-labelledby="latest-heading">
+          <SectionHeading id="latest-heading">
+            {homepage.latestNews?.heading ?? d('latest')}
+          </SectionHeading>
+          <ArticleList articles={page.latest} locale={locale} columns={4} />
+        </section>
+      ) : null}
+
+      {page.sections.map((section) => (
+        <HomeSectionBlock key={section.key} section={section} locale={locale} />
+      ))}
+
+      {page.picks.length > 0 ? (
+        <section aria-labelledby="picks-heading">
+          <SectionHeading id="picks-heading">
+            {homepage.editorsPicks?.heading ?? "Editor's picks"}
+          </SectionHeading>
+          <ArticleList articles={page.picks} locale={locale} columns={3} />
+        </section>
+      ) : null}
+
+      {page.media.length > 0 ? (
         <section aria-labelledby="media-heading">
-          <h2
-            id="media-heading"
-            className="mb-6 border-t border-[var(--color-rule-strong)] pt-3 font-[family-name:var(--font-mono)] text-xs tracking-widest text-[var(--color-ink-muted)] uppercase"
-          >
+          <SectionHeading id="media-heading">
             {homepage.mediaSection?.heading ?? 'Photo & video'}
-          </h2>
-          <ArticleList articles={mediaStories} locale={locale} columns={4} />
+          </SectionHeading>
+          <ul className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2">
+            {page.media.map((article) => (
+              <li
+                key={article.id}
+                className="w-[62%] shrink-0 snap-start sm:w-[42%] lg:w-[calc((100%-3rem)/4)]"
+              >
+                <ArticleCard article={article} locale={locale} size="poster" headingLevel={3} />
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
     </div>

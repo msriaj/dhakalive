@@ -22,17 +22,29 @@ export function ArticleList({
     return <p className="text-[var(--color-ink-muted)]">{dictionary(locale)('noResults')}</p>
   }
 
+  /**
+   * Rows on a phone, columns once there is width.
+   *
+   * The single-column case stays a stack of thumbnail rows — a reader holding a
+   * phone wants to run down headlines, and two columns of cropped pictures at
+   * 160px each gives them neither a legible photograph nor a readable headline.
+   * The vertical gap is tighter than the horizontal one because the rows are
+   * already separated by their own rules.
+   */
   const gridClass = {
-    1: 'grid gap-8',
-    2: 'grid gap-8 sm:grid-cols-2',
-    3: 'grid gap-8 sm:grid-cols-2 lg:grid-cols-3',
-    4: 'grid gap-8 sm:grid-cols-2 lg:grid-cols-4',
+    1: 'grid gap-y-5',
+    2: 'grid gap-y-5 sm:grid-cols-2 sm:gap-8',
+    3: 'grid gap-y-5 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3',
+    4: 'grid gap-y-5 sm:grid-cols-2 sm:gap-8 lg:grid-cols-4',
   }[columns]
 
   return (
     <ul className={gridClass}>
       {articles.map((article) => (
-        <li key={article.id}>
+        <li
+          key={article.id}
+          className="border-b border-[var(--color-rule)] pb-5 last:border-0 sm:border-0 sm:pb-0"
+        >
           <ArticleCard article={article} locale={locale} headingLevel={headingLevel} />
         </li>
       ))}

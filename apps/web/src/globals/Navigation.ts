@@ -133,7 +133,27 @@ export const Footer: GlobalConfig = {
     afterChange: [revalidateGlobal('footer')],
   },
 
+  /**
+   * Four bands, in the order a Bengali daily prints them: the group's other
+   * titles, the section columns, the follow-and-download band, and then the
+   * statutory row — policy links, copyright and the imprint.
+   *
+   * The imprint is a field rather than a hardcoded string because naming the
+   * editor and publisher in the footer is a legal requirement for a registered
+   * newspaper, and the person named changes.
+   */
   fields: [
+    {
+      name: 'brandLinks',
+      type: 'array',
+      label: 'Sister publications',
+      maxRows: 12,
+      admin: {
+        description:
+          'The group\'s other titles, printed as one row above the footer proper. Uses "Custom URL" for anything off this site.',
+      },
+      fields: linkFields,
+    },
     {
       name: 'columns',
       type: 'array',
@@ -144,10 +164,46 @@ export const Footer: GlobalConfig = {
       ],
     },
     {
+      name: 'followHeading',
+      type: 'text',
+      localized: true,
+      defaultValue: 'অনুসরণ করুন',
+      admin: { description: 'Sits above the social links, which come from Site settings.' },
+    },
+    {
+      name: 'apps',
+      type: 'group',
+      label: 'Mobile apps',
+      fields: [
+        {
+          name: 'heading',
+          type: 'text',
+          localized: true,
+          defaultValue: 'মোবাইল অ্যাপস ডাউনলোড করুন',
+        },
+        { name: 'appStoreUrl', type: 'text', label: 'App Store URL' },
+        { name: 'playStoreUrl', type: 'text', label: 'Google Play URL' },
+      ],
+    },
+    {
+      name: 'bottomLinks',
+      type: 'array',
+      label: 'Statutory links',
+      maxRows: 10,
+      admin: { description: 'About, advertising, terms, contact — one row above the copyright.' },
+      fields: linkFields,
+    },
+    {
       name: 'copyright',
       type: 'text',
       localized: true,
       admin: { description: 'Shown after the year, which is added automatically.' },
+    },
+    {
+      name: 'imprint',
+      type: 'text',
+      localized: true,
+      admin: { description: 'Editor and publisher, as the masthead must state them.' },
     },
   ],
 }
