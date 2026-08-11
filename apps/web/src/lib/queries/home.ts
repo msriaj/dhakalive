@@ -129,12 +129,67 @@ function headroom(limit: number, placed: Placed): number {
   return Math.min(limit + placed.size, 60)
 }
 
-/** One section's rows, over-fetched and not yet deduplicated. */
-interface FetchedSection {
-  /** Already claimed — a hand-picked block, resolved before any query ran. */
+/**
+ * One column of the lead assembly.
+ *
+ * The three columns share a shape, and it is deliberately the section block's
+ * shape minus the layouts: a column is drawn one way, but it is filled the same
+ * four ways a section is.
+ */
+type SlotConfig = NonNullable<Homepage['side']>
+
+/** A slot or a section, fetched but not yet claimed. */
+interface Fetched {
+  /** Already claimed — a hand-picked list, resolved before any query ran. */
   final: ArticleCardData[] | null
   articles: ArticleCardData[]
   limit: number
+}
+
+function isManual(source: string | null | undefined): boolean {
+  // Rows that predate the source field have none, and were hand-picked.
+  return (source ?? 'manual') === 'manual'
+}
+
+async function fetchSlot(
+  slot: SlotConfig | undefined,
+  locale: Locale,
+  placed: Placed,
+  manual: ArticleCardData[] | null,
+): Promise<Fetched> {
+  const limit = slot?.limit ?? 4
+  const exclude = placed.list
+
+  if (isManual(slot?.source)) return { final: manual ?? [], articles: [], limit }
+
+  if (slot?.source === 'category') {
+    const category = populated<Category>(slot.category)
+    if (!category) return { final: [], articles: [], limit }
+    const result = await getArticlesByCategory(category.id, {
+      locale,
+      limit: headroom(limit, placed),
+      exclude,
+    })
+    return { final: null, articles: result.docs, limit }
+  }
+
+  if (slot?.source === 'type') {
+    const types = slot.articleTypes ?? []
+    if (types.length === 0) return { final: [], articles: [], limit }
+    const result = await getArticlesByType(types, {
+      locale,
+      limit: headroom(limit, placed),
+      exclude,
+    })
+    return { final: null, articles: result.docs, limit }
+  }
+
+  const result = await getLatestArticles({ locale, limit: headroom(limit, placed), exclude })
+  return { final: null, articles: result.docs, limit }
+}
+
+/** One section's rows, over-fetched and not yet deduplicated. */
+interface FetchedSection extends Fetched {
   columns: {
     key: string
     heading: string | null
@@ -251,18 +306,26 @@ export async function composeHomepage(
   const lead = populated<ArticleCardData>(homepage.leadStory)
   const claimedLead = lead ? placed.claim([lead])[0] : undefined
 
-  const side = placed.claim(populatedList<ArticleCardData>(homepage.sideStories))
-  const rail = placed.claim(populatedList<ArticleCardData>(homepage.secondaryLeads))
-  const subLeads = placed.claim(populatedList<ArticleCardData>(homepage.subLeads))
-  const picks = placed.claim(populatedList<ArticleCardData>(homepage.editorsPicks?.articles))
-
-  const sectionConfigs = homepage.sections ?? []
+  /*
+   * Hand-picked slots and blocks are resolved in page order before anything is
+   * queried, so that every later query already excludes them. Doing it inside
+   * the concurrent fetch would let a query claim a story an editor had named.
+   */
+  const slotConfigs = [homepage.side, homepage.rail, homepage.subLeads]
+  const manualBySlot = slotConfigs.map((slot) =>
+    isManual(slot?.source) ? placed.claim(populatedList<ArticleCardData>(slot?.articles)) : null,
+  )
 
   /*
-   * Hand-picked blocks are resolved in page order before anything is queried,
-   * so that every later query already excludes them. Doing it inside the
-   * concurrent fetch would let a query claim a story an editor had named.
+   * A disabled picks block releases its stories rather than holding them: they
+   * are not being printed there, so nothing below should be denied them.
    */
+  const picks =
+    homepage.editorsPicks?.enabled === false
+      ? []
+      : placed.claim(populatedList<ArticleCardData>(homepage.editorsPicks?.articles))
+
+  const sectionConfigs = homepage.sections ?? []
   const manualBySection = sectionConfigs.map((section) =>
     section.layout !== COLUMN_LAYOUT && section.source === 'manual'
       ? placed.claim(populatedList<ArticleCardData>(section.articles))
@@ -283,10 +346,26 @@ export async function composeHomepage(
   const heroArticle = claimedLead ?? placed.take(latestResult.docs, 1)[0] ?? null
   const latest = placed.take(latestResult.docs, latestLimit)
 
-  const fetched = await Promise.all(
-    sectionConfigs.map((section, index) =>
-      fetchSection(section, locale, placed, manualBySection[index] ?? null),
+  const [fetchedSlots, fetched] = await Promise.all([
+    Promise.all(
+      slotConfigs.map((slot, index) =>
+        fetchSlot(slot, locale, placed, manualBySlot[index] ?? null),
+      ),
     ),
+    Promise.all(
+      sectionConfigs.map((section, index) =>
+        fetchSection(section, locale, placed, manualBySection[index] ?? null),
+      ),
+    ),
+  ])
+
+  /*
+   * The columns are folded before the sections, and left to right: the side
+   * column keeps a story the rail also matched, and both keep one a section
+   * below would have taken. Higher on the page wins.
+   */
+  const [side, rail, subLeads] = fetchedSlots.map(
+    (slot) => slot.final ?? placed.take(slot.articles, slot.limit),
   )
 
   const sections: HomeSection[] = []
@@ -345,5 +424,15 @@ export async function composeHomepage(
             : [],
         )
 
-  return { lead: heroArticle, side, rail, subLeads, topics, latest, sections, picks, media }
+  return {
+    lead: heroArticle,
+    side: side ?? [],
+    rail: rail ?? [],
+    subLeads: subLeads ?? [],
+    topics,
+    latest,
+    sections,
+    picks,
+    media,
+  }
 }

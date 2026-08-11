@@ -1495,15 +1495,90 @@ export interface Homepage {
   /**
    * The column to the left of the lead. Four to six stories — the two side columns are meant to run to about the depth of the lead, and short ones leave the row ending in white.
    */
-  sideStories?: (number | Article)[] | null;
+  side: {
+    /**
+     * Where this column gets its stories.
+     */
+    source: 'manual' | 'category' | 'latest' | 'type';
+    articles?: (number | Article)[] | null;
+    category?: (number | null) | Category;
+    articleTypes?:
+      | (
+          | 'standard'
+          | 'breaking-news'
+          | 'opinion'
+          | 'editorial'
+          | 'feature'
+          | 'interview'
+          | 'analysis'
+          | 'photo-story'
+          | 'video-story'
+          | 'live-blog'
+        )[]
+      | null;
+    /**
+     * How many stories to draw.
+     */
+    limit?: number | null;
+  };
   /**
    * The column to the right of the lead. Four to six stories.
    */
-  secondaryLeads?: (number | Article)[] | null;
+  rail: {
+    /**
+     * Where this column gets its stories.
+     */
+    source: 'manual' | 'category' | 'latest' | 'type';
+    articles?: (number | Article)[] | null;
+    category?: (number | null) | Category;
+    articleTypes?:
+      | (
+          | 'standard'
+          | 'breaking-news'
+          | 'opinion'
+          | 'editorial'
+          | 'feature'
+          | 'interview'
+          | 'analysis'
+          | 'photo-story'
+          | 'video-story'
+          | 'live-blog'
+        )[]
+      | null;
+    /**
+     * How many stories to draw.
+     */
+    limit?: number | null;
+  };
   /**
-   * The row of cards directly beneath the lead assembly. Up to six stories.
+   * The row of cards directly beneath the lead assembly. Three or six reads best — the row is three across on a wide screen, so four leaves a gap.
    */
-  subLeads?: (number | Article)[] | null;
+  subLeads: {
+    /**
+     * Where this column gets its stories.
+     */
+    source: 'manual' | 'category' | 'latest' | 'type';
+    articles?: (number | Article)[] | null;
+    category?: (number | null) | Category;
+    articleTypes?:
+      | (
+          | 'standard'
+          | 'breaking-news'
+          | 'opinion'
+          | 'editorial'
+          | 'feature'
+          | 'interview'
+          | 'analysis'
+          | 'photo-story'
+          | 'video-story'
+          | 'live-blog'
+        )[]
+      | null;
+    /**
+     * How many stories to draw.
+     */
+    limit?: number | null;
+  };
   trendingTags?: {
     heading?: string | null;
     enabled?: boolean | null;
@@ -1597,6 +1672,10 @@ export interface Homepage {
     | null;
   editorsPicks?: {
     heading?: string | null;
+    /**
+     * Turning this off keeps the picks — it stops printing them. The block is meant to be a considered choice, and an editor who has not made one that day is better off dropping it than running yesterday's.
+     */
+    enabled?: boolean | null;
     articles?: (number | Article)[] | null;
   };
   trending?: {
@@ -1800,9 +1879,33 @@ export interface SeoDefault {
  */
 export interface HomepageSelect<T extends boolean = true> {
   leadStory?: T;
-  sideStories?: T;
-  secondaryLeads?: T;
-  subLeads?: T;
+  side?:
+    | T
+    | {
+        source?: T;
+        articles?: T;
+        category?: T;
+        articleTypes?: T;
+        limit?: T;
+      };
+  rail?:
+    | T
+    | {
+        source?: T;
+        articles?: T;
+        category?: T;
+        articleTypes?: T;
+        limit?: T;
+      };
+  subLeads?:
+    | T
+    | {
+        source?: T;
+        articles?: T;
+        category?: T;
+        articleTypes?: T;
+        limit?: T;
+      };
   trendingTags?:
     | T
     | {
@@ -1842,6 +1945,7 @@ export interface HomepageSelect<T extends boolean = true> {
     | T
     | {
         heading?: T;
+        enabled?: T;
         articles?: T;
       };
   trending?:

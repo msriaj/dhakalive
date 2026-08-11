@@ -1,4 +1,4 @@
-import type { GlobalConfig } from 'payload'
+import type { Field, GlobalConfig } from 'payload'
 
 import { ARTICLE_TYPES } from '@dhakalive/core'
 
@@ -50,6 +50,138 @@ function isColumnLayout(siblingData: Record<string, unknown>): boolean {
   return COLUMN_LAYOUTS.includes(String(siblingData?.layout))
 }
 
+/**
+ * The columns of the lead assembly, in the order the page fills them.
+ *
+ * Used both to build the three near-identical groups and to check that no story
+ * is claimed twice — the check has to know which slot comes first, because the
+ * one that comes first is the one that keeps the story.
+ */
+const SLOT_ORDER = ['side', 'rail', 'subLeads'] as const
+
+type SlotName = (typeof SLOT_ORDER)[number]
+
+function idsOf(value: unknown): number[] {
+  // `Array.isArray` narrows to `any[]`, which would make every element unsafe;
+  // the assertion says what the elements actually are, which is nothing known.
+  if (!Array.isArray(value)) return []
+  return (value as unknown[]).map(idOf).filter((id): id is number => id !== null)
+}
+
+/** Relationship values arrive as ids, or as documents once they are populated. */
+function idOf(value: unknown): number | null {
+  if (typeof value === 'number') return value
+  if (typeof value === 'object' && value !== null) {
+    const id = (value as { id?: unknown }).id
+    if (typeof id === 'number') return id
+  }
+  return null
+}
+
+/**
+ * Refuses a hand-picked column that repeats a story already placed above it.
+ *
+ * The page has always deduplicated — one story, one place — but silently, so an
+ * editor who put the same report in the side column and the rail got a rail with
+ * one story in it and no indication why. The rule is easier to obey than to
+ * discover, so it is stated at the point of editing.
+ */
+function noRepeats(slot: SlotName) {
+  return (value: unknown, { data }: { data?: Record<string, unknown> }) => {
+    const mine = idsOf(value)
+    if (mine.length === 0) return true
+
+    const claimed = new Set<number>()
+    const lead = idOf(data?.leadStory)
+    if (lead !== null) claimed.add(lead)
+
+    for (const other of SLOT_ORDER) {
+      if (other === slot) break
+      const group = data?.[other] as { articles?: unknown } | undefined
+      for (const id of idsOf(group?.articles)) claimed.add(id)
+    }
+
+    const repeated = mine.filter(
+      (id, index) => claimed.has(id) || mine.indexOf(id) !== index,
+    ).length
+
+    if (repeated > 0) {
+      return `${repeated} of these already appear higher in the lead assembly. A story runs in one place on the page, so the duplicates would simply be dropped and this column would come up short.`
+    }
+    return true
+  }
+}
+
+/**
+ * One column of the lead assembly.
+ *
+ * The three columns differ only in where they sit, so they are built from one
+ * definition. Each takes its stories the same four ways a section block does —
+ * by hand, from a category, from the most recent stories, or by article type —
+ * because the reason to want a query here is the same: a column an editor has
+ * to refill every morning is a column that goes stale by lunchtime.
+ */
+function storySlot(config: { name: SlotName; label: string; description: string }): Field {
+  const shownWhen = (source: string) => (_data: unknown, siblingData: Record<string, unknown>) =>
+    (siblingData?.source ?? 'manual') === source
+
+  return {
+    name: config.name,
+    type: 'group',
+    label: config.label,
+    admin: { description: config.description },
+    fields: [
+      {
+        name: 'source',
+        type: 'select',
+        required: true,
+        defaultValue: 'manual',
+        options: [
+          { label: 'Stories chosen by hand', value: 'manual' },
+          { label: 'A category', value: 'category' },
+          { label: 'The most recent stories', value: 'latest' },
+          { label: 'Stories of a given type', value: 'type' },
+        ],
+        admin: { description: 'Where this column gets its stories.' },
+      },
+      {
+        name: 'articles',
+        type: 'relationship',
+        relationTo: 'articles',
+        hasMany: true,
+        maxRows: 6,
+        validate: noRepeats(config.name),
+        admin: { condition: shownWhen('manual') },
+      },
+      {
+        name: 'category',
+        type: 'relationship',
+        relationTo: 'categories',
+        admin: { condition: shownWhen('category') },
+      },
+      {
+        name: 'articleTypes',
+        type: 'select',
+        hasMany: true,
+        options: ARTICLE_TYPES.map((type) => ({ label: type, value: type })),
+        admin: { condition: shownWhen('type') },
+      },
+      {
+        name: 'limit',
+        type: 'number',
+        defaultValue: 4,
+        min: 1,
+        max: 6,
+        admin: {
+          description: 'How many stories to draw.',
+          condition: (_data: unknown, siblingData: Record<string, unknown>) =>
+            (siblingData?.source ?? 'manual') !== 'manual',
+        },
+      },
+    ],
+  }
+}
+
 export const Homepage: GlobalConfig = {
   slug: 'homepage',
 
@@ -81,39 +213,23 @@ export const Homepage: GlobalConfig = {
                   'The main story. Leave empty to use the most recent published article.',
               },
             },
-            {
-              name: 'sideStories',
-              type: 'relationship',
-              relationTo: 'articles',
-              hasMany: true,
-              maxRows: 6,
-              admin: {
-                description:
-                  'The column to the left of the lead. Four to six stories — the two side columns are meant to run to about the depth of the lead, and short ones leave the row ending in white.',
-              },
-            },
-            {
-              name: 'secondaryLeads',
-              type: 'relationship',
-              relationTo: 'articles',
-              hasMany: true,
-              maxRows: 6,
-              label: 'Rail stories',
-              admin: {
-                description: 'The column to the right of the lead. Four to six stories.',
-              },
-            },
-            {
+            storySlot({
+              name: 'side',
+              label: 'Side column',
+              description:
+                'The column to the left of the lead. Four to six stories — the two side columns are meant to run to about the depth of the lead, and short ones leave the row ending in white.',
+            }),
+            storySlot({
+              name: 'rail',
+              label: 'Rail',
+              description: 'The column to the right of the lead. Four to six stories.',
+            }),
+            storySlot({
               name: 'subLeads',
-              type: 'relationship',
-              relationTo: 'articles',
-              hasMany: true,
-              maxRows: 6,
-              admin: {
-                description:
-                  'The row of cards directly beneath the lead assembly. Up to six stories.',
-              },
-            },
+              label: 'Sub-leads',
+              description:
+                'The row of cards directly beneath the lead assembly. Three or six reads best — the row is three across on a wide screen, so four leaves a gap.',
+            }),
             {
               name: 'trendingTags',
               type: 'group',
@@ -298,11 +414,23 @@ export const Homepage: GlobalConfig = {
                   defaultValue: 'সম্পাদকের পছন্দ',
                 },
                 {
+                  name: 'enabled',
+                  type: 'checkbox',
+                  defaultValue: true,
+                  admin: {
+                    description:
+                      "Turning this off keeps the picks — it stops printing them. The block is meant to be a considered choice, and an editor who has not made one that day is better off dropping it than running yesterday's.",
+                  },
+                },
+                {
                   name: 'articles',
                   type: 'relationship',
                   relationTo: 'articles',
                   hasMany: true,
                   maxRows: 6,
+                  admin: {
+                    condition: (_data, siblingData) => siblingData?.enabled !== false,
+                  },
                 },
               ],
             },

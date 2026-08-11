@@ -1033,11 +1033,23 @@ async function ensureGlobals(
     DEFAULT_LOCALE,
     {
       leadStory: article('budget'),
-      // Four a side. Two left the row ending in a band of white beside a lead
-      // twice their depth — the columns are what the shape is for.
-      sideStories: ['breaking-flood', 'metro', 'filler-1', 'filler-3'].map(article),
-      secondaryLeads: ['exports', 'cricket-win', 'filler-2', 'filler-4'].map(article),
-      subLeads: ['climate-delta', 'editorial-transport', 'interview-economist'].map(article),
+      /*
+       * Four a side. Two left the row ending in a band of white beside a lead
+       * twice their depth — the columns are what the shape is for.
+       *
+       * The side column is hand-picked and the rail runs off a category, so the
+       * seed shows both ways of filling a column rather than only the one an
+       * editor has to refill every morning.
+       */
+      side: {
+        source: 'manual',
+        articles: ['breaking-flood', 'metro', 'filler-1', 'filler-3'].map(article),
+      },
+      rail: { source: 'category', category: category('business'), limit: 4 },
+      subLeads: {
+        source: 'manual',
+        articles: ['climate-delta', 'editorial-transport', 'interview-economist'].map(article),
+      },
       trendingTags: {
         heading: 'আলোচিত বিষয়',
         enabled: true,
