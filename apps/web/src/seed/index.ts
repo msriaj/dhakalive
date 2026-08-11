@@ -988,9 +988,14 @@ async function ensureGlobals(
       limit: 5,
       headings: { bn: 'মতামত', en: 'Opinion' },
     },
+    /*
+     * Sourced from the counter, not from recency — the block is headed "most
+     * read" and filling it with the newest stories made that a lie the reader
+     * could not check.
+     */
     {
       layout: 'numbered-list',
-      source: 'latest',
+      source: 'most-viewed',
       limit: 8,
       headings: { bn: 'সবচেয়ে পঠিত', en: 'Most read' },
     },

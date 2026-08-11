@@ -62,6 +62,12 @@ export interface ListOptions {
    * so it is opt-in per query rather than raised for the whole site.
    */
   depth?: number
+  /**
+   * Ordering, defaulting to newest first. Always falls back to recency as the
+   * final key so that a sort with ties — every unread article shares a view
+   * count of zero — still returns a stable, sensible order.
+   */
+  sort?: string
 }
 
 interface ListResult {
@@ -93,7 +99,7 @@ async function listArticles(where: Where | undefined, options: ListOptions): Pro
     depth: options.depth ?? 1,
     limit: options.limit ?? 12,
     page: options.page ?? 1,
-    sort: '-publishedAt',
+    sort: options.sort ? [options.sort, '-publishedAt'] : '-publishedAt',
     select: CARD_SELECT,
     overrideAccess: false,
     ...(where ? { where } : {}),
@@ -119,6 +125,19 @@ export function getArticlesByCategory(
     combine({ primaryCategory: { equals: categoryId } }, excluding(options.exclude)),
     options,
   )
+}
+
+/**
+ * Most read, by the counter `/api/view` keeps.
+ *
+ * Sorted on `viewCount` and then on recency, which matters more than it looks:
+ * a new article and a dozen old ones all sit at zero until somebody reads them,
+ * and without the tiebreak the block would show whichever the database happened
+ * to return. Falling back to newest makes a cold list read as "latest" rather
+ * than as noise.
+ */
+export function getMostViewedArticles(options: ListOptions): Promise<ListResult> {
+  return listArticles(combine(excluding(options.exclude)), { ...options, sort: '-viewCount' })
 }
 
 export function getArticlesByTag(

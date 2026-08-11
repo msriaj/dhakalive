@@ -8,6 +8,7 @@ import {
   getArticlesByCategory,
   getArticlesByType,
   getLatestArticles,
+  getMostViewedArticles,
   type ArticleCardData,
 } from './articles'
 
@@ -173,6 +174,15 @@ async function fetchSlot(
     return { final: null, articles: result.docs, limit }
   }
 
+  if (slot?.source === 'most-viewed') {
+    const result = await getMostViewedArticles({
+      locale,
+      limit: headroom(limit, placed),
+      exclude,
+    })
+    return { final: null, articles: result.docs, limit }
+  }
+
   if (slot?.source === 'type') {
     const types = slot.articleTypes ?? []
     if (types.length === 0) return { final: [], articles: [], limit }
@@ -256,6 +266,16 @@ async function fetchSection(
 
     case 'latest': {
       const result = await getLatestArticles({
+        locale,
+        limit: headroom(limit, placed),
+        exclude,
+        depth,
+      })
+      return { final: null, articles: result.docs, limit, columns: [] }
+    }
+
+    case 'most-viewed': {
+      const result = await getMostViewedArticles({
         locale,
         limit: headroom(limit, placed),
         exclude,
