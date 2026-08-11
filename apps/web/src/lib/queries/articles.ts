@@ -223,6 +223,38 @@ export async function getRelatedArticles(
   return result.docs
 }
 
+/**
+ * The story a reader falls into next, reading down the page.
+ *
+ * Ordered by publication and taken one at a time rather than as a page: the
+ * reader may stop at any point, and fetching five to show one is four articles'
+ * worth of body text — the largest column in the table — pulled for nothing.
+ *
+ * `exclude` carries the ids already on screen. The cursor alone would be enough
+ * were `publishedAt` unique, and it is not: the ingest stamps stories with the
+ * source's timestamp, so a batch published in the same minute shares one.
+ */
+export async function getNextArticle(
+  before: string,
+  locale: Locale,
+  exclude: number[],
+): Promise<Article | null> {
+  const payload = await getPayloadClient()
+  const result = await payload.find({
+    collection: 'articles',
+    locale,
+    // Depth 2, as the article page itself uses: the byline draws the author's
+    // portrait, which sits one level below the author relationship.
+    depth: 2,
+    limit: 1,
+    sort: '-publishedAt',
+    where: combine({ publishedAt: { less_than_equal: before } }, excluding(exclude)),
+    overrideAccess: false,
+  })
+
+  return result.docs[0] ?? null
+}
+
 /** Slugs for `generateStaticParams`, newest first. */
 export async function getRecentArticleParams(
   locale: Locale,
