@@ -217,6 +217,19 @@ export const serverEnvSchema = z
     INGEST_SOURCE_URL: z.url().optional(),
     /** Stories taken from the feed per sweep. A backlog drains over later runs. */
     INGEST_MAX_PER_RUN: z.coerce.number().int().min(1).max(50).default(5),
+    /**
+     * How old a story may be and still be worth taking, in hours.
+     *
+     * The listing is a front page, so it carries yesterday's stories alongside
+     * this morning's — and with a per-sweep cap, an old one taken is a new one
+     * not taken. Publishing a day-old report as though it had just broken is
+     * also its own problem: it arrives at the top of our front page, stamped
+     * with the source's timestamp, above stories that are actually newer.
+     *
+     * Raise it to backfill deliberately; the dedupe makes that safe to do once
+     * and put back.
+     */
+    INGEST_MAX_AGE_HOURS: z.coerce.number().int().min(1).max(720).default(24),
     OPENAI_API_KEY: optionalString,
     OPENAI_MODEL: z.string().trim().default('gpt-4o'),
 
