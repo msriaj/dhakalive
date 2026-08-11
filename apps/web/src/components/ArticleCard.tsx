@@ -38,9 +38,11 @@ function CardHeading({
 
 const IMAGE_SIZES: Record<CardSize, string> = {
   lead: '(min-width: 1024px) 720px, 100vw',
-  standard: '(min-width: 1024px) 360px, (min-width: 640px) 50vw, 100vw',
+  // Below `sm` this is a 128px thumbnail, not a full-width crop; asking for
+  // 100vw there would download a header-sized image to paint a thumbnail.
+  standard: '(min-width: 1024px) 360px, (min-width: 640px) 50vw, 128px',
   compact: '112px',
-  rail: '(min-width: 1024px) 112px, (min-width: 640px) 50vw, 100vw',
+  rail: '(min-width: 1024px) 112px, (min-width: 640px) 50vw, 128px',
 }
 
 /**
@@ -89,8 +91,25 @@ export function ArticleCard({
           : isLead
             ? 'flex h-full flex-col gap-3'
             : isRail
-              ? 'flex flex-col gap-3 lg:flex-row'
-              : 'flex flex-col gap-3'
+              ? // Below `lg` the rail is not a rail — it is the next thing down
+                // the page, so it takes the same thumbnail-row shape as the rest
+                // of the stack rather than four more full-width pictures.
+                'flex flex-row-reverse items-start gap-3 sm:flex-col lg:flex-row'
+              : /*
+                 * A thumbnail row on a phone, a stacked card once there is a
+                 * grid to sit in.
+                 *
+                 * One column of full-width pictures turns a front page into a
+                 * scroll of photographs with headlines between them: only two
+                 * or three stories are reachable per screen, and the reader has
+                 * to work to find out what the news is. Beside the headline the
+                 * picture still identifies the story without being the story.
+                 *
+                 * Reversed so the thumbnail sits to the trailing side and the
+                 * headlines all start on one edge — a column of text with a
+                 * ragged left margin is markedly harder to skim.
+                 */
+                'flex flex-row-reverse items-start gap-3 sm:flex-col'
       }
     >
       {article.featuredImage ? (
@@ -102,10 +121,11 @@ export function ArticleCard({
             isCompact
               ? 'relative block h-20 w-28 shrink-0 overflow-hidden rounded-md bg-[var(--color-surface-sunken)]'
               : isLead
-                ? 'relative block max-h-[32rem] min-h-72 flex-1 overflow-hidden rounded-md bg-[var(--color-surface-sunken)]'
+                ? 'relative block max-h-[32rem] min-h-56 flex-1 overflow-hidden rounded-md bg-[var(--color-surface-sunken)] sm:min-h-72'
                 : isRail
-                  ? 'relative block aspect-[16/9] overflow-hidden rounded-md bg-[var(--color-surface-sunken)] lg:aspect-auto lg:h-20 lg:w-28 lg:shrink-0'
-                  : 'relative block aspect-[16/9] overflow-hidden rounded-md bg-[var(--color-surface-sunken)]'
+                  ? 'relative block h-24 w-32 shrink-0 overflow-hidden rounded-md bg-[var(--color-surface-sunken)] sm:aspect-[16/9] sm:h-auto sm:w-auto lg:aspect-auto lg:h-20 lg:w-28'
+                  : // Fixed thumbnail on a phone; a full-width crop in the grid.
+                    'relative block h-24 w-32 shrink-0 overflow-hidden rounded-md bg-[var(--color-surface-sunken)] sm:aspect-[16/9] sm:h-auto sm:w-auto'
           }
         >
           <MediaImage
@@ -118,7 +138,15 @@ export function ArticleCard({
         </Link>
       ) : null}
 
-      <div className="min-w-0">
+      <div
+        className={
+          isCompact
+            ? 'min-w-0'
+            : isRail
+              ? 'min-w-0 flex-1 sm:flex-none lg:flex-1'
+              : 'min-w-0 flex-1 sm:flex-none'
+        }
+      >
         {!isCompact ? (
           <Link
             href={categoryPath(locale, category.slug)}

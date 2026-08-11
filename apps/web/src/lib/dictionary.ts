@@ -18,6 +18,8 @@ const STRINGS = {
   menu: { bn: 'মেনু', en: 'Menu' },
   closeMenu: { bn: 'মেনু বন্ধ করুন', en: 'Close menu' },
   openMenu: { bn: 'মেনু খুলুন', en: 'Open menu' },
+  /** Accessible name for the chevron that reveals a section's sub-sections. */
+  showSubsections: { bn: 'উপবিভাগ দেখান', en: 'Show subsections' },
   latest: { bn: 'সর্বশেষ', en: 'Latest' },
   breaking: { bn: 'ব্রেকিং', en: 'Breaking' },
   relatedStories: { bn: 'সম্পর্কিত খবর', en: 'Related stories' },

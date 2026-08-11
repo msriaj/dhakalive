@@ -6,9 +6,10 @@ import { dictionary } from '../lib/dictionary'
 import { getBreakingArticles } from '../lib/queries/articles'
 import { getHeader, getSiteSettings } from '../lib/queries/globals'
 import { getNavigationTree } from '../lib/queries/taxonomy'
-import { articlePath, categoryPath, homePath, searchPath } from '../lib/routes'
+import { articlePath, homePath, searchPath } from '../lib/routes'
 import { MobileNav } from './MobileNav'
-import { NavLink, type NavItem } from './NavLink'
+import { NavLink, navHref, type NavItem } from './NavLink'
+import { NavAccordion, NavDropdown, type SubCategory } from './SubNav'
 
 function otherLocale(locale: Locale): Locale {
   return LOCALES.find((candidate) => candidate !== locale) ?? locale
@@ -32,8 +33,27 @@ export async function SiteHeader({ locale }: { locale: Locale }) {
 
   const items = (header.primary ?? []) as NavItem[]
 
-  // Only sections that actually have children earn a place in the strip.
-  const branches = tree.filter((branch) => branch.children.length > 0)
+  /**
+   * Sub-sections are attached to the navigation entry that points at their
+   * parent, keyed on category id.
+   *
+   * The primary navigation is editor-defined and may hold pages and external
+   * links as well as sections, so the tree is looked up per entry rather than
+   * replacing the navigation with the category list — an entry the editor chose
+   * to leave out should stay out.
+   */
+  const childrenByCategory = new Map(
+    tree
+      .filter((branch) => branch.children.length > 0)
+      .map((branch) => [branch.id, branch.children]),
+  )
+
+  function subsectionsFor(item: NavItem): SubCategory[] {
+    if (item.type !== 'category') return []
+    const category = item.category
+    const id = typeof category === 'object' ? category?.id : category
+    return (id !== null && id !== undefined ? childrenByCategory.get(id) : undefined) ?? []
+  }
   const showTicker = header.showBreakingTicker !== false && breaking.length > 0
 
   return (
@@ -45,15 +65,31 @@ export async function SiteHeader({ locale }: { locale: Locale }) {
 
         <nav aria-label={d('mainNavigation')} className="hidden md:block">
           <ul className="flex flex-wrap items-center gap-5">
-            {items.map((item, index) => (
-              <li key={`${item.label ?? 'item'}-${index}`}>
-                <NavLink
-                  item={item}
+            {items.map((item, index) => {
+              const subsections = subsectionsFor(item)
+              const href = navHref(item, locale)
+              const key = `${item.label ?? 'item'}-${index}`
+
+              return subsections.length > 0 && href && item.label ? (
+                <NavDropdown
+                  key={key}
+                  label={item.label}
+                  href={href}
                   locale={locale}
-                  className="text-sm font-medium hover:text-[var(--color-brand)]"
-                />
-              </li>
-            ))}
+                  expandLabel={d('showSubsections')}
+                >
+                  {subsections}
+                </NavDropdown>
+              ) : (
+                <li key={key}>
+                  <NavLink
+                    item={item}
+                    locale={locale}
+                    className="text-sm font-medium hover:text-[var(--color-brand)]"
+                  />
+                </li>
+              )
+            })}
           </ul>
         </nav>
 
@@ -85,87 +121,38 @@ export async function SiteHeader({ locale }: { locale: Locale }) {
             navigationLabel={d('mainNavigation')}
           >
             <ul className="flex flex-col">
-              {items.map((item, index) => (
-                <li
-                  key={`${item.label ?? 'item'}-mobile-${index}`}
-                  className="border-b border-[var(--color-rule)] last:border-0"
-                >
-                  <NavLink
-                    item={item}
-                    locale={locale}
-                    className="block py-4 font-[family-name:var(--font-display)] text-xl font-semibold"
-                  />
-                </li>
-              ))}
-            </ul>
+              {items.map((item, index) => {
+                const subsections = subsectionsFor(item)
+                const href = navHref(item, locale)
 
-            {/*
-              The sub-sections again, because the strip above them is desktop
-              only — and a phone is where a hidden level of navigation is least
-              likely to be discovered by any other route.
-            */}
-            {branches.length > 0 ? (
-              <div className="mt-6 border-t border-[var(--color-rule-strong)] pt-4">
-                {branches.map((branch) => (
-                  <div key={branch.id} className="mb-5">
-                    <p className="font-[family-name:var(--font-mono)] text-[0.6875rem] tracking-widest text-[var(--color-ink-faint)] uppercase">
-                      {branch.title}
-                    </p>
-                    <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
-                      {branch.children.map((child) =>
-                        child.slug ? (
-                          <li key={child.id}>
-                            <Link
-                              href={categoryPath(locale, child.slug)}
-                              className="text-base text-[var(--color-ink-muted)]"
-                            >
-                              {child.title}
-                            </Link>
-                          </li>
-                        ) : null,
-                      )}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            ) : null}
+                return (
+                  <li
+                    key={`${item.label ?? 'item'}-mobile-${index}`}
+                    className="border-b border-[var(--color-rule)] last:border-0"
+                  >
+                    {subsections.length > 0 && href && item.label ? (
+                      <NavAccordion
+                        label={item.label}
+                        href={href}
+                        locale={locale}
+                        expandLabel={d('showSubsections')}
+                      >
+                        {subsections}
+                      </NavAccordion>
+                    ) : (
+                      <NavLink
+                        item={item}
+                        locale={locale}
+                        className="block py-4 font-[family-name:var(--font-display)] text-xl font-semibold"
+                      />
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
           </MobileNav>
         </div>
       </div>
-
-      {/*
-        Sub-sections, under the masthead rather than inside a hover menu.
-        A hover-revealed submenu is unreachable on a phone and invisible to a
-        reader who never happens to hover, which for a taxonomy this shallow is
-        most of them. Laid flat, the whole tree is legible at a glance — and it
-        scrolls horizontally rather than wrapping the header to three lines.
-      */}
-      {branches.length > 0 ? (
-        <div className="hidden border-t border-[var(--color-rule)] md:block">
-          <div className="mx-auto max-w-6xl overflow-x-auto px-4">
-            <ul className="flex items-center gap-6 py-2 whitespace-nowrap">
-              {branches.map((branch) => (
-                <li key={branch.id} className="flex items-baseline gap-3">
-                  <span className="font-[family-name:var(--font-mono)] text-[0.6875rem] tracking-widest text-[var(--color-ink-faint)] uppercase">
-                    {branch.title}
-                  </span>
-                  {branch.children.map((child) =>
-                    child.slug ? (
-                      <Link
-                        key={child.id}
-                        href={categoryPath(locale, child.slug)}
-                        className="text-sm text-[var(--color-ink-muted)] hover:text-[var(--color-brand)]"
-                      >
-                        {child.title}
-                      </Link>
-                    ) : null,
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      ) : null}
 
       {showTicker ? (
         <div className="bg-[var(--color-breaking)] text-[var(--color-on-brand)]">
