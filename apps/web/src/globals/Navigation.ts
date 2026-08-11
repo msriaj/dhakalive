@@ -176,13 +176,33 @@ export const Footer: GlobalConfig = {
       label: 'Mobile apps',
       fields: [
         {
+          name: 'enabled',
+          type: 'checkbox',
+          defaultValue: true,
+          admin: {
+            description:
+              'Off keeps the links but stops printing the band — an app pulled from a store, or one not shipped yet, should not be advertised in the footer of every page.',
+          },
+        },
+        {
           name: 'heading',
           type: 'text',
           localized: true,
           defaultValue: 'মোবাইল অ্যাপস ডাউনলোড করুন',
+          admin: { condition: (_data, siblingData) => siblingData?.enabled !== false },
         },
-        { name: 'appStoreUrl', type: 'text', label: 'App Store URL' },
-        { name: 'playStoreUrl', type: 'text', label: 'Google Play URL' },
+        {
+          name: 'appStoreUrl',
+          type: 'text',
+          label: 'App Store URL',
+          admin: { condition: (_data, siblingData) => siblingData?.enabled !== false },
+        },
+        {
+          name: 'playStoreUrl',
+          type: 'text',
+          label: 'Google Play URL',
+          admin: { condition: (_data, siblingData) => siblingData?.enabled !== false },
+        },
       ],
     },
     {

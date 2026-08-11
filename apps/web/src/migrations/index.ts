@@ -13,6 +13,7 @@ import * as migration_20260810_105719_advertisements from './20260810_105719_adv
 import * as migration_20260811_033509_article_source from './20260811_033509_article_source'
 import * as migration_20260811_073709_homepage_sections_and_footer_bands from './20260811_073709_homepage_sections_and_footer_bands'
 import * as migration_20260811_090414_lead_columns_take_a_source from './20260811_090414_lead_columns_take_a_source'
+import * as migration_20260811_092641_footer_apps_toggle from './20260811_092641_footer_apps_toggle'
 
 export const migrations = [
   {
@@ -89,5 +90,10 @@ export const migrations = [
     up: migration_20260811_090414_lead_columns_take_a_source.up,
     down: migration_20260811_090414_lead_columns_take_a_source.down,
     name: '20260811_090414_lead_columns_take_a_source',
+  },
+  {
+    up: migration_20260811_092641_footer_apps_toggle.up,
+    down: migration_20260811_092641_footer_apps_toggle.down,
+    name: '20260811_092641_footer_apps_toggle',
   },
 ]

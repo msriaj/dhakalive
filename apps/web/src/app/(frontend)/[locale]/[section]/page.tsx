@@ -171,7 +171,9 @@ export default async function CategoryOrPage({ params, searchParams }: RoutePara
     <article className="mx-auto max-w-3xl">
       <Breadcrumbs locale={locale} crumbs={[{ label: standingPage.title ?? '' }]} />
       <h1 className="mt-4 text-3xl font-bold tracking-tight">{standingPage.title}</h1>
-      <RichText data={standingPage.body} className="prose-article mt-6 space-y-5 leading-relaxed" />
+      {/* No `space-y-*`: it would out-specify `.prose-article`'s own paragraph
+          spacing and set standing pages tighter than the stories. */}
+      <RichText data={standingPage.body} className="prose-article mt-6 leading-relaxed" />
     </article>
   )
 }

@@ -218,8 +218,18 @@
    * behind it, so story bodies rendered with browser defaults — the one place on
    * the site where readers spend minutes rather than seconds.
    */
+  /*
+   * A full line of leading between paragraphs.
+   *
+   * 1.25em was a little over half a line at this size, which in Bengali reads as
+   * one long block rather than as separated thoughts — the script carries more
+   * marks per line than Latin, so the eye needs a clearer gap to find the start
+   * of the next paragraph. A blank line's worth is what a printed Bengali daily
+   * sets, and it is the same value as the body leading, so the page keeps one
+   * vertical rhythm.
+   */
   .prose-article > * + * {
-    margin-top: 1.25em;
+    margin-top: 1.75em;
   }
 
   .prose-article h2,
