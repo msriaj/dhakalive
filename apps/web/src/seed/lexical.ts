@@ -43,11 +43,22 @@ export interface LexicalState {
   [k: string]: unknown
 }
 
-function text(value: string): TextNode {
-  return { type: 'text', detail: 0, format: 0, mode: 'normal', style: '', text: value, version: 1 }
+/** Bit 1 of Lexical's text format bitfield is bold. */
+const FORMAT_BOLD = 1
+
+function text(value: string, format = 0): TextNode {
+  return {
+    type: 'text',
+    detail: 0,
+    format,
+    mode: 'normal',
+    style: '',
+    text: value,
+    version: 1,
+  }
 }
 
-function element(type: string, children: string[], tag?: string): ElementNode {
+function element(type: string, children: (string | TextNode)[], tag?: string): ElementNode {
   return {
     type,
     ...(tag ? { tag } : {}),
@@ -55,7 +66,7 @@ function element(type: string, children: string[], tag?: string): ElementNode {
     indent: 0,
     version: 1,
     direction: 'ltr',
-    children: children.map(text),
+    children: children.map((child) => (typeof child === 'string' ? text(child) : child)),
   }
 }
 
@@ -81,6 +92,18 @@ export function richText(...blocks: ElementNode[]): LexicalState {
       children: blocks,
     },
   }
+}
+
+/**
+ * One exchange in an interview: the question bolded at the head of the
+ * paragraph, the answer running on after it.
+ *
+ * This is the shape an editor already types into the rich-text field, and the
+ * `.prose-interview` rules style it on that basis — so the fixture exercises
+ * the real authoring habit rather than a block type invented for the seed.
+ */
+export function qa(question: string, answer: string): ElementNode {
+  return element('paragraph', [text(question, FORMAT_BOLD), text(` ${answer}`)])
 }
 
 /** The common case: a body of plain paragraphs. */

@@ -31,6 +31,14 @@ export interface MetadataInput {
   locale: Locale
   /** Page title before the site template is applied. */
   title: string
+  /**
+   * Skips the root layout's `%s — DhakaLive` template.
+   *
+   * For the front page the title already *is* the masthead, so the template
+   * turns it into "DhakaLive — DhakaLive" — which is what every search result
+   * and shared link for the home page then shows.
+   */
+  absoluteTitle?: boolean
   description?: string | null
   path: string
   /** Absolute URLs keyed by locale, plus `x-default`. */
@@ -73,7 +81,7 @@ export async function buildMetadata(input: MetadataInput): Promise<Metadata> {
     input.seo?.noIndex === true || input.noIndex === true || defaults.allowIndexing === false
 
   return {
-    title,
+    title: input.absoluteTitle ? { absolute: title } : title,
     description,
     metadataBase: new URL(siteUrl),
     alternates: {

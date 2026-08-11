@@ -24,9 +24,22 @@ export function Byline({
 }) {
   const d = dictionary(locale)
 
+  /**
+   * An author with no name in this locale is dropped, not rendered empty.
+   *
+   * `displayName` is localised, so a byline filled in only in English leaves the
+   * Bengali page printing "লিখেছেন" followed by nothing, linked to a profile
+   * page with an empty heading. Payload's fallback resolves *to* the default
+   * locale and so cannot cover a value missing *in* it. A story with no usable
+   * byline should read as unbylined rather than as broken.
+   */
   const authors = Array.isArray(article.authors)
     ? article.authors.filter(
-        (entry): entry is Author => typeof entry === 'object' && entry !== null,
+        (entry): entry is Author =>
+          typeof entry === 'object' &&
+          entry !== null &&
+          typeof entry.displayName === 'string' &&
+          entry.displayName.trim().length > 0,
       )
     : []
 

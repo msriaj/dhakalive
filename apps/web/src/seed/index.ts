@@ -21,7 +21,18 @@ import {
   type Localized,
   type SeedArticle,
 } from './fixtures'
-import { body } from './lexical'
+import { body, qa, richText } from './lexical'
+
+/**
+ * An interview fixture is built from its exchanges so the seeded body carries
+ * bolded questions; everything else is plain paragraphs.
+ */
+function bodyForArticle(fixture: SeedArticle, locale: Locale) {
+  const exchanges = fixture.exchanges?.[locale]
+  return exchanges && exchanges.length > 0
+    ? richText(...exchanges.map((exchange) => qa(exchange.q, exchange.a)))
+    : body(...fixture.paragraphs[locale])
+}
 
 /**
  * Idempotent development seed.
@@ -544,7 +555,7 @@ async function ensureArticles(payload: Payload, context: ArticleContext): Promis
             headline: fixture.headline[DEFAULT_LOCALE],
             slug: fixture.slug[DEFAULT_LOCALE],
             summary: fixture.summary[DEFAULT_LOCALE],
-            body: body(...fixture.paragraphs[DEFAULT_LOCALE]),
+            body: bodyForArticle(fixture, DEFAULT_LOCALE),
             articleType: fixture.articleType,
             // Always draft: the collection refuses to create anything else,
             // and the status below is reached by transition.
@@ -575,7 +586,7 @@ async function ensureArticles(payload: Payload, context: ArticleContext): Promis
           headline: fixture.headline[locale],
           slug: fixture.slug[locale],
           summary: fixture.summary[locale],
-          body: body(...fixture.paragraphs[locale]),
+          body: bodyForArticle(fixture, locale),
           ...(fixture.subheadline ? { subheadline: fixture.subheadline[locale] } : {}),
           ...(fixture.hasCorrection
             ? {

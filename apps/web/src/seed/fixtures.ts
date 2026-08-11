@@ -263,6 +263,13 @@ export interface SeedArticle {
   subheadline?: Localized<string>
   summary: Localized<string>
   paragraphs: Localized<readonly string[]>
+  /**
+   * Interview exchanges. When present the body is built from these instead of
+   * `paragraphs`, so the seed produces the bolded-question shape the interview
+   * layout styles. `paragraphs` is still required, and is what the listing
+   * summary and any non-interview use fall back to.
+   */
+  exchanges?: Localized<readonly { q: string; a: string }[]>
   categoryKey: string
   tagKeys: readonly string[]
   authorKeys: readonly string[]
@@ -460,6 +467,36 @@ export const ARTICLES: readonly SeedArticle[] = [
       en: 'A fictional piece exercising the interview article type.',
     },
     paragraphs: bodyFor({ bn: 'দ্রব্যমূল্য', en: 'consumer prices' }),
+    exchanges: {
+      bn: [
+        {
+          q: 'এই সাক্ষাৎকারটি কি বাস্তব?',
+          a: 'না। এটি সম্পূর্ণ কাল্পনিক এবং কেবল ডেভেলপমেন্ট পরিবেশের নমুনা হিসেবে তৈরি।',
+        },
+        {
+          q: 'তাহলে এটি এখানে কেন রাখা হয়েছে?',
+          a: 'সাক্ষাৎকার ধরনের পাতায় প্রশ্ন ও উত্তর আলাদা করে দেখানো হয় কি না, তা পরীক্ষা করার জন্য।',
+        },
+        {
+          q: 'পাঠক কি এটিকে সত্যি বলে ভুল করতে পারেন?',
+          a: 'সে কারণেই প্রতিটি উত্তরে স্পষ্ট করে বলা আছে যে এটি নমুনা লেখা, কোনো বাস্তব ব্যক্তির বক্তব্য নয়।',
+        },
+      ],
+      en: [
+        {
+          q: 'Is this interview real?',
+          a: 'No. It is entirely fictional and exists only as sample content for a development environment.',
+        },
+        {
+          q: 'Then why is it here?',
+          a: 'To check that the interview layout sets questions apart from answers.',
+        },
+        {
+          q: 'Could a reader mistake it for reporting?',
+          a: 'That is why every answer says plainly that this is placeholder text, not any real person speaking.',
+        },
+      ],
+    },
     categoryKey: 'business',
     tagKeys: ['economy'],
     authorKeys: ['rahman'],
@@ -467,6 +504,70 @@ export const ARTICLES: readonly SeedArticle[] = [
     articleType: 'interview',
     target: 'published',
     publishedDaysAgo: 9,
+  },
+  {
+    key: 'opinion-rivers',
+    slug: { bn: 'a-column-on-rivers', en: 'a-column-on-rivers' },
+    headline: {
+      bn: 'নদী নিয়ে একটি কলাম',
+      en: 'A column about the rivers',
+    },
+    subheadline: {
+      bn: 'নমুনা মতামত লেখা, কোনো বাস্তব অবস্থান নয়।',
+      en: 'Sample commentary, not a real position.',
+    },
+    summary: {
+      bn: 'মতামত ধরনের জন্য তৈরি কাল্পনিক কলাম।',
+      en: 'A fictional column exercising the opinion article type.',
+    },
+    paragraphs: bodyFor({ bn: 'নদী', en: 'the rivers' }),
+    categoryKey: 'opinion',
+    tagKeys: ['climate'],
+    authorKeys: ['karim'],
+    mediaKey: 'river',
+    articleType: 'opinion',
+    target: 'published',
+    publishedDaysAgo: 4,
+  },
+  {
+    key: 'photo-river',
+    slug: { bn: 'the-river-in-pictures', en: 'the-river-in-pictures' },
+    headline: {
+      bn: 'ছবিতে নদীর দিন',
+      en: 'A day on the river, in pictures',
+    },
+    summary: {
+      bn: 'ছবি-প্রতিবেদন ধরনের জন্য তৈরি কাল্পনিক নমুনা।',
+      en: 'A fictional set exercising the photo-story article type.',
+    },
+    paragraphs: bodyFor({ bn: 'নদীর ছবি', en: 'photographs of the river' }),
+    categoryKey: 'bangladesh',
+    tagKeys: ['climate'],
+    authorKeys: ['haque'],
+    mediaKey: 'river',
+    articleType: 'photo-story',
+    target: 'published',
+    publishedDaysAgo: 6,
+  },
+  {
+    key: 'video-traffic',
+    slug: { bn: 'traffic-on-video', en: 'traffic-on-video' },
+    headline: {
+      bn: 'ভিডিওতে ঢাকার সকাল',
+      en: 'A Dhaka morning, on video',
+    },
+    summary: {
+      bn: 'ভিডিও-প্রতিবেদন ধরনের জন্য তৈরি কাল্পনিক নমুনা।',
+      en: 'A fictional piece exercising the video-story article type.',
+    },
+    paragraphs: bodyFor({ bn: 'সকালের যানজট', en: 'the morning traffic' }),
+    categoryKey: 'bangladesh',
+    tagKeys: ['dhaka', 'transport'],
+    authorKeys: ['wire'],
+    mediaKey: 'traffic',
+    articleType: 'video-story',
+    target: 'published',
+    publishedDaysAgo: 7,
   },
 
   // --- Every other workflow state ------------------------------------------
