@@ -56,7 +56,7 @@ export default async function LocaleLayout({
       <SiteHeader locale={locale} />
 
       {/* tabIndex -1 makes the skip link's target focusable. */}
-      <main id="main" tabIndex={-1} className="mx-auto max-w-6xl px-4 py-8">
+      <main id="main" tabIndex={-1} className="mx-auto max-w-[78rem] px-4 py-8">
         {/*
           Above the content rather than above the header: a leaderboard between
           the masthead and the navigation pushes the navigation below the fold

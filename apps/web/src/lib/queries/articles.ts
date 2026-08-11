@@ -53,6 +53,15 @@ export interface ListOptions {
   page?: number
   /** Ids to leave out, so a lead story is not repeated further down the page. */
   exclude?: (number | string)[]
+  /**
+   * Population depth, defaulting to 1.
+   *
+   * A card needs the featured image, the category and the author — all one level
+   * down. The commentary blocks also draw the author's *portrait*, which is one
+   * level below the author, and asking for it costs an extra join on every row;
+   * so it is opt-in per query rather than raised for the whole site.
+   */
+  depth?: number
 }
 
 interface ListResult {
@@ -81,7 +90,7 @@ async function listArticles(where: Where | undefined, options: ListOptions): Pro
     locale: options.locale,
     // Depth 1 populates the featured image, category and authors — enough for a
     // card, and no further.
-    depth: 1,
+    depth: options.depth ?? 1,
     limit: options.limit ?? 12,
     page: options.page ?? 1,
     sort: '-publishedAt',

@@ -777,7 +777,7 @@ export interface Advertisement {
    * Who is paying. Shown to readers as part of the disclosure.
    */
   advertiser: string;
-  placement: 'leaderboard' | 'in-article' | 'footer';
+  placement: 'leaderboard' | 'sidebar' | 'in-article' | 'footer';
   /**
    * The creative. Needs alt text on the media record — it is what a screen reader announces.
    */
@@ -1493,9 +1493,25 @@ export interface Homepage {
    */
   leadStory?: (number | null) | Article;
   /**
-   * Up to four stories beside the lead.
+   * The column to the left of the lead. Four to six stories — the two side columns are meant to run to about the depth of the lead, and short ones leave the row ending in white.
+   */
+  sideStories?: (number | Article)[] | null;
+  /**
+   * The column to the right of the lead. Four to six stories.
    */
   secondaryLeads?: (number | Article)[] | null;
+  /**
+   * The row of cards directly beneath the lead assembly. Up to six stories.
+   */
+  subLeads?: (number | Article)[] | null;
+  trendingTags?: {
+    heading?: string | null;
+    enabled?: boolean | null;
+    /**
+     * Shown as a single scrolling row beneath the lead.
+     */
+    tags?: (number | Tag)[] | null;
+  };
   latestNews?: {
     heading?: string | null;
     /**
@@ -1506,11 +1522,76 @@ export interface Homepage {
   /**
    * Section blocks, in the order they should appear.
    */
-  categorySections?:
+  sections?:
     | {
-        category: number | Category;
+        /**
+         * How this block draws its stories.
+         */
+        layout:
+          | 'section-lead'
+          | 'story-cards'
+          | 'headline-rows'
+          | 'headline-list'
+          | 'numbered-list'
+          | 'mosaic'
+          | 'opinion'
+          | 'tiny-cards'
+          | 'photo-strip'
+          | 'video-row'
+          | 'collection-columns';
+        /**
+         * Where the stories come from.
+         */
+        source?: ('category' | 'manual' | 'latest' | 'type' | 'collections') | null;
+        /**
+         * Also the destination of the section heading link.
+         */
+        category?: (number | null) | Category;
+        articles?: (number | Article)[] | null;
+        /**
+         * Photo and video sections are built this way.
+         */
+        articleTypes?:
+          | (
+              | 'standard'
+              | 'breaking-news'
+              | 'opinion'
+              | 'editorial'
+              | 'feature'
+              | 'interview'
+              | 'analysis'
+              | 'photo-story'
+              | 'video-story'
+              | 'live-blog'
+            )[]
+          | null;
+        /**
+         * One column per category. Up to four.
+         */
+        columns?:
+          | {
+              category: number | Category;
+              heading?: string | null;
+              limit?: number | null;
+              id?: string | null;
+            }[]
+          | null;
+        /**
+         * Overrides the category's own name. Leave empty to use it.
+         */
         heading?: string | null;
+        /**
+         * Some blocks — a card row between sections — want none.
+         */
+        showHeading?: boolean | null;
+        /**
+         * How many stories the block draws.
+         */
         limit?: number | null;
+        /**
+         * Places a section-rail advertisement beside this block on wide screens.
+         */
+        showAd?: boolean | null;
         id?: string | null;
       }[]
     | null;
@@ -1577,6 +1658,19 @@ export interface Header {
  */
 export interface Footer {
   id: number;
+  /**
+   * The group's other titles, printed as one row above the footer proper. Uses "Custom URL" for anything off this site.
+   */
+  brandLinks?:
+    | {
+        label: string;
+        type: 'category' | 'page' | 'custom';
+        category?: (number | null) | Category;
+        page?: (number | null) | Page;
+        url?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   columns?:
     | {
         heading: string;
@@ -1594,9 +1688,35 @@ export interface Footer {
       }[]
     | null;
   /**
+   * Sits above the social links, which come from Site settings.
+   */
+  followHeading?: string | null;
+  apps?: {
+    heading?: string | null;
+    appStoreUrl?: string | null;
+    playStoreUrl?: string | null;
+  };
+  /**
+   * About, advertising, terms, contact — one row above the copyright.
+   */
+  bottomLinks?:
+    | {
+        label: string;
+        type: 'category' | 'page' | 'custom';
+        category?: (number | null) | Category;
+        page?: (number | null) | Page;
+        url?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
    * Shown after the year, which is added automatically.
    */
   copyright?: string | null;
+  /**
+   * Editor and publisher, as the masthead must state them.
+   */
+  imprint?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -1680,19 +1800,42 @@ export interface SeoDefault {
  */
 export interface HomepageSelect<T extends boolean = true> {
   leadStory?: T;
+  sideStories?: T;
   secondaryLeads?: T;
+  subLeads?: T;
+  trendingTags?:
+    | T
+    | {
+        heading?: T;
+        enabled?: T;
+        tags?: T;
+      };
   latestNews?:
     | T
     | {
         heading?: T;
         limit?: T;
       };
-  categorySections?:
+  sections?:
     | T
     | {
+        layout?: T;
+        source?: T;
         category?: T;
+        articles?: T;
+        articleTypes?: T;
+        columns?:
+          | T
+          | {
+              category?: T;
+              heading?: T;
+              limit?: T;
+              id?: T;
+            };
         heading?: T;
+        showHeading?: T;
         limit?: T;
+        showAd?: T;
         id?: T;
       };
   editorsPicks?:
@@ -1755,6 +1898,16 @@ export interface HeaderSelect<T extends boolean = true> {
  * via the `definition` "footer_select".
  */
 export interface FooterSelect<T extends boolean = true> {
+  brandLinks?:
+    | T
+    | {
+        label?: T;
+        type?: T;
+        category?: T;
+        page?: T;
+        url?: T;
+        id?: T;
+      };
   columns?:
     | T
     | {
@@ -1771,7 +1924,26 @@ export interface FooterSelect<T extends boolean = true> {
             };
         id?: T;
       };
+  followHeading?: T;
+  apps?:
+    | T
+    | {
+        heading?: T;
+        appStoreUrl?: T;
+        playStoreUrl?: T;
+      };
+  bottomLinks?:
+    | T
+    | {
+        label?: T;
+        type?: T;
+        category?: T;
+        page?: T;
+        url?: T;
+        id?: T;
+      };
   copyright?: T;
+  imprint?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

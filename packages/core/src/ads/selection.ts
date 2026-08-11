@@ -7,8 +7,15 @@
  * rules are asserted in tests rather than discovered in production.
  */
 
-/** Where on the page an advertisement may appear. */
-export const AD_PLACEMENTS = ['leaderboard', 'in-article', 'footer'] as const
+/**
+ * Where on the page an advertisement may appear.
+ *
+ * `sidebar` is the rail beside a front-page section block — the slot a Bengali
+ * daily sells as a 300×250 next to its section lead. It is a distinct placement
+ * rather than a reuse of `in-article` because the two are booked and priced
+ * separately, and a creative sized for a story body is the wrong shape here.
+ */
+export const AD_PLACEMENTS = ['leaderboard', 'sidebar', 'in-article', 'footer'] as const
 
 export type AdPlacement = (typeof AD_PLACEMENTS)[number]
 

@@ -11,6 +11,7 @@ import * as migration_20260810_100853_revalidate_task from './20260810_100853_re
 import * as migration_20260810_104804_redirects from './20260810_104804_redirects'
 import * as migration_20260810_105719_advertisements from './20260810_105719_advertisements'
 import * as migration_20260811_033509_article_source from './20260811_033509_article_source'
+import * as migration_20260811_073709_homepage_sections_and_footer_bands from './20260811_073709_homepage_sections_and_footer_bands'
 
 export const migrations = [
   {
@@ -77,5 +78,10 @@ export const migrations = [
     up: migration_20260811_033509_article_source.up,
     down: migration_20260811_033509_article_source.down,
     name: '20260811_033509_article_source',
+  },
+  {
+    up: migration_20260811_073709_homepage_sections_and_footer_bands.up,
+    down: migration_20260811_073709_homepage_sections_and_footer_bands.down,
+    name: '20260811_073709_homepage_sections_and_footer_bands',
   },
 ]

@@ -6,6 +6,52 @@
  * admin UI if it ever leaked into the (payload) route group.
  */
 
+/*
+ * SolaimanLipi, self-hosted, and only for Bengali.
+ *
+ * It is the face Bengali readers know from a decade of newspapers and it is
+ * what the site is asked to set, but its Latin glyphs are an afterthought — a
+ * headline mixing "SDG" or a scoreline into Bengali copy looks broken in it.
+ * `unicode-range` resolves that without a second family in the markup: the
+ * browser uses SolaimanLipi for Bengali codepoints and falls through to the
+ * next family in the stack for everything else, per character.
+ *
+ * The range covers the Bengali block, the zero-width joiners that Bengali
+ * conjunct formation depends on, and the dotted circle a renderer draws for an
+ * orphaned vowel sign — leave those out and a single line can end up split
+ * across two faces mid-word.
+ *
+ * `local()` first, so a reader who already has the font installed — common on
+ * Bangladeshi desktops — pays nothing to download it.
+ *
+ * The files are committed under `apps/web/public/fonts/` — see the README
+ * there for where they came from and why they are not subsetted. Self-hosted
+ * rather than pulled from a Bangla font CDN: the licence allows it, and the
+ * masthead's own typeface should not depend on somebody else's uptime.
+ */
+@font-face {
+  font-family: 'SolaimanLipi';
+  src:
+    local('SolaimanLipi'),
+    url('/fonts/solaimanlipi-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0964-0965, U+0980-09FF, U+200C-200D, U+20B9, U+25CC;
+}
+
+@font-face {
+  font-family: 'SolaimanLipi';
+  src:
+    local('SolaimanLipi Bold'),
+    local('SolaimanLipi-Bold'),
+    url('/fonts/solaimanlipi-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0964-0965, U+0980-09FF, U+200C-200D, U+20B9, U+25CC;
+}
+
 @theme {
   /*
    * Two roles, not two scripts.
@@ -16,55 +62,63 @@
    * so a headline mixing "SDG" into Bengali copy keeps one set of metrics
    * instead of visibly switching fonts mid-line.
    *
-   * The trailing names are not decoration: they are what renders during the
-   * swap window and on the rare device that blocks webfonts.
+   * SolaimanLipi leads both stacks and covers only Bengali; the loaded Noto
+   * faces sit behind it and take the Latin, and they are also what renders
+   * during the swap window and on the rare device that blocks webfonts.
    */
   --font-display:
-    var(--font-display-loaded), 'Noto Sans Bengali', 'Hind Siliguri', 'SolaimanLipi', 'Kalpurush',
+    'SolaimanLipi', var(--font-display-loaded), 'Noto Sans Bengali', 'Hind Siliguri', 'Kalpurush',
     ui-sans-serif, system-ui, sans-serif;
   --font-body:
-    var(--font-body-loaded), 'Noto Serif Bengali', Georgia, Cambria, 'Times New Roman', serif;
+    'SolaimanLipi', var(--font-body-loaded), 'Noto Serif Bengali', Georgia, Cambria,
+    'Times New Roman', serif;
   /* Captions and datelines. Mono at small sizes reads as apparatus rather than
      prose, which is the point — it should not compete with the story. */
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
   /*
-   * Ink ramp. Four steps, because three forces captions and datelines to share
-   * a value with body copy and the page loses its hierarchy at small sizes.
+   * Ink as neutral black at decreasing opacity rather than four mixed greys.
+   *
+   * A mass-market front page stacks dozens of headlines, datelines and kickers
+   * in one view, and tinted greys start disagreeing with each other once they
+   * sit next to photography. One black, stepped down, keeps the hierarchy
+   * legible at density and over any surface.
    */
-  --color-ink: #0b0c0d;
-  --color-ink-body: #222222;
-  --color-ink-muted: #637882;
-  --color-ink-faint: #8ca0a8;
+  --color-ink: #000000;
+  --color-ink-body: rgb(0 0 0 / 0.87);
+  --color-ink-muted: rgb(0 0 0 / 0.68);
+  --color-ink-faint: rgb(0 0 0 / 0.56);
 
   /*
-   * Surfaces carry a slight blue cast rather than neutral grey. Against warm
-   * newsprint photography it reads as cool and deliberate; a neutral grey next
-   * to the same photographs reads as an unstyled default.
+   * Neutral greys, not the cool cast used before. At this density the page is
+   * mostly panels abutting photographs, and a tinted surface fights the colour
+   * in the pictures; a neutral one lets them sit on it unaltered.
    */
   --color-surface: #ffffff;
-  --color-surface-raised: #f8fcff;
-  --color-surface-sunken: #f0f6f9;
-  --color-wash: #e5eff5;
+  --color-surface-raised: #f7f7f7;
+  --color-surface-sunken: #f1f1f1;
+  --color-wash: #f3f3f3;
 
   /*
-   * Hairlines, set in alpha so they sit on any surface without a second token
-   * per background. Kept faint on purpose: at full-strength grey a page of
-   * stacked cards turns into a grid of boxes.
+   * Rules do real work here rather than whispering. A dense grid needs its
+   * blocks visibly separated, so these are darker than the hairlines a sparse
+   * layout wants.
    */
-  --color-rule: rgb(12 24 32 / 0.08);
-  --color-rule-strong: rgb(12 24 32 / 0.12);
+  --color-rule: rgb(0 0 0 / 0.12);
+  --color-rule-strong: rgb(0 0 0 / 0.22);
 
   /*
-   * Deep navy rather than the previous red. Red is the tabloid register — it
-   * reads as urgency applied uniformly, so nothing on the page can be more
-   * urgent than anything else. Navy lets the photography and the headline
-   * carry the weight, and leaves a genuine alert still able to stand out.
+   * Back to DhakaLive's own red.
+   *
+   * Deliberately the masthead's original value rather than a colour sampled
+   * from the site this layout follows: the density, grid and rhythm are
+   * general newspaper craft, but a competitor's exact identity colour on a
+   * Bengali news homepage is how readers end up mistaking one for the other.
    */
-  --color-brand: #00243e;
-  --color-brand-hover: #003a63;
+  --color-brand: oklch(0.52 0.19 26);
+  --color-brand-hover: oklch(0.44 0.18 26);
   --color-on-brand: #ffffff;
-  --color-breaking: #00243e;
+  --color-breaking: oklch(0.55 0.22 27);
 }
 
 @layer base {
@@ -80,11 +134,45 @@
 
   body {
     font-family: var(--font-body);
+    /*
+     * 18px, not the browser's 16.
+     *
+     * Bengali carries more marks per line than Latin at the same nominal size
+     * — vowel signs above and below, and conjuncts that fuse two or three
+     * consonants into one glyph — so a size that reads comfortably in English
+     * arrives cramped in Bengali. Every Bengali daily sets its body larger for
+     * this reason, and it is the single change that most improves how the site
+     * reads on a phone.
+     */
+    font-size: 1.125rem;
     background-color: var(--color-surface);
     color: var(--color-ink-body);
     /* Bengali conjuncts depend on these; disabling ligatures breaks the script,
        so they are stated rather than left to a browser default that varies. */
     font-variant-ligatures: common-ligatures contextual;
+  }
+
+  /*
+   * A section label is a heading again, not a mono kicker on a rule.
+   *
+   * At this density the page is a stack of many small blocks, and a whispered
+   * label leaves a reader unable to tell where one section ends and the next
+   * begins. Set solid and dark, it does the dividing that the whitespace used
+   * to do when there was whitespace to spare.
+   */
+  .section-heading {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+    color: var(--color-ink);
+  }
+
+  @media (min-width: 768px) {
+    .section-heading {
+      font-size: 1.6875rem;
+    }
   }
 
   /*

@@ -22,6 +22,14 @@ const STRINGS = {
   showSubsections: { bn: 'উপবিভাগ দেখান', en: 'Show subsections' },
   latest: { bn: 'সর্বশেষ', en: 'Latest' },
   breaking: { bn: 'ব্রেকিং', en: 'Breaking' },
+  /** Fallback label for the topics strip when an editor has cleared the heading. */
+  trendingTopics: { bn: 'আলোচিত বিষয়', en: 'Trending topics' },
+  /** Accessible name for the unheaded card row beneath the lead assembly. */
+  moreTopStories: { bn: 'আরও প্রধান খবর', en: 'More top stories' },
+  /** Footer bands. Each is a heading an editor may override in the CMS. */
+  otherPublications: { bn: 'আমাদের অন্যান্য প্রকাশনা', en: 'Our other publications' },
+  followUs: { bn: 'অনুসরণ করুন', en: 'Follow us' },
+  downloadApps: { bn: 'মোবাইল অ্যাপস ডাউনলোড করুন', en: 'Download the mobile apps' },
   relatedStories: { bn: 'সম্পর্কিত খবর', en: 'Related stories' },
   moreFrom: { bn: 'আরও', en: 'More from' },
   publishedOn: { bn: 'প্রকাশিত', en: 'Published' },

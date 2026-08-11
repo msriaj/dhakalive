@@ -64,6 +64,13 @@ export async function AdSlot({
 
   const d = dictionary(locale)
 
+  /**
+   * A rail creative is 300px wide, not 970. Left on the leaderboard hint it
+   * would be requested at three times the width it is painted at, on the one
+   * page that already carries the most images.
+   */
+  const isRail = placement === 'sidebar'
+
   return (
     <aside
       // Labelled, so a screen reader user knows this is not editorial content
@@ -91,8 +98,12 @@ export async function AdSlot({
       >
         <MediaImage
           media={advertisement.image}
-          sizes="(min-width: 1024px) 970px, 100vw"
-          className="mx-auto h-auto w-full max-w-[970px] rounded-md"
+          sizes={isRail ? '(min-width: 1024px) 300px, 100vw' : '(min-width: 1024px) 970px, 100vw'}
+          className={
+            isRail
+              ? 'mx-auto h-auto w-full max-w-[300px] rounded-md'
+              : 'mx-auto h-auto w-full max-w-[970px] rounded-md'
+          }
         />
       </a>
     </aside>

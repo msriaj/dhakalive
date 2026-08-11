@@ -907,9 +907,15 @@ function rowIds(
 async function ensureGlobals(
   payload: Payload,
   actors: Actors,
-  registries: { categories: Registry; pages: Registry; articles: Registry; media: Registry },
+  registries: {
+    categories: Registry
+    tags: Registry
+    pages: Registry
+    articles: Registry
+    media: Registry
+  },
 ): Promise<void> {
-  const { categories, pages, articles, media } = registries
+  const { categories, tags, pages, articles, media } = registries
 
   const category = (key: string): number => lookup(categories, key, 'category')
   const page = (key: string): number => lookup(pages, key, 'page')
@@ -932,36 +938,126 @@ async function ensureGlobals(
   }
 
   // ------------------------------------------------------------------ homepage
-  const homepageSections = (['bangladesh', 'politics', 'business', 'sports'] as const).map(
-    (key) => ({
-      category: category(key),
-      limit: 4,
-    }),
-  )
-
   const sectionHeading = (key: string, locale: Locale): string =>
     CATEGORIES.find((entry) => entry.key === key)?.title[locale] ?? key
+
+  /**
+   * One of each shape, rather than four identical category grids.
+   *
+   * The seed is what a developer looks at to find out what the front page can
+   * do, so it exercises the layout vocabulary — a section lead with an ad rail,
+   * a headline grid, a commentary row, a ranked list, a picture strip and a
+   * column block — instead of demonstrating one layout four times.
+   */
+  const COLUMN_KEYS = ['business', 'sports', 'opinion', 'politics'] as const
+
+  const homepageSections: {
+    layout: string
+    source?: string
+    categoryKey?: string
+    articleTypes?: string[]
+    limit?: number
+    showAd?: boolean
+    headings?: Localized<string>
+    columnKeys?: readonly string[]
+  }[] = [
+    /*
+     * The picture strip runs high, as it does on the dailies this follows: it
+     * is the block that most wants stories of its own type, and every block
+     * above it takes from the same pool.
+     */
+    {
+      layout: 'photo-strip',
+      source: 'type',
+      articleTypes: ['photo-story', 'video-story'],
+      limit: 4,
+      headings: { bn: 'ছবি ও ভিডিও', en: 'Photo and video' },
+    },
+    {
+      layout: 'section-lead',
+      source: 'category',
+      categoryKey: 'bangladesh',
+      limit: 5,
+      showAd: true,
+    },
+    { layout: 'headline-rows', source: 'category', categoryKey: 'politics', limit: 4 },
+    {
+      layout: 'opinion',
+      source: 'type',
+      articleTypes: ['opinion', 'editorial'],
+      limit: 5,
+      headings: { bn: 'মতামত', en: 'Opinion' },
+    },
+    {
+      layout: 'numbered-list',
+      source: 'latest',
+      limit: 8,
+      headings: { bn: 'সবচেয়ে পঠিত', en: 'Most read' },
+    },
+    {
+      layout: 'collection-columns',
+      columnKeys: COLUMN_KEYS,
+      headings: { bn: 'অন্যান্য', en: 'Elsewhere' },
+    },
+  ]
+
+  const sectionRow = (
+    section: (typeof homepageSections)[number],
+    locale: Locale,
+    ids?: { id?: string; columnIds?: (string | undefined)[] },
+  ): Record<string, unknown> => ({
+    ...(ids?.id ? { id: ids.id } : {}),
+    layout: section.layout,
+    ...(section.source ? { source: section.source } : {}),
+    ...(section.categoryKey ? { category: category(section.categoryKey) } : {}),
+    ...(section.articleTypes ? { articleTypes: section.articleTypes } : {}),
+    ...(section.limit ? { limit: section.limit } : {}),
+    ...(section.showAd ? { showAd: true } : {}),
+    heading:
+      section.headings?.[locale] ??
+      (section.categoryKey ? sectionHeading(section.categoryKey, locale) : undefined),
+    ...(section.columnKeys
+      ? {
+          columns: section.columnKeys.map((key, index) => ({
+            ...(ids?.columnIds?.[index] ? { id: ids.columnIds[index] } : {}),
+            category: category(key),
+            heading: sectionHeading(key, locale),
+            limit: 3,
+          })),
+        }
+      : {}),
+  })
 
   await write(
     'homepage',
     DEFAULT_LOCALE,
     {
       leadStory: article('budget'),
-      secondaryLeads: ['breaking-flood', 'metro', 'exports', 'cricket-win'].map(article),
-      latestNews: { heading: 'সর্বশেষ', limit: 10 },
-      categorySections: homepageSections.map((section, index) => ({
-        ...section,
-        heading: sectionHeading(
-          ['bangladesh', 'politics', 'business', 'sports'][index] ?? '',
-          'bn',
+      // Four a side. Two left the row ending in a band of white beside a lead
+      // twice their depth — the columns are what the shape is for.
+      sideStories: ['breaking-flood', 'metro', 'filler-1', 'filler-3'].map(article),
+      secondaryLeads: ['exports', 'cricket-win', 'filler-2', 'filler-4'].map(article),
+      subLeads: ['climate-delta', 'editorial-transport', 'interview-economist'].map(article),
+      trendingTags: {
+        heading: 'আলোচিত বিষয়',
+        enabled: true,
+        tags: ['election', 'dhaka', 'economy', 'climate', 'cricket', 'transport'].map((key) =>
+          lookup(tags, key, 'tag'),
         ),
-      })),
+      },
+      latestNews: { heading: 'সর্বশেষ', limit: 8 },
+      sections: homepageSections.map((section) => sectionRow(section, DEFAULT_LOCALE)),
       editorsPicks: {
         heading: 'সম্পাদকের পছন্দ',
-        articles: ['editorial-transport', 'climate-delta', 'interview-economist'].map(article),
+        articles: ['opinion-rivers'].map(article),
       },
       trending: { heading: 'ট্রেন্ডিং', enabled: true, limit: 5 },
-      mediaSection: { heading: 'ছবি ও ভিডিও', enabled: true, limit: 4 },
+      /*
+       * Off, because a photo-strip section above already draws the picture and
+       * video stories. Left on, the fixed block would run second and — with
+       * every such story already placed — render as an empty heading.
+       */
+      mediaSection: { heading: 'ছবি ও ভিডিও', enabled: false, limit: 4 },
     },
     actors.editor,
   )
@@ -972,21 +1068,20 @@ async function ensureGlobals(
     depth: 0,
     overrideAccess: true,
   })
-  const homepageSectionIds = rowIds(savedHomepage.categorySections)
+  const homepageSectionIds = rowIds(savedHomepage.sections)
 
   await write(
     'homepage',
     'en',
     {
+      trendingTags: { heading: 'Trending topics' },
       latestNews: { heading: 'Latest' },
-      categorySections: homepageSections.map((section, index) => ({
-        ...section,
-        id: homepageSectionIds[index],
-        heading: sectionHeading(
-          ['bangladesh', 'politics', 'business', 'sports'][index] ?? '',
-          'en',
-        ),
-      })),
+      sections: homepageSections.map((section, index) =>
+        sectionRow(section, 'en', {
+          id: homepageSectionIds[index],
+          columnIds: rowIds(savedHomepage.sections?.[index]?.columns),
+        }),
+      ),
       editorsPicks: { heading: "Editor's picks" },
       trending: { heading: 'Trending' },
       mediaSection: { heading: 'Photo and video' },
@@ -999,6 +1094,8 @@ async function ensureGlobals(
     labels: Localized<string>
     categoryKey?: string
     pageKey?: string
+    /** A path or absolute URL, for entries that point off the section tree. */
+    url?: string
     children?: NavEntry[]
   }
 
@@ -1017,9 +1114,10 @@ async function ensureGlobals(
   const navRow = (entry: NavEntry, locale: Locale, id?: string): Record<string, unknown> => ({
     ...(id ? { id } : {}),
     label: entry.labels[locale],
-    type: entry.categoryKey ? 'category' : 'page',
+    type: entry.categoryKey ? 'category' : entry.pageKey ? 'page' : 'custom',
     ...(entry.categoryKey ? { category: category(entry.categoryKey) } : {}),
     ...(entry.pageKey ? { page: page(entry.pageKey) } : {}),
+    ...(entry.url ? { url: entry.url } : {}),
   })
 
   await write(
@@ -1082,15 +1180,39 @@ async function ensureGlobals(
     },
   ]
 
+  /** The group's other titles, printed as one row above the footer proper. */
+  const footerBrands: NavEntry[] = [
+    { labels: { bn: 'কিশোর আলো', en: 'Kishore Alo' }, url: '/bn' },
+    { labels: { bn: 'বিজ্ঞানচিন্তা', en: 'Bigyan Chinta' }, url: '/bn' },
+    { labels: { bn: 'নাগরিক সংবাদ', en: 'Citizen Journalism' }, url: '/bn' },
+    { labels: { bn: 'ইপেপার', en: 'E-paper' }, url: '/bn' },
+  ]
+
+  const footerBottom: NavEntry[] = [
+    { labels: { bn: 'আমাদের সম্পর্কে', en: 'About us' }, pageKey: 'about' },
+    { labels: { bn: 'গোপনীয়তা নীতি', en: 'Privacy policy' }, pageKey: 'privacy' },
+    { labels: { bn: 'নীতি ও শর্ত', en: 'Terms' }, pageKey: 'terms' },
+    { labels: { bn: 'যোগাযোগ', en: 'Contact' }, pageKey: 'contact' },
+  ]
+
   await write(
     'footer',
     DEFAULT_LOCALE,
     {
+      brandLinks: footerBrands.map((link) => navRow(link, DEFAULT_LOCALE)),
       columns: footerColumns.map((column) => ({
         heading: column.headings[DEFAULT_LOCALE],
         links: column.links.map((link) => navRow(link, DEFAULT_LOCALE)),
       })),
+      followHeading: 'অনুসরণ করুন',
+      apps: {
+        heading: 'মোবাইল অ্যাপস ডাউনলোড করুন',
+        appStoreUrl: 'https://apps.apple.com/',
+        playStoreUrl: 'https://play.google.com/store',
+      },
+      bottomLinks: footerBottom.map((link) => navRow(link, DEFAULT_LOCALE)),
       copyright: 'ডেইলি লাইভ। নমুনা তথ্য।',
+      imprint: 'সম্পাদক ও প্রকাশক: নমুনা সম্পাদক',
     },
     actors.editor,
   )
@@ -1102,11 +1224,14 @@ async function ensureGlobals(
     overrideAccess: true,
   })
   const footerIds = rowIds(savedFooter.columns)
+  const footerBrandIds = rowIds(savedFooter.brandLinks)
+  const footerBottomIds = rowIds(savedFooter.bottomLinks)
 
   await write(
     'footer',
     'en',
     {
+      brandLinks: footerBrands.map((link, index) => navRow(link, 'en', footerBrandIds[index])),
       columns: footerColumns.map((column, index) => {
         const savedColumn = savedFooter.columns?.[index]
         const linkIds = rowIds(savedColumn?.links)
@@ -1116,7 +1241,11 @@ async function ensureGlobals(
           links: column.links.map((link, linkIndex) => navRow(link, 'en', linkIds[linkIndex])),
         }
       }),
+      followHeading: 'Follow us',
+      apps: { heading: 'Download the mobile apps' },
+      bottomLinks: footerBottom.map((link, index) => navRow(link, 'en', footerBottomIds[index])),
       copyright: 'DhakaLive. Seed data.',
+      imprint: 'Editor and publisher: Seed Editor',
     },
     actors.editor,
   )
@@ -1136,6 +1265,14 @@ async function ensureGlobals(
         newsroomEmail: 'tips@dhakalive.test',
         address: 'ঢাকা, বাংলাদেশ। নমুনা ঠিকানা।',
       },
+      // Placeholder destinations. They exist so the footer's follow band has
+      // something to draw; nothing here points at a real account.
+      social: [
+        { platform: 'facebook', url: 'https://facebook.com/' },
+        { platform: 'x', url: 'https://x.com/' },
+        { platform: 'youtube', url: 'https://youtube.com/' },
+        { platform: 'whatsapp', url: 'https://whatsapp.com/' },
+      ],
     },
     actors.admin,
   )
@@ -1198,7 +1335,7 @@ async function main(): Promise<void> {
   const pages = await ensurePages(payload, actors)
   await ensureAdvertisements(payload, actors, media, categories)
   await ensureLiveBlog(payload, actors, authors, articles)
-  await ensureGlobals(payload, actors, { categories, pages, articles, media })
+  await ensureGlobals(payload, actors, { categories, tags, pages, articles, media })
 
   logger.info(
     {
