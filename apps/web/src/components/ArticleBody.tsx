@@ -4,6 +4,7 @@ import type { Locale } from '@dhakalive/config'
 
 import { kickerFor, layoutForType, specForLayout } from '../lib/article-layout'
 import { dictionary } from '../lib/dictionary'
+import { getSiteSettings } from '../lib/queries/globals'
 import { env } from '../lib/env'
 import { formatDate, isoDate } from '../lib/format'
 import { absoluteUrl, articlePath, categoryPath, tagPath } from '../lib/routes'
@@ -12,6 +13,7 @@ import { AdSlot } from './AdSlot'
 import { Breadcrumbs } from './Breadcrumbs'
 import { Byline } from './Byline'
 import { MediaImage } from './MediaImage'
+import { PhotoCard } from './PhotoCard'
 import { RichText } from './RichText'
 import { ShareLinks } from './ShareLinks'
 
@@ -26,7 +28,7 @@ import { ShareLinks } from './ShareLinks'
  *
  * Deliberately no `JsonLd` and no related list: those belong to the page, once.
  */
-export function ArticleBody({
+export async function ArticleBody({
   article,
   locale,
   headingLevel = 1,
@@ -60,6 +62,19 @@ export function ArticleBody({
     articlePath(locale, category?.slug ?? 'news', article.slug ?? ''),
     env().NEXT_PUBLIC_SITE_URL,
   )
+
+  /*
+   * The picture card's inputs, resolved here because this component already
+   * holds them and the card itself runs on the client, where the article
+   * document is not available.
+   */
+  const heroAsset = typeof article.featuredImage === 'object' ? article.featuredImage : null
+  const heroUrl = heroAsset?.url ?? null
+
+  // The masthead is read here rather than passed in, because the stream renders
+  // this component from a server action with no page props to hand it down.
+  const siteName = (await getSiteSettings(locale)).siteName ?? 'DhakaLive'
+  const cardByline = [siteName, formatDate(article.publishedAt, locale)].filter(Boolean).join(' | ')
 
   /**
    * The hero is rendered from one definition in two possible positions rather
@@ -215,8 +230,20 @@ export function ArticleBody({
           </section>
         ) : null}
 
-        <div className="mt-8 border-t border-[var(--color-rule)] pt-6">
+        {/*
+          Sharing, and the thing a desk actually posts to Facebook. The card is
+          built in the reader's browser from what is already on this page, so it
+          sits beside the share row rather than anywhere more ceremonious.
+        */}
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--color-rule)] pt-6">
           <ShareLinks url={shareUrl} title={article.headline ?? ''} locale={locale} />
+          <PhotoCard
+            headline={article.headline ?? ''}
+            byline={cardByline}
+            imageUrl={heroUrl}
+            siteName={siteName}
+            locale={locale}
+          />
         </div>
       </div>
     </>
