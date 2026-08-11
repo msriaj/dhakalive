@@ -50,7 +50,7 @@ export class RewriteError extends Error {
   }
 }
 
-const SCHEMA = {
+export const SCHEMA = {
   type: 'object',
   additionalProperties: false,
   required: ['headline', 'subheadline', 'summary', 'articleType', 'blocks', 'imageAlt', 'tags'],
@@ -67,7 +67,12 @@ const SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['type'],
+        // Every key, not just the ones a block actually uses. `strict: true`
+        // requires `required` to list all of `properties`; optionality is
+        // expressed by the `null` in each type union instead. A paragraph
+        // block therefore comes back with `attribution: null` rather than
+        // without the key, and `validateBlocks` drops the nulls.
+        required: ['type', 'text', 'attribution', 'style', 'items', 'caption'],
         properties: {
           type: { type: 'string', enum: [...INGEST_BLOCK_TYPES] },
           text: { type: ['string', 'null'] },
