@@ -29,6 +29,29 @@ const SELECTABLE_TYPES = ARTICLE_TYPES.filter((type) => type !== 'live-blog')
 /** Matches the `summary` field's own `maxLength`, so a long one fails here first. */
 const MAX_SUMMARY = 400
 
+/**
+ * `divider` is offered to editors but never to the generator.
+ *
+ * Measured across two models and every sample run, a divider came back in the
+ * body every single time — usually mid-article, between two ordinary
+ * paragraphs. That is not the model getting it wrong so much as the vocabulary
+ * offering a block with no editorial trigger: there is nothing in a wire report
+ * that a horizontal rule is the right answer to. The type stays supported for
+ * hand-written stories; it is simply not on the menu here.
+ */
+const GENERATED_BLOCK_TYPES = INGEST_BLOCK_TYPES.filter((type) => type !== 'divider')
+
+/**
+ * A generation that never returns holds the whole pass.
+ *
+ * Nothing bounded this before, and the SDK's own default is generous enough
+ * that two stories in one sample took over ten minutes each while the rest took
+ * under a minute. With a per-pass cap of a few stories, that is the difference
+ * between a sweep taking minutes and taking most of an hour. A story that
+ * exceeds this is not lost — it fails, and the next pass picks it up again.
+ */
+const REQUEST_TIMEOUT_MS = 180_000
+
 export interface RewriteResult {
   headline: string
   subheadline: string | null
@@ -74,7 +97,7 @@ export const SCHEMA = {
         // without the key, and `validateBlocks` drops the nulls.
         required: ['type', 'text', 'attribution', 'style', 'items', 'caption'],
         properties: {
-          type: { type: 'string', enum: [...INGEST_BLOCK_TYPES] },
+          type: { type: 'string', enum: [...GENERATED_BLOCK_TYPES] },
           text: { type: ['string', 'null'] },
           attribution: { type: ['string', 'null'] },
           style: { type: ['string', 'null'], enum: ['bullet', 'number', null] },
@@ -113,7 +136,22 @@ Rules:
 - The summary is for listings and social cards: one or two sentences, under
   ${MAX_SUMMARY} characters.
 - imageAlt describes the photograph for a reader who cannot see it, in Bengali.
-- tags are up to six short Bengali topic labels.`
+- tags are up to six short Bengali topic labels.
+
+Pick articleType from what the source actually is. The site gives each of these
+a different page, so the choice changes how the story is presented:
+- standard: a straight news report. Most wire copy is this. When unsure, use it.
+- breaking-news: an event happening now, written as it develops.
+- feature: a longer piece with narrative or human interest rather than an event.
+- analysis: explains why something happened or what follows from it.
+- interview: built mainly from one person's answers to questions.
+- opinion: an argument by a named writer.
+- editorial: an argument in the masthead's own voice, unsigned.
+- photo-story: the photographs carry the story and the text supports them.
+- video-story: built around a video.
+
+Do not reach for an unusual type to make a story seem more than it is. A report
+labelled analysis reads to the reader as a promise the copy does not keep.`
 
 export interface RewriteOptions {
   apiKey: string
@@ -125,7 +163,7 @@ export async function rewriteArticle(
   detail: ArticleDetail,
   options: RewriteOptions,
 ): Promise<RewriteResult> {
-  const client = new OpenAI({ apiKey: options.apiKey })
+  const client = new OpenAI({ apiKey: options.apiKey, timeout: REQUEST_TIMEOUT_MS })
 
   const completion = await client.chat.completions.create(
     {

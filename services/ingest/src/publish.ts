@@ -35,10 +35,20 @@ const CATEGORY_MAP: Readonly<Record<string, string>> = {
   বাংলাদেশ: 'bangladesh',
   রাজনীতি: 'politics',
   আন্তর্জাতিক: 'international',
+  বিশ্ব: 'international',
   খেলা: 'sports',
+  খেলাধুলা: 'sports',
+  ক্রিকেট: 'cricket',
   বিনোদন: 'entertainment',
   অর্থনীতি: 'economy',
+  ব্যবসা: 'business',
+  বাণিজ্য: 'business',
   প্রযুক্তি: 'technology',
+  স্বাস্থ্য: 'health',
+  শিক্ষা: 'education',
+  মতামত: 'opinion',
+  জীবনযাপন: 'lifestyle',
+  প্রবাস: 'diaspora',
 }
 
 /** Byline for automated stories. Must exist before the service is enabled. */
