@@ -46,6 +46,7 @@ export function MediaImage({
   fill = false,
   width,
   height,
+  alt: altOverride,
 }: {
   media: unknown
   sizes?: string
@@ -54,13 +55,23 @@ export function MediaImage({
   fill?: boolean
   width?: number
   height?: number
+  /**
+   * Overrides the asset's own alt text.
+   *
+   * For the one case where the stored description is the wrong description: a
+   * masthead is not "a red and black wordmark", it is the name of the paper,
+   * and what that link should announce is decided by the template rather than
+   * by whoever uploaded the file. Pass `''` to mark the image decorative when
+   * the name is supplied beside it.
+   */
+  alt?: string
 }) {
   if (!media || typeof media !== 'object') return null
 
   const asset = media as Media
   if (!asset.url) return null
 
-  const alt = typeof asset.alt === 'string' ? asset.alt : ''
+  const alt = altOverride ?? (typeof asset.alt === 'string' ? asset.alt : '')
   const src = toOptimisableSrc(asset.url)
 
   if (fill) {

@@ -7,6 +7,7 @@ import { getBreakingArticles } from '../lib/queries/articles'
 import { getHeader, getSiteSettings } from '../lib/queries/globals'
 import { getNavigationTree } from '../lib/queries/taxonomy'
 import { articlePath, homePath, searchPath } from '../lib/routes'
+import { MediaImage } from './MediaImage'
 import { SearchIcon } from './icons'
 import { MobileNav } from './MobileNav'
 import { NavLink, navHref, type NavItem } from './NavLink'
@@ -60,6 +61,7 @@ export async function SiteHeader({ locale }: { locale: Locale }) {
     return (id !== null && id !== undefined ? childrenByCategory.get(id) : undefined) ?? []
   }
 
+  const siteName = settings.siteName ?? 'DhakaLive'
   const showTicker = header.showBreakingTicker !== false && breaking.length > 0
 
   return (
@@ -108,12 +110,41 @@ export async function SiteHeader({ locale }: { locale: Locale }) {
             Centred on a phone, where it is flanked by the menu and the search
             button; left on a wide screen, where centring it would leave the
             masthead floating in the middle of an otherwise left-aligned page.
+
+            The uploaded logo when there is one, the site name set in the
+            display face when there is not. Sized by height with the width left
+            to follow, because a masthead is redrawn far more often than it is
+            re-measured and a fixed width would letterbox the next version of
+            it.
           */}
           <Link
             href={homePath(locale)}
-            className="flex-1 text-center font-[family-name:var(--font-display)] text-2xl font-bold tracking-tight md:flex-none md:text-left md:text-3xl"
+            className="flex flex-1 justify-center md:flex-none md:justify-start"
           >
-            {settings.siteName ?? 'DhakaLive'}
+            {settings.logo ? (
+              <>
+                {/*
+                  The image is decorative and the name is carried beside it. A
+                  logo's stored alt text describes the artwork — "red and black
+                  wordmark" — which is the wrong thing for the link home to
+                  announce, and it is written by whoever uploaded the file
+                  rather than by this template.
+                */}
+                <span className="sr-only">{siteName}</span>
+                <MediaImage
+                  media={settings.logo}
+                  alt=""
+                  priority
+                  sizes="(min-width: 768px) 220px, 160px"
+                  className="h-8 w-auto md:h-10"
+                />
+              </>
+            ) : (
+              // Visible text needs no second copy for a screen reader.
+              <span className="font-[family-name:var(--font-display)] text-2xl font-bold tracking-tight md:text-3xl">
+                {siteName}
+              </span>
+            )}
           </Link>
 
           <div className="md:flex-1" />
