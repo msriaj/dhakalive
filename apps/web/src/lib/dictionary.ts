@@ -45,6 +45,10 @@ const STRINGS = {
   shareOn: { bn: 'শেয়ার করুন', en: 'Share on' },
   copyLink: { bn: 'লিঙ্ক কপি করুন', en: 'Copy link' },
   linkCopied: { bn: 'লিঙ্ক কপি হয়েছে', en: 'Link copied' },
+  /** The shareable picture built in the browser from the story's own headline and photograph. */
+  downloadCard: { bn: 'ছবি কার্ড', en: 'Photo card' },
+  cardBuilding: { bn: 'তৈরি হচ্ছে…', en: 'Building…' },
+  cardFailed: { bn: 'কার্ড তৈরি করা যায়নি', en: 'Could not build the card' },
   tags: { bn: 'ট্যাগ', en: 'Tags' },
   page: { bn: 'পৃষ্ঠা', en: 'Page' },
   previous: { bn: 'পূর্ববর্তী', en: 'Previous' },
