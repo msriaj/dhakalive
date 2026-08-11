@@ -101,6 +101,34 @@ export interface ArticleDetail extends FeedItem {
   body: BodyNode[]
 }
 
+/**
+ * Is this story too old to be worth taking?
+ *
+ * The listing is a front page, not a queue: it carries yesterday's stories
+ * beside this morning's, and every sweep re-reads all of them. With a per-sweep
+ * cap, an old story taken is a new story not taken — and the old one is
+ * published stamped with the source's own timestamp, so it lands *above* fresher
+ * reporting on our front page rather than at the bottom where it belongs.
+ *
+ * An undated story is kept. The timestamp comes out of an HTML comment the
+ * upstream is free to stop emitting, and the failure mode of treating a missing
+ * one as old is silent: the ingest would quietly stop taking anything, and
+ * "no new stories" reads as a slow news day rather than as a parser that broke.
+ * Keeping it means a format change costs us this filter, not the pipeline.
+ */
+export function isStale(
+  item: Pick<FeedItem, 'publishedAt'>,
+  maxAgeHours: number,
+  now: number = Date.now(),
+): boolean {
+  if (!item.publishedAt) return false
+
+  const published = Date.parse(item.publishedAt)
+  if (Number.isNaN(published)) return false
+
+  return now - published > maxAgeHours * 3_600_000
+}
+
 export class IngestParseError extends Error {
   constructor(
     message: string,

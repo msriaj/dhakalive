@@ -6,7 +6,7 @@ import { initLogger, newCorrelationId } from '@dhakalive/observability'
 
 import { PublishSkipped, alreadyIngested, publishIngested } from './publish.js'
 import { RewriteError, rewriteArticle } from './rewrite.js'
-import { IngestParseError, fetchPage, parseDetail, parseListing } from './source.js'
+import { IngestParseError, fetchPage, isStale, parseDetail, parseListing } from './source.js'
 
 /**
  * Automated ingest.
@@ -22,8 +22,9 @@ import { IngestParseError, fetchPage, parseDetail, parseListing } from './source
  * Each pass:
  *
  *   1. Read the listing page.
- *   2. Drop anything already ingested — before the detail fetch and before the
- *      model call, which are the two expensive steps.
+ *   2. Drop anything older than the age window, then anything already ingested
+ *      — both before the detail fetch and the model call, which are the two
+ *      expensive steps.
  *   3. For each remaining story: fetch, rewrite, upload the image, publish.
  *
  * There is no retry queue. Idempotency comes from the dedupe check rather than
@@ -87,6 +88,7 @@ async function runPass(payload: Awaited<ReturnType<typeof getPayload>>): Promise
 
   let published = 0
   let considered = 0
+  let stale = 0
 
   for (const item of listing) {
     if (shuttingDown) break
@@ -95,6 +97,17 @@ async function runPass(payload: Awaited<ReturnType<typeof getPayload>>): Promise
       break
     }
     if ((failures.get(item.externalId) ?? 0) >= MAX_ATTEMPTS) continue
+
+    /**
+     * Cheaper than the dedupe count, and checked first for that reason: it is a
+     * timestamp comparison against a field the listing already gave us, with no
+     * query and no fetch behind it. Not recorded in the failure ledger — a story
+     * is not broken for being old, and raising the window should bring it back.
+     */
+    if (isStale(item, env.INGEST_MAX_AGE_HOURS)) {
+      stale += 1
+      continue
+    }
 
     try {
       // Cheapest check first: one indexed count against two columns, before any
@@ -138,8 +151,8 @@ async function runPass(payload: Awaited<ReturnType<typeof getPayload>>): Promise
     }
   }
 
-  if (considered > 0) {
-    logger.info({ correlationId, considered, published }, 'Ingest pass complete')
+  if (considered > 0 || stale > 0) {
+    logger.info({ correlationId, considered, published, stale }, 'Ingest pass complete')
   }
 }
 
@@ -155,7 +168,12 @@ async function main(): Promise<void> {
   const payload = await getPayload({ config })
 
   logger.info(
-    { source: env.INGEST_SOURCE_URL, model: env.OPENAI_MODEL, maxPerRun: env.INGEST_MAX_PER_RUN },
+    {
+      source: env.INGEST_SOURCE_URL,
+      model: env.OPENAI_MODEL,
+      maxPerRun: env.INGEST_MAX_PER_RUN,
+      maxAgeHours: env.INGEST_MAX_AGE_HOURS,
+    },
     'Ingest started',
   )
 

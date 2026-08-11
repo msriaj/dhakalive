@@ -6,6 +6,7 @@ import {
   externalIdFromUrl,
   fullSizeImageUrl,
   imageFilename,
+  isStale,
   parseDetail,
   parseListing,
 } from './source.js'
@@ -163,6 +164,37 @@ describe('parseListing', () => {
     expect(
       parseListing('<div class="news-block-four"><div class="text">x</div></div>', BASE),
     ).toHaveLength(0)
+  })
+})
+
+describe('isStale', () => {
+  const now = Date.parse('2026-08-11T12:00:00+06:00')
+  const at = (iso: string) => ({ publishedAt: iso })
+
+  it('keeps a story inside the window and drops one outside it', () => {
+    expect(isStale(at('2026-08-11T11:00:00+06:00'), 24, now)).toBe(false)
+    expect(isStale(at('2026-08-10T13:00:00+06:00'), 24, now)).toBe(false)
+    expect(isStale(at('2026-08-10T11:00:00+06:00'), 24, now)).toBe(true)
+  })
+
+  it('reads the offset rather than assuming UTC', () => {
+    // 20:00 Dhaka on the 10th is 16 hours old, not 22. Treated as UTC it would
+    // fall outside an 18-hour window while actually being inside it.
+    expect(isStale(at('2026-08-10T20:00:00+06:00'), 18, now)).toBe(false)
+  })
+
+  /**
+   * The timestamp is scraped out of an HTML comment. If upstream stops emitting
+   * it, treating undated as old would stop the ingest dead — and silently, since
+   * "no new stories" reads as a slow news day rather than a broken parser.
+   */
+  it('keeps a story it cannot date', () => {
+    expect(isStale({ publishedAt: null }, 24, now)).toBe(false)
+    expect(isStale(at('not a date'), 24, now)).toBe(false)
+  })
+
+  it('does not treat a future timestamp as stale', () => {
+    expect(isStale(at('2026-08-11T18:00:00+06:00'), 24, now)).toBe(false)
   })
 })
 
