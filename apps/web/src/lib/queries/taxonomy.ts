@@ -62,6 +62,49 @@ export async function getNavigationCategories(locale: Locale): Promise<CategoryS
   return result.docs
 }
 
+/** A top-level section together with its active children, for the navigation. */
+export interface CategoryBranch extends CategorySummary {
+  children: Pick<Category, 'id' | 'title' | 'slug'>[]
+}
+
+/**
+ * The navigation tree in two queries rather than one per section.
+ *
+ * A request per top-level category would be six or more round trips to render
+ * a header that is identical for every reader; both halves are fetched flat and
+ * joined in memory instead.
+ */
+export async function getNavigationTree(locale: Locale): Promise<CategoryBranch[]> {
+  const payload = await getPayloadClient()
+  const parents = await getNavigationCategories(locale)
+  if (parents.length === 0) return []
+
+  const result = await payload.find({
+    collection: 'categories',
+    locale,
+    depth: 0,
+    limit: 200,
+    sort: 'displayOrder',
+    where: {
+      and: [{ isActive: { equals: true } }, { parent: { in: parents.map((parent) => parent.id) } }],
+    },
+    select: { title: true, slug: true, parent: true },
+    overrideAccess: false,
+  })
+
+  const byParent = new Map<number | string, Pick<Category, 'id' | 'title' | 'slug'>[]>()
+  for (const child of result.docs) {
+    // `depth: 0` leaves the relationship as an id, which is all that is needed.
+    const parentId = child.parent
+    if (typeof parentId !== 'number' && typeof parentId !== 'string') continue
+    const bucket = byParent.get(parentId)
+    if (bucket) bucket.push(child)
+    else byParent.set(parentId, [child])
+  }
+
+  return parents.map((parent) => ({ ...parent, children: byParent.get(parent.id) ?? [] }))
+}
+
 /** Child sections of a category, for its landing page. */
 export async function getChildCategories(
   parentId: number | string,

@@ -83,7 +83,7 @@ export default async function SearchPage({ params, searchParams }: RouteParams) 
         />
         <button
           type="submit"
-          className="min-h-11 rounded-md bg-[var(--color-brand)] px-5 font-medium text-white"
+          className="min-h-11 rounded-md bg-[var(--color-brand)] px-5 font-medium text-[var(--color-on-brand)]"
         >
           {d('search')}
         </button>

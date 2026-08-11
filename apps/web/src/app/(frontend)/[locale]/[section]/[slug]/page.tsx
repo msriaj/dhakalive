@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation'
 
 import { DEFAULT_LOCALE, LOCALES, isLocale } from '@dhakalive/config'
 
+import { layoutForType, specForLayout, typeLabel } from '../../../../../lib/article-layout'
 import { AdSlot } from '../../../../../components/AdSlot'
 import { ArticleList } from '../../../../../components/ArticleList'
 import { Breadcrumbs } from '../../../../../components/Breadcrumbs'
@@ -142,8 +143,50 @@ export default async function ArticlePage({ params }: RouteParams) {
     ],
   })
 
+  const layout = layoutForType(article.articleType)
+  const spec = specForLayout(layout)
+
+  /**
+   * The hero is rendered from one definition in two possible positions rather
+   * than duplicated per layout, so the caption and credit rules below cannot
+   * drift between them.
+   */
+  const hero =
+    spec.hero !== 'none' && article.featuredImage ? (
+      <figure className={spec.hero === 'lead' ? 'mt-6 mb-8' : 'mt-6'}>
+        <div
+          className={`relative ${spec.heroAspect} overflow-hidden rounded-md bg-[var(--color-surface-sunken)]`}
+        >
+          <MediaImage
+            media={article.featuredImage}
+            fill
+            priority
+            sizes="(min-width: 1024px) 1024px, 100vw"
+            className="object-cover"
+          />
+        </div>
+        {/*
+          Credit renders independently of caption. Photographers and wire
+          agencies must be attributed whether or not an editor wrote a caption,
+          so nesting the credit inside the caption check would silently drop
+          attribution on most images.
+        */}
+        {typeof article.featuredImage === 'object' &&
+        (article.featuredImage.caption || article.featuredImage.credit) ? (
+          <figcaption className="mt-2">
+            {article.featuredImage.caption}
+            {article.featuredImage.credit ? (
+              <span className={article.featuredImage.caption ? 'ml-2 opacity-80' : 'opacity-80'}>
+                {article.featuredImage.credit}
+              </span>
+            ) : null}
+          </figcaption>
+        ) : null}
+      </figure>
+    ) : null
+
   return (
-    <article className="mx-auto max-w-3xl">
+    <article className={`mx-auto ${spec.container}`}>
       <JsonLd data={graph} />
 
       {category?.slug ? (
@@ -156,56 +199,37 @@ export default async function ArticlePage({ params }: RouteParams) {
         />
       ) : null}
 
-      <header className="mt-4">
+      {spec.hero === 'lead' ? hero : null}
+
+      <header className={spec.hero === 'lead' ? '' : 'mt-4'}>
         {article.isBreaking ? (
-          <p className="mb-2 inline-block rounded-sm bg-[var(--color-breaking)] px-2 py-0.5 text-xs font-bold text-white uppercase">
+          <p className="mb-2 inline-block rounded-sm bg-[var(--color-breaking)] px-2 py-0.5 text-xs font-bold text-[var(--color-on-brand)] uppercase">
             {d('breaking')}
           </p>
         ) : null}
 
-        <h1 className="text-3xl leading-tight font-bold tracking-tight md:text-4xl">
-          {article.headline}
-        </h1>
-
-        {article.subheadline ? (
-          <p className="mt-3 text-lg text-[var(--color-ink-muted)]">{article.subheadline}</p>
+        {/*
+          The kicker names the register before the headline is read — whether
+          this is the masthead arguing, a reporter explaining, or somebody being
+          questioned. Suppressed on straight reports, where "NEWS" above a news
+          story tells a reader nothing they did not already assume.
+        */}
+        {spec.showKicker && typeLabel(article.articleType, locale) ? (
+          <p className="mb-2 font-[family-name:var(--font-mono)] text-xs tracking-widest text-[var(--color-brand)] uppercase">
+            {typeLabel(article.articleType, locale)}
+          </p>
         ) : null}
+
+        <h1 className={spec.headline}>{article.headline}</h1>
+
+        {article.subheadline ? <p className={spec.standfirst}>{article.subheadline}</p> : null}
 
         <div className="mt-5">
           <Byline article={article} locale={locale} />
         </div>
       </header>
 
-      {article.featuredImage ? (
-        <figure className="mt-6">
-          <div className="relative aspect-[16/9] overflow-hidden rounded-md bg-[var(--color-surface-sunken)]">
-            <MediaImage
-              media={article.featuredImage}
-              fill
-              priority
-              sizes="(min-width: 768px) 768px, 100vw"
-              className="object-cover"
-            />
-          </div>
-          {/*
-            Credit renders independently of caption. Photographers and wire
-            agencies must be attributed whether or not an editor wrote a caption,
-            so nesting the credit inside the caption check would silently drop
-            attribution on most images.
-          */}
-          {typeof article.featuredImage === 'object' &&
-          (article.featuredImage.caption || article.featuredImage.credit) ? (
-            <figcaption className="mt-2 text-sm text-[var(--color-ink-muted)]">
-              {article.featuredImage.caption}
-              {article.featuredImage.credit ? (
-                <span className={article.featuredImage.caption ? 'ml-2 opacity-80' : 'opacity-80'}>
-                  {article.featuredImage.credit}
-                </span>
-              ) : null}
-            </figcaption>
-          ) : null}
-        </figure>
-      ) : null}
+      {spec.hero === 'after' ? hero : null}
 
       {article.correction?.hasCorrection && article.correction.note ? (
         <aside
@@ -228,7 +252,7 @@ export default async function ArticlePage({ params }: RouteParams) {
 
       <RichText
         data={article.body}
-        className="prose-article mt-8 space-y-5 text-lg leading-relaxed"
+        className={`prose-article ${spec.prose} mt-8 text-lg leading-relaxed`}
       />
 
       {/*

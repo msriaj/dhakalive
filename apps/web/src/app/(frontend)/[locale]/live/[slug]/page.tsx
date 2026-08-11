@@ -66,7 +66,7 @@ export default async function LiveBlogPage({ params }: RouteParams) {
           <span
             className={
               isLive
-                ? 'inline-flex items-center gap-2 rounded-sm bg-[var(--color-breaking)] px-2 py-0.5 text-xs font-bold text-white uppercase'
+                ? 'inline-flex items-center gap-2 rounded-sm bg-[var(--color-breaking)] px-2 py-0.5 text-xs font-bold text-[var(--color-on-brand)] uppercase'
                 : 'inline-flex items-center rounded-sm bg-[var(--color-surface-sunken)] px-2 py-0.5 text-xs font-bold uppercase'
             }
           >

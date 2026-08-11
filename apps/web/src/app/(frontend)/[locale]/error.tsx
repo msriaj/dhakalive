@@ -39,7 +39,7 @@ export default function ErrorBoundary({
       <button
         type="button"
         onClick={reset}
-        className="mt-8 inline-flex min-h-11 items-center rounded-md bg-[var(--color-brand)] px-5 font-medium text-white"
+        className="mt-8 inline-flex min-h-11 items-center rounded-md bg-[var(--color-brand)] px-5 font-medium text-[var(--color-on-brand)]"
       >
         {d('tryAgain')}
       </button>

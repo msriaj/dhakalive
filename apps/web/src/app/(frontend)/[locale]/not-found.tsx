@@ -23,7 +23,7 @@ export default function NotFound() {
       <p className="mt-3 text-[var(--color-ink-muted)]">{d('notFoundBody')}</p>
       <Link
         href={homePath(locale)}
-        className="mt-8 inline-flex min-h-11 items-center rounded-md bg-[var(--color-brand)] px-5 font-medium text-white"
+        className="mt-8 inline-flex min-h-11 items-center rounded-md bg-[var(--color-brand)] px-5 font-medium text-[var(--color-on-brand)]"
       >
         {d('backToHome')}
       </Link>

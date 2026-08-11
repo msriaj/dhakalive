@@ -8,21 +8,63 @@
 
 @theme {
   /*
-   * Bengali needs an explicit font stack: the default sans-serif on most
-   * platforms falls back to a Latin face and renders Bengali conjuncts with
-   * wrong metrics and broken ligatures.
+   * Two roles, not two scripts.
+   *
+   * `--font-display` and `--font-body` are loaded by the layout through
+   * `next/font`, which is what puts a chosen face on a reader's screen rather
+   * than hoping their device ships one. Both families cover Bengali and Latin,
+   * so a headline mixing "SDG" into Bengali copy keeps one set of metrics
+   * instead of visibly switching fonts mid-line.
+   *
+   * The trailing names are not decoration: they are what renders during the
+   * swap window and on the rare device that blocks webfonts.
    */
-  --font-bengali:
-    'Noto Sans Bengali', 'Hind Siliguri', 'SolaimanLipi', 'Kalpurush', system-ui, sans-serif;
-  --font-latin: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --font-display:
+    var(--font-display-loaded), 'Noto Sans Bengali', 'Hind Siliguri', 'SolaimanLipi', 'Kalpurush',
+    ui-sans-serif, system-ui, sans-serif;
+  --font-body:
+    var(--font-body-loaded), 'Noto Serif Bengali', Georgia, Cambria, 'Times New Roman', serif;
+  /* Captions and datelines. Mono at small sizes reads as apparatus rather than
+     prose, which is the point — it should not compete with the story. */
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
-  --color-ink: oklch(0.19 0.01 260);
-  --color-ink-muted: oklch(0.48 0.01 260);
-  --color-surface: oklch(1 0 0);
-  --color-surface-sunken: oklch(0.97 0.003 260);
-  --color-rule: oklch(0.9 0.005 260);
-  --color-brand: oklch(0.52 0.19 26);
-  --color-breaking: oklch(0.55 0.22 27);
+  /*
+   * Ink ramp. Four steps, because three forces captions and datelines to share
+   * a value with body copy and the page loses its hierarchy at small sizes.
+   */
+  --color-ink: #0b0c0d;
+  --color-ink-body: #222222;
+  --color-ink-muted: #637882;
+  --color-ink-faint: #8ca0a8;
+
+  /*
+   * Surfaces carry a slight blue cast rather than neutral grey. Against warm
+   * newsprint photography it reads as cool and deliberate; a neutral grey next
+   * to the same photographs reads as an unstyled default.
+   */
+  --color-surface: #ffffff;
+  --color-surface-raised: #f8fcff;
+  --color-surface-sunken: #f0f6f9;
+  --color-wash: #e5eff5;
+
+  /*
+   * Hairlines, set in alpha so they sit on any surface without a second token
+   * per background. Kept faint on purpose: at full-strength grey a page of
+   * stacked cards turns into a grid of boxes.
+   */
+  --color-rule: rgb(12 24 32 / 0.08);
+  --color-rule-strong: rgb(12 24 32 / 0.12);
+
+  /*
+   * Deep navy rather than the previous red. Red is the tabloid register — it
+   * reads as urgency applied uniformly, so nothing on the page can be more
+   * urgent than anything else. Navy lets the photography and the headline
+   * carry the weight, and leaves a genuine alert still able to stand out.
+   */
+  --color-brand: #00243e;
+  --color-brand-hover: #003a63;
+  --color-on-brand: #ffffff;
+  --color-breaking: #00243e;
 }
 
 @layer base {
@@ -31,19 +73,158 @@
        vowel signs and conjuncts from clipping against the line above. */
     line-height: 1.75;
     -webkit-text-size-adjust: 100%;
-  }
-
-  html:lang(bn) body {
-    font-family: var(--font-bengali);
-  }
-
-  html:lang(en) body {
-    font-family: var(--font-latin);
+    /* The design is light-only. Stated explicitly so a reader whose OS is dark
+       does not get dark form controls and scrollbars on a white page. */
+    color-scheme: light;
   }
 
   body {
+    font-family: var(--font-body);
     background-color: var(--color-surface);
+    color: var(--color-ink-body);
+    /* Bengali conjuncts depend on these; disabling ligatures breaks the script,
+       so they are stated rather than left to a browser default that varies. */
+    font-variant-ligatures: common-ligatures contextual;
+  }
+
+  /*
+   * Display type is the sans, at every level. The tightening is size-dependent
+   * — tracking that looks correct on a 48px headline opens up too far at 20px,
+   * which is why this is not one global value.
+   */
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
     color: var(--color-ink);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  h1 {
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+  }
+
+  /* Long-form copy wants a measure, not the full column. `text-wrap: pretty`
+     keeps a single word from being stranded on the last line of a paragraph. */
+  p {
+    text-wrap: pretty;
+  }
+
+  figcaption {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    letter-spacing: 0;
+    color: var(--color-ink-muted);
+  }
+
+  /*
+   * Long-form body copy.
+   *
+   * The class was already on the article and the standing pages but had no rule
+   * behind it, so story bodies rendered with browser defaults — the one place on
+   * the site where readers spend minutes rather than seconds.
+   */
+  .prose-article > * + * {
+    margin-top: 1.25em;
+  }
+
+  .prose-article h2,
+  .prose-article h3 {
+    margin-top: 2em;
+    font-size: 1.375rem;
+    line-height: 1.3;
+  }
+
+  .prose-article a {
+    color: var(--color-brand);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+    /* Bengali descenders and vowel signs collide with a default underline. */
+    text-decoration-thickness: 1px;
+  }
+
+  .prose-article blockquote {
+    margin-inline: 0;
+    border-left: 2px solid var(--color-brand);
+    padding-left: 1.25rem;
+    font-size: 1.25rem;
+    line-height: 1.55;
+    color: var(--color-ink);
+  }
+
+  .prose-article figure img {
+    border-radius: 0.375rem;
+  }
+
+  .prose-article hr {
+    border: 0;
+    border-top: 1px solid var(--color-rule);
+    margin-block: 2.5em;
+  }
+
+  /*
+   * Commentary: no drop cap, no display type. The argument carries it, and the
+   * first line should start like speech rather than like a magazine spread.
+   */
+  .prose-commentary {
+    font-size: 1.0625rem;
+  }
+
+  /*
+   * Long-form opens with a drop cap. Deliberately Latin-safe: Bengali has no
+   * capital forms and its vowel signs hang above and below the base line, so a
+   * floated first letter clips its own diacritic. `initial-letter` is used
+   * where supported and simply ignored elsewhere, which degrades to normal
+   * copy rather than to broken copy.
+   */
+  .prose-longform > p:first-of-type::first-letter {
+    initial-letter: 2;
+    -webkit-initial-letter: 2;
+    margin-right: 0.08em;
+    font-family: var(--font-display);
+    font-weight: 700;
+    color: var(--color-brand);
+  }
+
+  .prose-longform > p:first-of-type {
+    font-size: 1.1875rem;
+  }
+
+  /*
+   * Interview: a bolded run at the start of a paragraph is the question. That
+   * is the shape an editor already types, so the styling meets the existing
+   * habit instead of demanding a new block type in the CMS.
+   */
+  .prose-interview > p > strong:first-child {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-family: var(--font-display);
+    font-size: 0.9375rem;
+    font-weight: 700;
+    line-height: 1.5;
+    color: var(--color-brand);
+  }
+
+  .prose-interview > p:has(> strong:first-child) {
+    border-top: 1px solid var(--color-rule);
+    padding-top: 1.25rem;
+  }
+
+  /* Visual stories: pictures run to the measure and captions do real work. */
+  .prose-visual figure {
+    margin-block: 2rem;
+  }
+
+  .prose-visual figcaption {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--color-rule);
   }
 
   /* WCAG 2.2 AA: focus must stay visible for keyboard users on every control. */
