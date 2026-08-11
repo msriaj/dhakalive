@@ -10,11 +10,12 @@ import { dictionary } from '../lib/dictionary'
  * Builds a shareable picture of a story, in the browser.
  *
  * A social card that a desk can post to Facebook or WhatsApp without opening a
- * design tool: headline, byline, the story's own photograph, the masthead.
- * Drawn on a canvas rather than assembled from HTML, because the alternatives
- * are worse — `html2canvas` re-implements a layout engine badly and gets
- * Bengali shaping wrong, and rendering it on the server would mean a headless
- * browser or a font pipeline on a box that is already short of CPU.
+ * design tool: the section, the headline, the standfirst, the byline, the
+ * story's own photograph and the masthead. Drawn on a canvas rather than
+ * assembled from HTML, because the alternatives are worse — `html2canvas`
+ * re-implements a layout engine badly and gets Bengali shaping wrong, and
+ * rendering it on the server would mean a headless browser or a font pipeline
+ * on a box that is already short of CPU.
  *
  * The whole thing runs on the reader's machine and downloads from memory.
  * Nothing is uploaded, nothing is stored, and it costs the origin one image
@@ -26,9 +27,26 @@ const WIDTH = 1080
 const HEIGHT = 1350
 const PADDING = 64
 
-const HEADLINE_MAX = 72
-const HEADLINE_MIN = 40
-const HEADLINE_LINES = 5
+const HEADLINE_MAX = 68
+const HEADLINE_MIN = 38
+const SUB_SIZE = 30
+const SUB_LINES = 2
+const BYLINE_SIZE = 26
+const CHIP_SIZE = 26
+
+/**
+ * The floor the photograph is never allowed below.
+ *
+ * The text block grew a section chip and a standfirst, and left to itself it
+ * would take whatever it needed — on a long headline with a long standfirst,
+ * enough that the picture became a strip. The type shrinks to protect this
+ * rather than the other way round: a card whose photograph is 200px tall is a
+ * press release, and the picture is why anybody stops scrolling.
+ */
+const MIN_IMAGE_HEIGHT = 620
+
+const BRAND = '#c4172a'
+const HIGHLIGHT = '#2340eb'
 
 /**
  * Quotation marks, straight and curled, in both scripts.
@@ -97,9 +115,9 @@ function wrap(ctx: CanvasRenderingContext2D, segments: Segment[], maxWidth: numb
   return lines
 }
 
-/** Loads an image and refuses to hand back a tainted one. */
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
+/** Loads an image, or resolves to null. Used where a missing picture is survivable. */
+function loadImage(src: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
     const image = new Image()
     /*
      * No `crossOrigin`. The caller passes a same-origin path, which cannot taint
@@ -110,24 +128,42 @@ function loadImage(src: string): Promise<HTMLImageElement> {
       resolve(image)
     }
     image.onerror = () => {
-      reject(new Error('Image could not be loaded'))
+      resolve(null)
     }
     image.src = src
   })
 }
 
+/**
+ * Both parameters are constrained by Next's config: `w` must be one of the
+ * configured widths and `q` one of the configured qualities — 75 is the only
+ * one by default, and anything else is refused with a 400.
+ */
+function optimised(url: string, width: 640 | 1080): string {
+  return `/_next/image?url=${encodeURIComponent(url)}&w=${String(width)}&q=75`
+}
+
 export function PhotoCard({
   headline,
+  subheadline,
+  category,
   byline,
   imageUrl,
+  logoUrl,
   siteName,
   locale,
 }: {
   headline: string
-  /** Desk and date, printed under the headline as the example papers set it. */
+  /** Printed under the headline when there is one, at two lines at most. */
+  subheadline: string | null
+  /** The section name, set as a coloured chip above the headline. */
+  category: string | null
+  /** Desk and date, printed under the standfirst as the papers set it. */
   byline: string
   /** The story's featured image, as a raw URL; the optimiser is asked for it here. */
   imageUrl: string | null
+  /** The masthead, drawn on a white badge over the picture. */
+  logoUrl: string | null
   siteName: string
   locale: Locale
 }) {
@@ -157,30 +193,63 @@ export function PhotoCard({
        */
       await Promise.all([
         document.fonts.load(`700 ${String(HEADLINE_MAX)}px SolaimanLipi`),
-        document.fonts.load('400 28px SolaimanLipi'),
+        document.fonts.load(`400 ${String(SUB_SIZE)}px SolaimanLipi`),
       ])
 
       // The fallback stays in the canvas font so Latin still renders if the
       // Bengali face is unavailable.
       const display = 'SolaimanLipi, sans-serif'
+      const measure = WIDTH - PADDING * 2
 
       ctx.fillStyle = '#ffffff'
       ctx.fillRect(0, 0, WIDTH, HEIGHT)
 
-      // Shrink the headline until it fits the lines it is allowed.
-      const measure = WIDTH - PADDING * 2
+      let y = PADDING
+
+      // ---------------------------------------------------------- section chip
+      if (category) {
+        ctx.font = `700 ${String(CHIP_SIZE)}px ${display}`
+        const textWidth = ctx.measureText(category).width
+        const chipHeight = CHIP_SIZE * 1.9
+        const chipWidth = textWidth + CHIP_SIZE * 1.6
+
+        ctx.fillStyle = BRAND
+        ctx.beginPath()
+        ctx.roundRect(PADDING, y, chipWidth, chipHeight, chipHeight / 2)
+        ctx.fill()
+
+        ctx.fillStyle = '#ffffff'
+        ctx.fillText(category, PADDING + CHIP_SIZE * 0.8, y + chipHeight * 0.68)
+        y += chipHeight + 28
+      }
+
+      /*
+       * The headline is fitted to the space left once the picture has taken its
+       * floor — shrinking first, then dropping lines. A card that clips its own
+       * headline is worse than one whose headline is small.
+       */
+      const subLineHeight = SUB_SIZE * 1.4
+      const reserved =
+        (subheadline ? subLineHeight * SUB_LINES + 20 : 0) + BYLINE_SIZE + 44 + PADDING
+      const available = HEIGHT - MIN_IMAGE_HEIGHT - y - reserved
+
       const segments = segmentsFor(headline)
       let size = HEADLINE_MAX
       let lines: Segment[][] = []
 
-      for (; size >= HEADLINE_MIN; size -= 2) {
+      for (; size > HEADLINE_MIN; size -= 2) {
         ctx.font = `700 ${String(size)}px ${display}`
         lines = wrap(ctx, segments, measure)
-        if (lines.length <= HEADLINE_LINES) break
+        if (lines.length * (size * 1.22) <= available) break
       }
 
-      const lineHeight = size * 1.25
-      let y = PADDING + size
+      // Still too tall at the smallest size: drop the overflow rather than let
+      // the picture pay for it.
+      const maxLines = Math.max(1, Math.floor(available / (size * 1.22)))
+      lines = lines.slice(0, maxLines)
+
+      const lineHeight = size * 1.22
+      y += size
 
       for (const line of lines) {
         let x = PADDING
@@ -188,7 +257,7 @@ export function PhotoCard({
           const width = ctx.measureText(segment.text).width
 
           if (segment.highlighted) {
-            ctx.fillStyle = '#2340eb'
+            ctx.fillStyle = HIGHLIGHT
             ctx.fillRect(x, y - size * 0.86, width, size * 1.12)
             ctx.fillStyle = '#ffffff'
           } else {
@@ -201,27 +270,33 @@ export function PhotoCard({
         y += lineHeight
       }
 
-      ctx.font = `400 28px ${display}`
-      ctx.fillStyle = 'rgba(0,0,0,0.65)'
-      ctx.fillText(byline, PADDING, y + 12)
+      // ------------------------------------------------------------ standfirst
+      if (subheadline) {
+        ctx.font = `400 ${String(SUB_SIZE)}px ${display}`
+        ctx.fillStyle = 'rgba(0,0,0,0.72)'
 
-      const imageTop = y + 56
+        const subLines = wrap(ctx, [{ text: subheadline, highlighted: false }], measure).slice(
+          0,
+          SUB_LINES,
+        )
 
-      if (imageUrl) {
-        /*
-         * A relative URL, so this is always same-origin and the canvas is never
-         * tainted — drawing the R2 address directly would throw a SecurityError
-         * at `toBlob`, after the reader had already waited.
-         *
-         * Both parameters are constrained. `w` must be one of Next's configured
-         * widths and `q` one of its configured qualities — 75 is the only one
-         * by default, and anything else is refused with a 400. Matching what
-         * the article page already requested also means the browser usually has
-         * it in cache.
-         */
-        const optimised = `/_next/image?url=${encodeURIComponent(imageUrl)}&w=1080&q=75`
-        const image = await loadImage(optimised)
+        y += 6
+        for (const line of subLines) {
+          ctx.fillText(line.map((segment) => segment.text).join(''), PADDING, y)
+          y += subLineHeight
+        }
+      }
 
+      ctx.font = `400 ${String(BYLINE_SIZE)}px ${display}`
+      ctx.fillStyle = 'rgba(0,0,0,0.55)'
+      ctx.fillText(byline, PADDING, y + 10)
+
+      const imageTop = y + 44
+
+      // ---------------------------------------------------------- the picture
+      const image = imageUrl ? await loadImage(optimised(imageUrl, 1080)) : null
+
+      if (image) {
         // Cover, not contain: a letterboxed press photograph looks like a
         // mistake, and the crop is the same one the article page shows.
         const boxHeight = HEIGHT - imageTop
@@ -229,6 +304,10 @@ export function PhotoCard({
         const drawWidth = image.width * scale
         const drawHeight = image.height * scale
 
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(0, imageTop, WIDTH, boxHeight)
+        ctx.clip()
         ctx.drawImage(
           image,
           (WIDTH - drawWidth) / 2,
@@ -236,8 +315,35 @@ export function PhotoCard({
           drawWidth,
           drawHeight,
         )
+        ctx.restore()
+      }
 
-        // The masthead, over a scrim so it survives a bright photograph.
+      // ------------------------------------------------------------- masthead
+      const logo = logoUrl ? await loadImage(optimised(logoUrl, 640)) : null
+
+      if (logo && logo.width > 0) {
+        /*
+         * On a white badge, not straight onto the photograph. A masthead is
+         * drawn in its own colours — this one is black and red — and those
+         * disappear against a dark press picture. A panel keeps the brand
+         * intact instead of asking the logo to survive any background.
+         */
+        const logoHeight = 46
+        const logoWidth = (logo.width / logo.height) * logoHeight
+        const padX = 22
+        const padY = 16
+        const badgeHeight = logoHeight + padY * 2
+        const badgeY = HEIGHT - PADDING - badgeHeight
+
+        ctx.fillStyle = '#ffffff'
+        ctx.beginPath()
+        ctx.roundRect(PADDING, badgeY, logoWidth + padX * 2, badgeHeight, 12)
+        ctx.fill()
+
+        ctx.drawImage(logo, PADDING + padX, badgeY + padY, logoWidth, logoHeight)
+      } else if (image) {
+        // No logo uploaded, or one the optimiser refuses — an SVG, usually.
+        // The name over a scrim is the honest fallback.
         const gradient = ctx.createLinearGradient(0, HEIGHT - 180, 0, HEIGHT)
         gradient.addColorStop(0, 'rgba(0,0,0,0)')
         gradient.addColorStop(1, 'rgba(0,0,0,0.55)')

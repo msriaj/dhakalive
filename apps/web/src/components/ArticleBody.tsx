@@ -71,9 +71,11 @@ export async function ArticleBody({
   const heroAsset = typeof article.featuredImage === 'object' ? article.featuredImage : null
   const heroUrl = heroAsset?.url ?? null
 
-  // The masthead is read here rather than passed in, because the stream renders
-  // this component from a server action with no page props to hand it down.
-  const siteName = (await getSiteSettings(locale)).siteName ?? 'DhakaLive'
+  // Site settings are read here rather than passed in, because the stream
+  // renders this component from a server action with no page props to hand down.
+  const settings = await getSiteSettings(locale)
+  const siteName = settings.siteName ?? 'DhakaLive'
+  const logoAsset = typeof settings.logo === 'object' ? settings.logo : null
   const cardByline = [siteName, formatDate(article.publishedAt, locale)].filter(Boolean).join(' | ')
 
   /**
@@ -239,8 +241,11 @@ export async function ArticleBody({
           <ShareLinks url={shareUrl} title={article.headline ?? ''} locale={locale} />
           <PhotoCard
             headline={article.headline ?? ''}
+            subheadline={article.subheadline ?? null}
+            category={category?.title ?? null}
             byline={cardByline}
             imageUrl={heroUrl}
+            logoUrl={logoAsset?.url ?? null}
             siteName={siteName}
             locale={locale}
           />
