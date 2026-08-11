@@ -1,27 +1,22 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
 import { DEFAULT_LOCALE, LOCALES, isLocale } from '@dhakalive/config'
 
-import { kickerFor, layoutForType, specForLayout } from '../../../../../lib/article-layout'
-import { AdSlot } from '../../../../../components/AdSlot'
+import { layoutForType, specForLayout } from '../../../../../lib/article-layout'
+import { ArticleBody } from '../../../../../components/ArticleBody'
 import { ArticleList } from '../../../../../components/ArticleList'
-import { Breadcrumbs } from '../../../../../components/Breadcrumbs'
-import { Byline } from '../../../../../components/Byline'
+import { ArticleStream } from '../../../../../components/ArticleStream'
 import { JsonLd } from '../../../../../components/JsonLd'
-import { MediaImage } from '../../../../../components/MediaImage'
-import { RichText } from '../../../../../components/RichText'
-import { ShareLinks } from '../../../../../components/ShareLinks'
 import { dictionary } from '../../../../../lib/dictionary'
 import { env } from '../../../../../lib/env'
-import { formatDate, isoDate } from '../../../../../lib/format'
 import { buildMetadata } from '../../../../../lib/metadata'
 import { getArticleBySlug, getRelatedArticles } from '../../../../../lib/queries/articles'
 import { redirectIfKnown } from '../../../../../lib/redirects'
 import { articleGraph } from '../../../../../lib/seo/structured-data'
-import { absoluteUrl, articlePath, categoryPath, tagPath } from '../../../../../lib/routes'
-import type { Category, Tag } from '../../../../../payload-types'
+import { absoluteUrl, articlePath, categoryPath, homePath } from '../../../../../lib/routes'
+import type { Category } from '../../../../../payload-types'
+import { loadNextArticle } from './next-article'
 
 /**
  * Article page.
@@ -113,14 +108,6 @@ export default async function ArticlePage({ params }: RouteParams) {
   }
 
   const related = await getRelatedArticles(article, locale)
-  const tags = Array.isArray(article.tags)
-    ? article.tags.filter((tag): tag is Tag => typeof tag === 'object' && tag !== null)
-    : []
-
-  const shareUrl = absoluteUrl(
-    articlePath(locale, category?.slug ?? 'news', article.slug ?? decodedSlug),
-    env().NEXT_PUBLIC_SITE_URL,
-  )
 
   /**
    * Structured data mirrors the visible breadcrumb trail rather than being
@@ -146,168 +133,43 @@ export default async function ArticlePage({ params }: RouteParams) {
   const layout = layoutForType(article.articleType)
   const spec = specForLayout(layout)
 
-  /**
-   * The hero is rendered from one definition in two possible positions rather
-   * than duplicated per layout, so the caption and credit rules below cannot
-   * drift between them.
-   */
-  const hero =
-    spec.hero !== 'none' && article.featuredImage ? (
-      <figure className={spec.hero === 'lead' ? 'mt-6 mb-8' : 'mt-6'}>
-        <div
-          className={`relative ${spec.heroAspect} overflow-hidden rounded-md bg-[var(--color-surface-sunken)]`}
-        >
-          <MediaImage
-            media={article.featuredImage}
-            fill
-            priority
-            sizes="(min-width: 1024px) 1024px, 100vw"
-            className="object-cover"
-          />
-        </div>
-        {/*
-          Credit renders independently of caption. Photographers and wire
-          agencies must be attributed whether or not an editor wrote a caption,
-          so nesting the credit inside the caption check would silently drop
-          attribution on most images.
-        */}
-        {typeof article.featuredImage === 'object' &&
-        (article.featuredImage.caption || article.featuredImage.credit) ? (
-          <figcaption className="mt-2">
-            {article.featuredImage.caption}
-            {article.featuredImage.credit ? (
-              <span className={article.featuredImage.caption ? 'ml-2 opacity-80' : 'opacity-80'}>
-                {article.featuredImage.credit}
-              </span>
-            ) : null}
-          </figcaption>
-        ) : null}
-      </figure>
-    ) : null
-
   return (
-    <article className={`mx-auto ${spec.container}`}>
-      <JsonLd data={graph} />
+    <>
+      <article className={`mx-auto ${spec.container}`}>
+        <JsonLd data={graph} />
+        <ArticleBody article={article} locale={locale} />
 
-      {category?.slug ? (
-        <Breadcrumbs
-          locale={locale}
-          crumbs={[
-            { label: category.title ?? '', href: categoryPath(locale, category.slug) },
-            { label: article.headline ?? '' },
-          ]}
-        />
-      ) : null}
-
-      {spec.hero === 'lead' ? hero : null}
-
-      <header className={spec.hero === 'lead' ? '' : 'mt-4'}>
-        {article.isBreaking ? (
-          <p className="mb-2 inline-block rounded-sm bg-[var(--color-breaking)] px-2 py-0.5 text-xs font-bold text-[var(--color-on-brand)] uppercase">
-            {d('breaking')}
-          </p>
+        {related.length > 0 ? (
+          <section aria-labelledby="related-heading" className="mt-14">
+            <h2
+              id="related-heading"
+              className="mb-5 border-b border-[var(--color-rule)] pb-2 text-xl font-bold"
+            >
+              {d('relatedStories')}
+            </h2>
+            <ArticleList articles={related} locale={locale} columns={2} />
+          </section>
         ) : null}
-
-        {/*
-          The kicker names the register before the headline is read — whether
-          this is the masthead arguing, a reporter explaining, or somebody being
-          questioned. Suppressed on straight reports, where "NEWS" above a news
-          story tells a reader nothing they did not already assume.
-        */}
-        {spec.showKicker && kickerFor(article.articleType, article.headline, locale) ? (
-          <p className="mb-2 font-[family-name:var(--font-mono)] text-xs tracking-widest text-[var(--color-brand)] uppercase">
-            {kickerFor(article.articleType, article.headline, locale)}
-          </p>
-        ) : null}
-
-        <h1 className={spec.headline}>{article.headline}</h1>
-
-        {article.subheadline ? <p className={spec.standfirst}>{article.subheadline}</p> : null}
-
-        <div className="mt-5">
-          <Byline article={article} locale={locale} />
-        </div>
-      </header>
-
-      {spec.hero === 'after' ? hero : null}
-
-      {article.correction?.hasCorrection && article.correction.note ? (
-        <aside
-          aria-labelledby="correction-heading"
-          className="mt-6 rounded-md border-l-4 border-[var(--color-brand)] bg-[var(--color-surface-sunken)] p-4"
-        >
-          <h2 id="correction-heading" className="text-sm font-bold uppercase">
-            {d('correction')}
-          </h2>
-          <p className="mt-1 text-sm">{article.correction.note}</p>
-          {article.correction.correctedAt ? (
-            <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
-              <time dateTime={isoDate(article.correction.correctedAt)}>
-                {formatDate(article.correction.correctedAt, locale)}
-              </time>
-            </p>
-          ) : null}
-        </aside>
-      ) : null}
-
-      <RichText
-        data={article.body}
-        className={`prose-article ${spec.prose} mt-8 text-lg leading-relaxed`}
-      />
+      </article>
 
       {/*
-        After the body, not inside it. Interrupting the story mid-paragraph is
-        the placement readers most object to, and it would also mean the ad
-        moving whenever an editor adds a paragraph.
-
-        The category is passed through so a section-targeted booking can match,
-        and the article id seeds rotation so two stories in the same section do
-        not show the identical creative.
+        The stream sits outside the article element, not inside it: each story
+        it appends is its own `<article>`, and nesting them would say that the
+        next report is part of this one.
       */}
-      <AdSlot
-        placement="in-article"
-        locale={locale}
-        categoryId={category?.id ?? null}
-        pageKey={`article-${String(article.id)}`}
-      />
-
-      {tags.length > 0 ? (
-        <section aria-labelledby="tags-heading" className="mt-10">
-          <h2 id="tags-heading" className="mb-2 text-sm font-semibold uppercase">
-            {d('tags')}
-          </h2>
-          <ul className="flex flex-wrap gap-2">
-            {tags.map((tag) =>
-              tag.slug ? (
-                <li key={tag.id}>
-                  <Link
-                    href={tagPath(locale, tag.slug)}
-                    className="inline-flex min-h-9 items-center rounded-full border border-[var(--color-rule)] px-3 text-sm hover:border-[var(--color-brand)]"
-                  >
-                    {tag.title}
-                  </Link>
-                </li>
-              ) : null,
-            )}
-          </ul>
-        </section>
-      ) : null}
-
-      <div className="mt-8 border-t border-[var(--color-rule)] pt-6">
-        <ShareLinks url={shareUrl} title={article.headline ?? ''} locale={locale} />
+      <div className={`mx-auto ${spec.container}`}>
+        <ArticleStream
+          locale={locale}
+          cursor={article.publishedAt ?? null}
+          seed={article.id}
+          loadNext={loadNextArticle}
+          moreHref={category?.slug ? categoryPath(locale, category.slug) : homePath(locale)}
+          moreLabel={category?.title ? `${d('moreFrom')} ${category.title}` : d('backToHome')}
+          nextLabel={d('nextStory')}
+          loadingLabel={d('loadingNextStory')}
+          endLabel={d('endOfStream')}
+        />
       </div>
-
-      {related.length > 0 ? (
-        <section aria-labelledby="related-heading" className="mt-14">
-          <h2
-            id="related-heading"
-            className="mb-5 border-b border-[var(--color-rule)] pb-2 text-xl font-bold"
-          >
-            {d('relatedStories')}
-          </h2>
-          <ArticleList articles={related} locale={locale} columns={2} />
-        </section>
-      ) : null}
-    </article>
+    </>
   )
 }

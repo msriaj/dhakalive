@@ -32,6 +32,11 @@ const STRINGS = {
   downloadApps: { bn: 'মোবাইল অ্যাপস ডাউনলোড করুন', en: 'Download the mobile apps' },
   relatedStories: { bn: 'সম্পর্কিত খবর', en: 'Related stories' },
   moreFrom: { bn: 'আরও', en: 'More from' },
+  nextStory: { bn: 'পরের খবর', en: 'Next story' },
+  /** Announced politely while the next story in the stream is being fetched. */
+  loadingNextStory: { bn: 'পরের খবর আসছে…', en: 'Loading the next story…' },
+  /** Closes the stream, so the reader is handed a link rather than more scrolling. */
+  endOfStream: { bn: 'পড়া চালিয়ে যান', en: 'Keep reading' },
   publishedOn: { bn: 'প্রকাশিত', en: 'Published' },
   updatedOn: { bn: 'হালনাগাদ', en: 'Updated' },
   by: { bn: 'লিখেছেন', en: 'By' },
