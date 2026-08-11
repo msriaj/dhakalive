@@ -92,6 +92,27 @@ export const TRANSITIONS: readonly Transition[] = [
     label: 'Scheduled publication',
   },
 
+  /**
+   * Automated publication, taken by the ingest service and by nothing else.
+   *
+   * `systemOnly`, so it is unreachable from an HTTP body — the same protection
+   * the scheduler's row has. It exists as its own edge rather than being walked
+   * as draft → submitted → in-review → approved → published, because those four
+   * transitions each mean something in the audit trail: "an editor reviewed
+   * this" is a claim, and a machine taking that path would write it falsely.
+   * One honest edge is better than four fictional ones.
+   *
+   * The publish guards still run, so an ingested story missing an image, a
+   * category or alt text is refused and stays a draft for someone to look at.
+   */
+  {
+    from: 'draft',
+    to: 'published',
+    capability: 'article:publish',
+    systemOnly: true,
+    label: 'Automated publication',
+  },
+
   // --- Post-publication -----------------------------------------------------
   { from: 'published', to: 'unpublished', capability: 'article:unpublish', label: 'Unpublish' },
   { from: 'unpublished', to: 'published', capability: 'article:publish', label: 'Republish' },

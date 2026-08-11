@@ -17,6 +17,7 @@ stateDiagram-v2
     approved --> published: publish now (publisher)
     scheduled --> approved: cancel schedule (publisher)
     scheduled --> published: publish now (publisher) / scheduler (system)
+    draft --> published: automated ingest (system)
     published --> unpublished: unpublish (publisher)
     unpublished --> published: republish (publisher)
     draft --> archived: archive (editor)
@@ -56,6 +57,15 @@ archived — otherwise a story could re-enter the pipeline past its review step.
 
 **Republishing keeps the original `publishedAt`**, so a corrected story does not
 jump back to the top of every feed.
+
+**`draft → published` exists, but only for the machine.** The automated ingest
+takes it as a `systemOnly` transition, the same mechanism the scheduler uses, so
+it is unreachable from an HTTP body and no role can take it — a publisher asking
+for it is refused. It is one edge rather than a walk through submit, review and
+approve because those four transitions each assert something in the audit trail:
+"an editor reviewed this" is a claim, and a machine taking that path would write
+it falsely. The publish guards run exactly as they do for a person, so an
+ingested story missing an image, a category or alt text stays a draft.
 
 ## Publish guards
 

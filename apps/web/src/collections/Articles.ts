@@ -357,6 +357,56 @@ export const Articles: CollectionConfig = {
       access: { update: () => false },
     },
 
+    /**
+     * Where an automatically ingested article came from.
+     *
+     * Two jobs, and both are load-bearing. `externalId` is the dedupe key: the
+     * ingest sweep runs every few minutes against a feed that mostly has not
+     * changed, and without an indexed identity to check first it would either
+     * re-create every story on every run or pay a language model to rediscover
+     * that it already had them.
+     *
+     * `provider` and `generatedAt` are the provenance record. "Was this written
+     * by a machine, and from what" is a question that gets asked months later —
+     * after a correction, or by a reader — and the answer has to be a column
+     * rather than an inference from which user account happened to save it.
+     *
+     * Not `readOnly`: an editor rewriting an ingested story past recognition
+     * should be able to detach it from its source.
+     */
+    {
+      name: 'source',
+      type: 'group',
+      admin: {
+        position: 'sidebar',
+        description: 'Set by the ingest pipeline. Empty for anything written in-house.',
+      },
+      fields: [
+        {
+          name: 'provider',
+          type: 'text',
+          index: true,
+          admin: { description: 'The feed this story was ingested from.' },
+        },
+        {
+          name: 'externalId',
+          type: 'text',
+          index: true,
+          admin: { description: 'Stable id at the source. Used to avoid re-ingesting.' },
+        },
+        {
+          name: 'sourceUrl',
+          type: 'text',
+          admin: { description: 'The page this story was derived from.' },
+        },
+        {
+          name: 'generatedAt',
+          type: 'date',
+          admin: { description: 'When the rewrite was generated.' },
+        },
+      ],
+    },
+
     seoField(),
   ],
 

@@ -1,0 +1,29 @@
+{
+  "name": "@dhakalive/ingest",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file-if-exists=../../.env --import tsx src/index.ts",
+    "dev": "node --env-file-if-exists=../../.env --import tsx --watch src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@dhakalive/config": "workspace:*",
+    "@dhakalive/core": "workspace:*",
+    "@dhakalive/observability": "workspace:*",
+    "@payloadcms/db-postgres": "3.87.1",
+    "@payloadcms/richtext-lexical": "3.87.1",
+    "cheerio": "1.1.2",
+    "domhandler": "5.0.3",
+    "graphql": "16.14.2",
+    "openai": "6.10.0",
+    "payload": "3.87.1",
+    "sharp": "0.35.3",
+    "tsx": "4.23.12"
+  },
+  "devDependencies": {
+    "@types/node": "26.2.0",
+    "typescript": "5.9.3"
+  }
+}

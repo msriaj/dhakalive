@@ -19,6 +19,7 @@
   "include": [
     "packages/*/src/**/*.test.ts",
     "apps/web/src/**/*.test.ts",
+    "services/*/src/**/*.test.ts",
     "apps/web/tests/**/*.ts",
     "tests/**/*.ts",
     "e2e/**/*.ts",
