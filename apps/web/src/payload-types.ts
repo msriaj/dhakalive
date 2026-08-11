@@ -280,6 +280,27 @@ export interface Article {
   createdBy?: (number | null) | User;
   lastEditedBy?: (number | null) | User;
   /**
+   * Set by the ingest pipeline. Empty for anything written in-house.
+   */
+  source?: {
+    /**
+     * The feed this story was ingested from.
+     */
+    provider?: string | null;
+    /**
+     * Stable id at the source. Used to avoid re-ingesting.
+     */
+    externalId?: string | null;
+    /**
+     * The page this story was derived from.
+     */
+    sourceUrl?: string | null;
+    /**
+     * When the rewrite was generated.
+     */
+    generatedAt?: string | null;
+  };
+  /**
    * Leave blank to derive metadata from the content itself.
    */
   seo?: {
@@ -1082,6 +1103,14 @@ export interface ArticlesSelect<T extends boolean = true> {
       };
   createdBy?: T;
   lastEditedBy?: T;
+  source?:
+    | T
+    | {
+        provider?: T;
+        externalId?: T;
+        sourceUrl?: T;
+        generatedAt?: T;
+      };
   seo?:
     | T
     | {
