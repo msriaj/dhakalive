@@ -4,7 +4,7 @@ import { notFound, redirect } from 'next/navigation'
 
 import { DEFAULT_LOCALE, LOCALES, isLocale } from '@dhakalive/config'
 
-import { layoutForType, specForLayout, typeLabel } from '../../../../../lib/article-layout'
+import { kickerFor, layoutForType, specForLayout } from '../../../../../lib/article-layout'
 import { AdSlot } from '../../../../../components/AdSlot'
 import { ArticleList } from '../../../../../components/ArticleList'
 import { Breadcrumbs } from '../../../../../components/Breadcrumbs'
@@ -214,9 +214,9 @@ export default async function ArticlePage({ params }: RouteParams) {
           questioned. Suppressed on straight reports, where "NEWS" above a news
           story tells a reader nothing they did not already assume.
         */}
-        {spec.showKicker && typeLabel(article.articleType, locale) ? (
+        {spec.showKicker && kickerFor(article.articleType, article.headline, locale) ? (
           <p className="mb-2 font-[family-name:var(--font-mono)] text-xs tracking-widest text-[var(--color-brand)] uppercase">
-            {typeLabel(article.articleType, locale)}
+            {kickerFor(article.articleType, article.headline, locale)}
           </p>
         ) : null}
 

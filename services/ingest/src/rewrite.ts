@@ -1,6 +1,7 @@
 import {
   ARTICLE_TYPES,
   INGEST_BLOCK_TYPES,
+  TYPE_KICKERS,
   validateBlocks,
   type IngestBlock,
 } from '@dhakalive/core'
@@ -202,6 +203,22 @@ function spliceImages(
   return out
 }
 
+/**
+ * The label each type prints before the headline, listed for the prompt.
+ *
+ * Read from the same table the site renders from. Written out here by hand, the
+ * two would drift the first time a label was reworded, and the failure is
+ * silent: the model would keep avoiding a word nobody prints any more while
+ * happily opening headlines with the one that replaced it.
+ */
+const KICKER_LINES = [
+  ...ARTICLE_TYPES.flatMap((type) => {
+    const label = TYPE_KICKERS[type]
+    return label ? [`- ${type} prints "${label.bn}" before the headline.`] : []
+  }),
+  `- ${ARTICLE_TYPES.filter((type) => !TYPE_KICKERS[type]).join(', ')} print nothing.`,
+].join('\n')
+
 const SYSTEM_PROMPT = `You are a Bengali news sub-editor for Dhaka Live.
 
 You will be given a news report. Rewrite it in your own words as a Bengali news
@@ -239,7 +256,16 @@ seoTitle and seoDescription are for search results and nothing else:
   saying what the story reports. Not a teaser, and no "read more".
 
 Pick articleType from what the source actually is. The site gives each of these
-a different page, so the choice changes how the story is presented:
+a different page, so the choice changes how the story is presented.
+
+It also prints a coloured label immediately before the headline, everywhere the
+story is listed. Write the headline as though that word is already there:
+${KICKER_LINES}
+- Never begin the headline with the label for the type you chose. A photo-story
+  headlined "ছবিতে বাজারের ভিড়" is printed "ছবিতে ছবিতে বাজারের ভিড়". Write
+  "বাজারের ভিড়" and let the label do its work.
+
+The types:
 - standard: a straight news report. Most wire copy is this. When unsure, use it.
 - breaking-news: an event happening now, written as it develops.
 - feature: a longer piece with narrative or human interest rather than an event.

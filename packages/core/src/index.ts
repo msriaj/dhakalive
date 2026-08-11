@@ -35,6 +35,7 @@ export type { Role, Capability, AuthUser, RoleAssignmentResult } from './access/
 export {
   ARTICLE_STATUSES,
   ARTICLE_TYPES,
+  TYPE_KICKERS,
   PUBLIC_STATUSES,
   AUTHOR_EDITABLE_STATUSES,
   PRE_PUBLICATION_STATUSES,

@@ -1,4 +1,5 @@
 import type { Locale } from '@dhakalive/config'
+import { TYPE_KICKERS } from '@dhakalive/core'
 
 import type { Article } from '../payload-types'
 
@@ -120,19 +121,17 @@ export function specForLayout(layout: ArticleLayout): LayoutSpec {
 }
 
 /**
- * Kicker labels, kept here rather than in `dictionary` because the key is only
- * known at runtime — a dynamic lookup into that typed object would defeat the
- * compile-time check that makes a missing UI string an error.
+ * Kicker labels come from `@dhakalive/core`, not from `dictionary`.
+ *
+ * Two reasons. The key is only known at runtime, so a dynamic lookup into the
+ * dictionary's typed object would defeat the compile-time check that makes a
+ * missing UI string an error. And the ingest needs the same words to tell the
+ * model that its chosen type prints one in front of the headline — the site and
+ * the prompt disagreeing about that is how "ছবিতে ছবিতে" gets published.
  */
-const TYPE_LABELS: Record<string, Record<Locale, string>> = {
-  opinion: { bn: 'মতামত', en: 'Opinion' },
-  editorial: { bn: 'সম্পাদকীয়', en: 'Editorial' },
-  feature: { bn: 'ফিচার', en: 'Feature' },
-  analysis: { bn: 'বিশ্লেষণ', en: 'Analysis' },
-  interview: { bn: 'সাক্ষাৎকার', en: 'Interview' },
-  'photo-story': { bn: 'ছবিতে', en: 'In pictures' },
-  'video-story': { bn: 'ভিডিও', en: 'Video' },
-}
+const TYPE_LABELS: Record<string, Record<Locale, string>> = Object.fromEntries(
+  Object.entries(TYPE_KICKERS).flatMap(([type, label]) => (label ? [[type, label]] : [])),
+)
 
 export function typeLabel(
   type: Article['articleType'] | null | undefined,
@@ -140,4 +139,27 @@ export function typeLabel(
 ): string | null {
   if (typeof type !== 'string') return null
   return TYPE_LABELS[type]?.[locale] ?? null
+}
+
+/**
+ * The label, unless the headline already opens with it.
+ *
+ * A photo story is labelled "ছবিতে" and its headline is very often written as
+ * "ছবিতে বাজারের ভিড়" — so the card printed "ছবিতে ছবিতে বাজারের ভিড়", and the
+ * same happened to "ভিডিও" and "মতামত". The writer is not at fault: the label
+ * is applied at render time and is invisible while the headline is being
+ * written, which is also why the ingest's prompt now says the label exists.
+ *
+ * Dropping the label rather than the word keeps the headline the editor wrote
+ * intact, and a headline that already announces itself as a picture story needs
+ * no second announcement.
+ */
+export function kickerFor(
+  type: Article['articleType'] | null | undefined,
+  headline: string | null | undefined,
+  locale: Locale,
+): string | null {
+  const label = typeLabel(type, locale)
+  if (!label) return null
+  return typeof headline === 'string' && headline.trimStart().startsWith(label) ? null : label
 }
