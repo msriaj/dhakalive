@@ -1771,6 +1771,10 @@ export interface Footer {
    */
   followHeading?: string | null;
   apps?: {
+    /**
+     * Off keeps the links but stops printing the band — an app pulled from a store, or one not shipped yet, should not be advertised in the footer of every page.
+     */
+    enabled?: boolean | null;
     heading?: string | null;
     appStoreUrl?: string | null;
     playStoreUrl?: string | null;
@@ -2032,6 +2036,7 @@ export interface FooterSelect<T extends boolean = true> {
   apps?:
     | T
     | {
+        enabled?: T;
         heading?: T;
         appStoreUrl?: T;
         playStoreUrl?: T;

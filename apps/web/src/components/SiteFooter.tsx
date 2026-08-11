@@ -87,7 +87,7 @@ export async function SiteFooter({ locale }: { locale: Locale }) {
   const bottomLinks = (footer.bottomLinks ?? []) as NavItem[]
   const social = settings.social ?? []
   const apps = footer.apps
-  const hasApps = Boolean(apps?.appStoreUrl ?? apps?.playStoreUrl)
+  const hasApps = apps?.enabled !== false && Boolean(apps?.appStoreUrl ?? apps?.playStoreUrl)
   const year = new Date().getFullYear()
 
   return (

@@ -39,6 +39,15 @@ const LIST = {
  */
 const DETAIL = {
   body: '.news-article-text-block',
+  /**
+   * Inline pictures, which sit *between* the text blocks rather than inside
+   * them — so they are unreachable from the body selector and were invisible to
+   * this parser until now. `:not(.ads)` matters: the AdSense unit is also
+   * wrapped in a `.image` div, and an advertisement lifted into a story body as
+   * a photograph is worse than no photograph.
+   */
+  figure: '.image:not(.ads)',
+  caption: '.news-caption',
   /** Removed before reading paragraphs. Ads and scripts are not editorial text. */
   noise: 'script, style, ins, iframe, .fullwidth-add, .ads',
 } as const
@@ -67,9 +76,29 @@ export interface FeedItem {
   sourceCategory: string | null
 }
 
+/** A picture from inside the story, as opposed to the listing's lead image. */
+export interface InlineImage {
+  url: string
+  /** The upstream's own caption, which is usually a credit rather than a description. */
+  caption: string | null
+}
+
+/**
+ * Body content in document order.
+ *
+ * The pictures matter as much as their position: a photograph two-thirds of the
+ * way down a story is illustrating that part of it, and re-attaching it anywhere
+ * else is a caption that no longer matches what it sits beside.
+ */
+export type BodyNode = { type: 'text'; text: string } | { type: 'image'; index: number }
+
 export interface ArticleDetail extends FeedItem {
   /** Paragraphs in document order. The rewrite works from these. */
   paragraphs: string[]
+  /** Pictures found in the body, in document order. */
+  inlineImages: InlineImage[]
+  /** Paragraphs and pictures interleaved, which is what the rewrite is shown. */
+  body: BodyNode[]
 }
 
 export class IngestParseError extends Error {
@@ -249,17 +278,55 @@ export function parseDetail(html: string, item: FeedItem): ArticleDetail {
   // before reading text so none of it can reach the model as reporting.
   containers.find(DETAIL.noise).remove()
 
-  const paragraphs = containers
-    .find('p')
-    .map((_, element) => normaliseText($(element).text()))
-    .get()
-    .filter((text) => text.length > 0)
+  /**
+   * Text blocks and figures are selected together so that one pass sees them in
+   * document order. Read separately they would come back as two lists with no
+   * way left to say which paragraph a picture followed.
+   */
+  const origin = originOf(item.url)
+  const inlineImages: InlineImage[] = []
+  const body: BodyNode[] = []
+
+  // The lead image is frequently repeated at the top of the body. It is already
+  // the featured image, and running it twice on one page is a duplicate.
+  const seen = new Set<string>(item.imageUrl ? [item.imageUrl] : [])
+
+  $(`${DETAIL.body}, ${DETAIL.figure}`).each((_, element) => {
+    const node = $(element)
+
+    if (node.is(DETAIL.body)) {
+      node.find('p').each((__, paragraph) => {
+        const text = normaliseText($(paragraph).text())
+        if (text.length > 0) body.push({ type: 'text', text })
+      })
+      return
+    }
+
+    const url = fullSizeImageUrl(node.find('img').first().attr('src'), origin)
+    if (!url || seen.has(url)) return
+    seen.add(url)
+
+    const caption = normaliseText(node.find(DETAIL.caption).first().text())
+    body.push({ type: 'image', index: inlineImages.length })
+    inlineImages.push({ url, caption: caption.length > 0 ? caption : null })
+  })
+
+  const paragraphs = body.flatMap((node) => (node.type === 'text' ? [node.text] : []))
 
   if (paragraphs.length === 0) {
     throw new IngestParseError('Article body contained no paragraphs', item.url)
   }
 
-  return { ...item, paragraphs }
+  return { ...item, paragraphs, inlineImages, body }
+}
+
+/** The scheme and host of a story URL, for resolving relative image sources. */
+function originOf(url: string): string {
+  try {
+    return new URL(url).origin
+  } catch {
+    return ''
+  }
 }
 
 /**

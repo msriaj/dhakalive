@@ -228,4 +228,44 @@ describe('parseDetail', () => {
       IngestParseError,
     )
   })
+
+  /**
+   * Inline pictures sit between the text blocks, not inside them, so the body
+   * selector alone could never reach them — every ingested story ran with the
+   * lead photograph and nothing else, however many the desk had attached.
+   */
+  it('reads the inline images and their captions', () => {
+    const detail = parseDetail(DETAIL_PAGE, item)
+
+    expect(detail.inlineImages).toHaveLength(1)
+    expect(detail.inlineImages[0]?.url).toContain('bn_news/details/1.webp')
+    expect(detail.inlineImages[0]?.caption).toBe('ফল হাতে শিক্ষার্থীরা। ছবি: সংগৃহীত')
+  })
+
+  /**
+   * The position is the point. A photograph two-thirds of the way down is
+   * illustrating that part of the story, and a body that records only "there
+   * were pictures" cannot put it back where its caption still makes sense.
+   */
+  it('keeps pictures in document order among the paragraphs', () => {
+    const detail = parseDetail(DETAIL_PAGE, item)
+
+    expect(detail.body.map((node) => node.type)).toEqual(['text', 'text', 'text', 'image', 'text'])
+  })
+
+  it('does not repeat the listing image inside the body', () => {
+    const withLeadImageInBody = DETAIL_PAGE.replace(
+      'https://cosmosgroup.sgp1.digitaloceanspaces.com/bn_news/details/1.webp',
+      item.imageUrl ?? '',
+    )
+
+    expect(parseDetail(withLeadImageInBody, item).inlineImages).toHaveLength(0)
+  })
+
+  /** The AdSense unit is also wrapped in a `.image` div. */
+  it('does not read an advertisement as an inline image', () => {
+    const detail = parseDetail(DETAIL_PAGE, item)
+
+    expect(detail.inlineImages.every((image) => !image.url.includes('pagead'))).toBe(true)
+  })
 })

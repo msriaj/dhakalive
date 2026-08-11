@@ -3,7 +3,7 @@ import type React from 'react'
 
 import type { Locale } from '@dhakalive/config'
 
-import { typeLabel } from '../lib/article-layout'
+import { kickerFor } from '../lib/article-layout'
 import { formatNumber, formatRelativeTime, isoDate } from '../lib/format'
 import { articlePath, categoryPath } from '../lib/routes'
 import type { ArticleCardData } from '../lib/queries/articles'
@@ -333,7 +333,7 @@ export function ArticleCard({
 
   const spec = SPECS[size]
   const href = articlePath(locale, category.slug, article.slug)
-  const kicker = spec.showKicker ? typeLabel(article.articleType, locale) : null
+  const kicker = spec.showKicker ? kickerFor(article.articleType, article.headline, locale) : null
   const storyType =
     article.articleType === 'video-story'
       ? 'video'
@@ -369,8 +369,18 @@ export function ArticleCard({
         Suppressed for straight reports: "News" above a news story tells a
         reader nothing they had not already assumed.
       */}
+      {/*
+        The space is a real character, not the margin.
+
+        `me-1.5` separates the two words on screen but leaves the document
+        reading "বিশ্লেষণপোশাক রপ্তানিতে" — one run-on word to a screen reader,
+        to the search index, and to anything that scrapes the page. Margin is
+        not a word boundary.
+      */}
       {kicker ? (
-        <span className="me-1.5 font-semibold text-[var(--color-brand)]">{kicker}</span>
+        <>
+          <span className="font-semibold text-[var(--color-brand)]">{kicker}</span>{' '}
+        </>
       ) : null}
       <Link href={href} className="hover:text-[var(--color-brand)]">
         {article.headline}

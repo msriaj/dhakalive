@@ -37,6 +37,32 @@ export const ARTICLE_TYPES = [
 export type ArticleType = (typeof ARTICLE_TYPES)[number]
 
 /**
+ * The word printed immediately before a headline for each article type.
+ *
+ * A rendering concern, kept beside the type vocabulary because two consumers
+ * have to agree on it and they live in different packages. The site prints it;
+ * the ingest's prompt has to *tell the model* it will be printed, because a
+ * headline written without knowing comes back as "ছবিতে বাজারের ভিড়" and is
+ * then published as "ছবিতে ছবিতে বাজারের ভিড়".
+ *
+ * `null` where a type carries no label: "News" above a news story tells a
+ * reader nothing they had not already assumed, and `live-blog` announces itself
+ * with a live indicator instead.
+ */
+export const TYPE_KICKERS: Record<ArticleType, { bn: string; en: string } | null> = {
+  standard: null,
+  'breaking-news': null,
+  'live-blog': null,
+  opinion: { bn: 'মতামত', en: 'Opinion' },
+  editorial: { bn: 'সম্পাদকীয়', en: 'Editorial' },
+  feature: { bn: 'ফিচার', en: 'Feature' },
+  analysis: { bn: 'বিশ্লেষণ', en: 'Analysis' },
+  interview: { bn: 'সাক্ষাৎকার', en: 'Interview' },
+  'photo-story': { bn: 'ছবিতে', en: 'In pictures' },
+  'video-story': { bn: 'ভিডিও', en: 'Video' },
+}
+
+/**
  * The only status the public site may ever serve.
  *
  * Kept as a single-element list rather than an inline string so that every
