@@ -107,73 +107,79 @@ export function ArticleBody({
       <h2 className={spec.headline}>{article.headline}</h2>
     )
 
+  const wide = `mx-auto ${spec.headerContainer}`
+  const narrow = `mx-auto ${spec.container}`
+
   return (
     <>
-      {category?.slug ? (
-        <Breadcrumbs
-          locale={locale}
-          crumbs={[
-            { label: category.title ?? '', href: categoryPath(locale, category.slug) },
-            { label: article.headline ?? '' },
-          ]}
-        />
-      ) : null}
-
-      {spec.hero === 'lead' ? hero : null}
-
-      <header className={spec.hero === 'lead' ? '' : 'mt-4'}>
-        {article.isBreaking ? (
-          <p className="mb-2 inline-block rounded-sm bg-[var(--color-breaking)] px-2 py-0.5 text-xs font-bold text-[var(--color-on-brand)] uppercase">
-            {d('breaking')}
-          </p>
+      <div className={wide}>
+        {category?.slug ? (
+          <Breadcrumbs
+            locale={locale}
+            crumbs={[
+              { label: category.title ?? '', href: categoryPath(locale, category.slug) },
+              { label: article.headline ?? '' },
+            ]}
+          />
         ) : null}
 
-        {/*
+        {spec.hero === 'lead' ? hero : null}
+
+        <header className={spec.hero === 'lead' ? '' : 'mt-4'}>
+          {article.isBreaking ? (
+            <p className="mb-2 inline-block rounded-sm bg-[var(--color-breaking)] px-2 py-0.5 text-xs font-bold text-[var(--color-on-brand)] uppercase">
+              {d('breaking')}
+            </p>
+          ) : null}
+
+          {/*
           The kicker names the register before the headline is read — whether
           this is the masthead arguing, a reporter explaining, or somebody being
           questioned. Suppressed on straight reports, where "NEWS" above a news
           story tells a reader nothing they did not already assume.
         */}
-        {spec.showKicker && kicker ? (
-          <p className="mb-2 font-[family-name:var(--font-mono)] text-xs tracking-widest text-[var(--color-brand)] uppercase">
-            {kicker}
-          </p>
-        ) : null}
-
-        {heading}
-
-        {article.subheadline ? <p className={spec.standfirst}>{article.subheadline}</p> : null}
-
-        <div className="mt-5">
-          <Byline article={article} locale={locale} />
-        </div>
-      </header>
-
-      {spec.hero === 'after' ? hero : null}
-
-      {article.correction?.hasCorrection && article.correction.note ? (
-        <aside
-          aria-label={d('correction')}
-          className="mt-6 rounded-md border-l-4 border-[var(--color-brand)] bg-[var(--color-surface-sunken)] p-4"
-        >
-          <p className="text-sm font-bold uppercase">{d('correction')}</p>
-          <p className="mt-1 text-sm">{article.correction.note}</p>
-          {article.correction.correctedAt ? (
-            <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
-              <time dateTime={isoDate(article.correction.correctedAt)}>
-                {formatDate(article.correction.correctedAt, locale)}
-              </time>
+          {spec.showKicker && kicker ? (
+            <p className="mb-2 font-[family-name:var(--font-mono)] text-xs tracking-widest text-[var(--color-brand)] uppercase">
+              {kicker}
             </p>
           ) : null}
-        </aside>
-      ) : null}
 
-      <RichText
-        data={article.body}
-        className={`prose-article ${spec.prose} mt-8 text-lg leading-relaxed`}
-      />
+          {heading}
 
-      {/*
+          {article.subheadline ? <p className={spec.standfirst}>{article.subheadline}</p> : null}
+
+          <div className="mt-5">
+            <Byline article={article} locale={locale} />
+          </div>
+        </header>
+
+        {spec.hero === 'after' ? hero : null}
+      </div>
+
+      <div className={narrow}>
+        {article.correction?.hasCorrection && article.correction.note ? (
+          <aside
+            aria-label={d('correction')}
+            className="mt-6 rounded-md border-l-4 border-[var(--color-brand)] bg-[var(--color-surface-sunken)] p-4"
+          >
+            <p className="text-sm font-bold uppercase">{d('correction')}</p>
+            <p className="mt-1 text-sm">{article.correction.note}</p>
+            {article.correction.correctedAt ? (
+              <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
+                <time dateTime={isoDate(article.correction.correctedAt)}>
+                  {formatDate(article.correction.correctedAt, locale)}
+                </time>
+              </p>
+            ) : null}
+          </aside>
+        ) : null}
+
+        <RichText
+          data={article.body}
+          className={`prose-article ${spec.prose} mt-8 text-lg leading-relaxed`}
+        />
+
+        {/*
         After the body, not inside it. Interrupting the story mid-paragraph is
         the placement readers most object to, and it would also mean the ad
         moving whenever an editor adds a paragraph.
@@ -182,35 +188,36 @@ export function ArticleBody({
         and the article id seeds rotation so two stories in the same section do
         not show the identical creative.
       */}
-      <AdSlot
-        placement="in-article"
-        locale={locale}
-        categoryId={category?.id ?? null}
-        pageKey={`article-${String(article.id)}`}
-      />
+        <AdSlot
+          placement="in-article"
+          locale={locale}
+          categoryId={category?.id ?? null}
+          pageKey={`article-${String(article.id)}`}
+        />
 
-      {tags.length > 0 ? (
-        <section aria-label={d('tags')} className="mt-10">
-          <p className="mb-2 text-sm font-semibold uppercase">{d('tags')}</p>
-          <ul className="flex flex-wrap gap-2">
-            {tags.map((tag) =>
-              tag.slug ? (
-                <li key={tag.id}>
-                  <Link
-                    href={tagPath(locale, tag.slug)}
-                    className="inline-flex min-h-9 items-center rounded-full border border-[var(--color-rule)] px-3 text-sm hover:border-[var(--color-brand)]"
-                  >
-                    {tag.title}
-                  </Link>
-                </li>
-              ) : null,
-            )}
-          </ul>
-        </section>
-      ) : null}
+        {tags.length > 0 ? (
+          <section aria-label={d('tags')} className="mt-10">
+            <p className="mb-2 text-sm font-semibold uppercase">{d('tags')}</p>
+            <ul className="flex flex-wrap gap-2">
+              {tags.map((tag) =>
+                tag.slug ? (
+                  <li key={tag.id}>
+                    <Link
+                      href={tagPath(locale, tag.slug)}
+                      className="inline-flex min-h-9 items-center rounded-full border border-[var(--color-rule)] px-3 text-sm hover:border-[var(--color-brand)]"
+                    >
+                      {tag.title}
+                    </Link>
+                  </li>
+                ) : null,
+              )}
+            </ul>
+          </section>
+        ) : null}
 
-      <div className="mt-8 border-t border-[var(--color-rule)] pt-6">
-        <ShareLinks url={shareUrl} title={article.headline ?? ''} locale={locale} />
+        <div className="mt-8 border-t border-[var(--color-rule)] pt-6">
+          <ShareLinks url={shareUrl} title={article.headline ?? ''} locale={locale} />
+        </div>
       </div>
     </>
   )

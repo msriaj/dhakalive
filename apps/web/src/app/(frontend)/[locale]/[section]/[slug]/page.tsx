@@ -135,12 +135,12 @@ export default async function ArticlePage({ params }: RouteParams) {
 
   return (
     <>
-      <article className={`mx-auto ${spec.container}`}>
+      <article>
         <JsonLd data={graph} />
         <ArticleBody article={article} locale={locale} />
 
         {related.length > 0 ? (
-          <section aria-labelledby="related-heading" className="mt-14">
+          <section aria-labelledby="related-heading" className={`mx-auto ${spec.container} mt-14`}>
             <h2
               id="related-heading"
               className="mb-5 border-b border-[var(--color-rule)] pb-2 text-xl font-bold"
@@ -157,7 +157,7 @@ export default async function ArticlePage({ params }: RouteParams) {
         it appends is its own `<article>`, and nesting them would say that the
         next report is part of this one.
       */}
-      <div className={`mx-auto ${spec.container}`}>
+      <div>
         <ArticleStream
           locale={locale}
           cursor={article.publishedAt ?? null}

@@ -40,6 +40,17 @@ export interface LayoutSpec {
   /** Measure. Long-form gets a wider column; commentary a narrower one. */
   container: string
   /**
+   * The measure for everything above the body: headline, standfirst, byline and
+   * the hero picture.
+   *
+   * Wider than the copy, deliberately. A headline is read in one glance rather
+   * than line by line, so the 60-odd characters that suit body text force a
+   * three-line headline where two would do — and the hero picture, set to the
+   * same column, ends up smaller than the cards on the front page that led the
+   * reader here. Prose keeps the narrow measure it needs.
+   */
+  headerContainer: string
+  /**
    * `lead` runs the picture above the headline, `after` below the byline,
    * `none` drops it from the header entirely. Commentary uses `none` — an
    * opinion piece is a person's argument, and a stock photograph above it adds
@@ -58,6 +69,7 @@ export interface LayoutSpec {
 const SPECS: Record<ArticleLayout, LayoutSpec> = {
   report: {
     container: 'max-w-3xl',
+    headerContainer: 'max-w-4xl',
     hero: 'after',
     heroAspect: 'aspect-[16/9]',
     headline: 'text-3xl leading-tight font-bold tracking-tight md:text-4xl',
@@ -72,6 +84,7 @@ const SPECS: Record<ArticleLayout, LayoutSpec> = {
    */
   commentary: {
     container: 'max-w-2xl',
+    headerContainer: 'max-w-3xl',
     hero: 'none',
     heroAspect: 'aspect-[16/9]',
     headline:
@@ -83,6 +96,7 @@ const SPECS: Record<ArticleLayout, LayoutSpec> = {
 
   longform: {
     container: 'max-w-3xl',
+    headerContainer: 'max-w-4xl',
     hero: 'lead',
     heroAspect: 'aspect-[2/1]',
     headline: 'text-4xl leading-[1.08] font-bold tracking-tight md:text-5xl',
@@ -93,6 +107,7 @@ const SPECS: Record<ArticleLayout, LayoutSpec> = {
 
   interview: {
     container: 'max-w-2xl',
+    headerContainer: 'max-w-3xl',
     hero: 'after',
     heroAspect: 'aspect-[3/2]',
     headline: 'text-3xl leading-tight font-bold tracking-tight md:text-4xl',
@@ -107,6 +122,7 @@ const SPECS: Record<ArticleLayout, LayoutSpec> = {
    */
   visual: {
     container: 'max-w-5xl',
+    headerContainer: 'max-w-5xl',
     hero: 'lead',
     heroAspect: 'aspect-[3/2]',
     headline: 'text-3xl leading-tight font-bold tracking-tight md:text-4xl',

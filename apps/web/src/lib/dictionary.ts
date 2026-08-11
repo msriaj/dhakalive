@@ -44,6 +44,7 @@ const STRINGS = {
   share: { bn: 'শেয়ার', en: 'Share' },
   shareOn: { bn: 'শেয়ার করুন', en: 'Share on' },
   copyLink: { bn: 'লিঙ্ক কপি করুন', en: 'Copy link' },
+  linkCopied: { bn: 'লিঙ্ক কপি হয়েছে', en: 'Link copied' },
   tags: { bn: 'ট্যাগ', en: 'Tags' },
   page: { bn: 'পৃষ্ঠা', en: 'Page' },
   previous: { bn: 'পূর্ববর্তী', en: 'Previous' },
