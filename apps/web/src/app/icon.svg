@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="DhakaLive">
+  <!--
+    The masthead's red, and a "d" drawn as geometry rather than set in type.
+
+    A favicon is read at 16 pixels, where a wordmark is a smudge and a letter
+    set in a webfont is whatever the operating system substitutes — an SVG icon
+    has no font to load. Two shapes survive that size: a bowl and a stem.
+
+    The red is the site's own brand token, converted from oklch(0.52 0.19 26)
+    because SVG has no access to a CSS custom property and a favicon that
+    guesses at the brand colour is worse than one that states it.
+  -->
+  <rect width="64" height="64" rx="14" fill="#c4172a" />
+  <circle cx="26" cy="39" r="12" fill="none" stroke="#ffffff" stroke-width="8" />
+  <rect x="38" y="11" width="8" height="40" rx="1" fill="#ffffff" />
+</svg>
