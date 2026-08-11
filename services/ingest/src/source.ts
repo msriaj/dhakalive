@@ -230,16 +230,26 @@ export function parseListing(html: string, baseUrl: string): FeedItem[] {
 export function parseDetail(html: string, item: FeedItem): ArticleDetail {
   const $ = cheerio.load(html)
 
-  const container = $(DETAIL.body).first()
-  if (container.length === 0) {
+  /**
+   * Every block, not the first.
+   *
+   * Upstream splits a story into several `.news-article-text-block` divs and
+   * interleaves them with inline images and ad slots, so the count varies with
+   * how many pictures the desk attached. Reading only the first took the
+   * opening third of a long article and dropped the rest — the model then
+   * rewrote a partial story faithfully, which is the worst shape for the bug
+   * to have: the output reads complete and nothing downstream can tell.
+   */
+  const containers = $(DETAIL.body)
+  if (containers.length === 0) {
     throw new IngestParseError(`No article body matched "${DETAIL.body}"`, item.url)
   }
 
   // Mutates the loaded document, not the page: strip the ad and script nodes
   // before reading text so none of it can reach the model as reporting.
-  container.find(DETAIL.noise).remove()
+  containers.find(DETAIL.noise).remove()
 
-  const paragraphs = container
+  const paragraphs = containers
     .find('p')
     .map((_, element) => normaliseText($(element).text()))
     .get()

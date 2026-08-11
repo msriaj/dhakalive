@@ -43,6 +43,12 @@ const CARD = `
 </div>`
 
 /** The article body, with the AdSense unit that sits beside it inside `.text`. */
+/**
+ * A story body in the shape upstream actually publishes it: several text
+ * blocks, split by the inline images and the ad slot that sit between them.
+ * The block count tracks how many pictures the desk attached, so a fixture with
+ * one block cannot catch a parser that reads one block.
+ */
 const DETAIL_PAGE = `
 <div class="text">
   <div class="news-article-text-block text-patter-edit ref-link">
@@ -56,6 +62,16 @@ const DETAIL_PAGE = `
       <ins class="adsbygoogle" data-ad-client="ca-pub-9190890588884247"></ins>
       <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
+  </div>
+  <div class="news-article-text-block text-patter-edit ref-link">
+    <p>বোর্ডের অধীনে মোট পাসের হার ছিল ৮২ দশমিক ৪ শতাংশ।</p>
+  </div>
+  <div class="image">
+    <img class="news-details-image" src="https://cosmosgroup.sgp1.digitaloceanspaces.com/bn_news/details/1.webp" alt="ফলাফল">
+    <div class="caption-border"><span class="news-caption">ফল হাতে শিক্ষার্থীরা। ছবি: সংগৃহীত</span></div>
+  </div>
+  <div class="news-article-text-block text-patter-edit ref-link">
+    <p>আগামী সপ্তাহে পুনর্নিরীক্ষার আবেদন শুরু হবে বলে জানিয়েছে বোর্ড।</p>
   </div>
 </div>`
 
@@ -156,8 +172,26 @@ describe('parseDetail', () => {
   it('reads the body paragraphs in document order', () => {
     const detail = parseDetail(DETAIL_PAGE, item)
 
-    expect(detail.paragraphs).toHaveLength(2)
+    expect(detail.paragraphs).toHaveLength(4)
     expect(detail.paragraphs[0]).toContain('ফেনী জেলা')
+  })
+
+  /**
+   * Reading only the first block shipped the opening third of every long story
+   * and dropped the rest. It stayed invisible because a truncated article still
+   * rewrites into clean copy — there is no malformed output to notice.
+   */
+  it('reads every text block, not just the first', () => {
+    const detail = parseDetail(DETAIL_PAGE, item)
+
+    expect(detail.paragraphs[2]).toContain('৮২ দশমিক ৪ শতাংশ')
+    expect(detail.paragraphs[3]).toContain('পুনর্নিরীক্ষার')
+  })
+
+  it('does not read the image caption as body text', () => {
+    const body = parseDetail(DETAIL_PAGE, item).paragraphs.join(' ')
+
+    expect(body).not.toContain('ছবি: সংগৃহীত')
   })
 
   /**
