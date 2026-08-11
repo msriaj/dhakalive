@@ -40,6 +40,20 @@ services:
       JOBS_RUN_IN_PROCESS: 'false'
     expose:
       - '3000'
+    volumes:
+      # The incremental-regeneration cache.
+      #
+      # Without it every deploy and every restart starts with an empty cache, so
+      # the first reader of each page pays a full render — and on a front page
+      # that means the homepage, every section and every article, one at a time,
+      # while readers wait. The container is replaced on each release; the cache
+      # it built should not be.
+      #
+      # A named volume rather than a bind mount so the directory is created with
+      # the container user's ownership. Next writes here at runtime as `nextjs`,
+      # and a root-owned bind mount would leave it unable to, which fails the way
+      # this is meant to prevent: silently, by rendering everything every time.
+      - web-next-cache:/app/apps/web/.next/cache
     ports:
       # Loopback only. Caddy reaches the app over the Docker network, so this
       # mapping exists purely so an operator can curl the app directly or reach
@@ -209,6 +223,8 @@ services:
 # Caddy's issued certificates. Losing these means re-issuing on every restart,
 # which hits certificate-authority rate limits on a real CA.
 volumes:
+  web-next-cache:
+    name: dhakalive-web-next-cache
   caddy-data:
     name: dhakalive-caddy-data
   caddy-config:
