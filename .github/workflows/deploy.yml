@@ -55,6 +55,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # These are baked into the image at build time, so an empty one cannot be
+      # corrected by fixing the server's .env — it needs another build. The
+      # symptom is also quiet: the site renders, and only the images 400. Fail
+      # here instead, where the cause is named.
+      - name: Check required build variables
+        run: |
+          missing=
+          for name in NEXT_PUBLIC_SITE_URL CLOUDFLARE_MEDIA_PUBLIC_URL; do
+            eval "value=\${$name}"
+            [ -n "$value" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository variables:$missing — set them under Settings → Secrets and variables → Actions → Variables."
+            exit 1
+          fi
+        env:
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+          CLOUDFLARE_MEDIA_PUBLIC_URL: ${{ vars.CLOUDFLARE_MEDIA_PUBLIC_URL }}
+
       - name: Build and push web
         uses: docker/build-push-action@v6
         with:
@@ -68,9 +87,9 @@ jobs:
             ${{ env.WEB_IMAGE }}:latest
           build-args: |
             NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
-            NEXT_PUBLIC_MEDIA_URL=${{ vars.NEXT_PUBLIC_MEDIA_URL }}
             NEXT_PUBLIC_DEFAULT_LOCALE=${{ vars.NEXT_PUBLIC_DEFAULT_LOCALE }}
             NEXT_PUBLIC_APP_VERSION=${{ steps.resolve.outputs.sha }}
+            CLOUDFLARE_MEDIA_PUBLIC_URL=${{ vars.CLOUDFLARE_MEDIA_PUBLIC_URL }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

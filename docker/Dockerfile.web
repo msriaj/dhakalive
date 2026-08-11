@@ -52,13 +52,18 @@ ENV SKIP_ENV_VALIDATION=1
 ENV NEXT_TELEMETRY_DISABLED=1
 
 ARG NEXT_PUBLIC_SITE_URL=http://localhost:3000
-ARG NEXT_PUBLIC_MEDIA_URL=
 ARG NEXT_PUBLIC_DEFAULT_LOCALE=bn
 ARG NEXT_PUBLIC_APP_VERSION=dev
+# Needed at *build* time, not just at runtime: `next.config.ts` turns it into
+# an `images.remotePatterns` entry while `next build` runs, and the optimiser
+# answers 400 for any host missing from that list. Passing it only to the
+# running container leaves every media image broken on a site that otherwise
+# looks healthy.
+ARG CLOUDFLARE_MEDIA_PUBLIC_URL=
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
-ENV NEXT_PUBLIC_MEDIA_URL=$NEXT_PUBLIC_MEDIA_URL
 ENV NEXT_PUBLIC_DEFAULT_LOCALE=$NEXT_PUBLIC_DEFAULT_LOCALE
 ENV NEXT_PUBLIC_APP_VERSION=$NEXT_PUBLIC_APP_VERSION
+ENV CLOUDFLARE_MEDIA_PUBLIC_URL=$CLOUDFLARE_MEDIA_PUBLIC_URL
 
 RUN pnpm build:packages \
   && pnpm --filter @dhakalive/web build
