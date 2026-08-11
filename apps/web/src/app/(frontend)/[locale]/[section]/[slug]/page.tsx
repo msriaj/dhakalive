@@ -8,6 +8,7 @@ import { ArticleBody } from '../../../../../components/ArticleBody'
 import { ArticleList } from '../../../../../components/ArticleList'
 import { ArticleStream } from '../../../../../components/ArticleStream'
 import { JsonLd } from '../../../../../components/JsonLd'
+import { ViewCounter } from '../../../../../components/ViewCounter'
 import { dictionary } from '../../../../../lib/dictionary'
 import { env } from '../../../../../lib/env'
 import { buildMetadata } from '../../../../../lib/metadata'
@@ -137,6 +138,7 @@ export default async function ArticlePage({ params }: RouteParams) {
     <>
       <article>
         <JsonLd data={graph} />
+        <ViewCounter articleId={article.id} />
         <ArticleBody article={article} locale={locale} />
 
         {related.length > 0 ? (

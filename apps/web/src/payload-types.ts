@@ -257,6 +257,10 @@ export interface Article {
    */
   scheduledAt?: string | null;
   /**
+   * Approximate. Counted once per reader per session, browsers only.
+   */
+  viewCount?: number | null;
+  /**
    * Shows in the breaking-news ticker.
    */
   isBreaking?: boolean | null;
@@ -1090,6 +1094,7 @@ export interface ArticlesSelect<T extends boolean = true> {
       };
   publishedAt?: T;
   scheduledAt?: T;
+  viewCount?: T;
   isBreaking?: T;
   breakingUntil?: T;
   isFeatured?: T;
@@ -1499,7 +1504,7 @@ export interface Homepage {
     /**
      * Where this column gets its stories.
      */
-    source: 'manual' | 'category' | 'latest' | 'type';
+    source: 'manual' | 'category' | 'latest' | 'most-viewed' | 'type';
     articles?: (number | Article)[] | null;
     category?: (number | null) | Category;
     articleTypes?:
@@ -1528,7 +1533,7 @@ export interface Homepage {
     /**
      * Where this column gets its stories.
      */
-    source: 'manual' | 'category' | 'latest' | 'type';
+    source: 'manual' | 'category' | 'latest' | 'most-viewed' | 'type';
     articles?: (number | Article)[] | null;
     category?: (number | null) | Category;
     articleTypes?:
@@ -1557,7 +1562,7 @@ export interface Homepage {
     /**
      * Where this column gets its stories.
      */
-    source: 'manual' | 'category' | 'latest' | 'type';
+    source: 'manual' | 'category' | 'latest' | 'most-viewed' | 'type';
     articles?: (number | Article)[] | null;
     category?: (number | null) | Category;
     articleTypes?:
@@ -1617,7 +1622,7 @@ export interface Homepage {
         /**
          * Where the stories come from.
          */
-        source?: ('category' | 'manual' | 'latest' | 'type' | 'collections') | null;
+        source?: ('category' | 'manual' | 'latest' | 'most-viewed' | 'type' | 'collections') | null;
         /**
          * Also the destination of the section heading link.
          */

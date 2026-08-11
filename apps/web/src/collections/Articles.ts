@@ -274,6 +274,31 @@ export const Articles: CollectionConfig = {
       },
     },
 
+    /**
+     * Views, counted for ordering and nothing else.
+     *
+     * Written by `/api/view` with a bare `UPDATE`, deliberately outside
+     * Payload: a `payload.update` here would run the article's `afterChange`
+     * hooks on every single view — purging the CDN and reindexing search for a
+     * page that has not changed — and, with drafts enabled, write a version row
+     * per view until the table dwarfed the articles in it.
+     *
+     * Read-only in the admin for the same reason it is approximate: it is a
+     * measurement, not an editorial field, and an editor who can type a number
+     * into it has a "most read" list that means whatever they typed.
+     */
+    {
+      name: 'viewCount',
+      type: 'number',
+      defaultValue: 0,
+      index: true,
+      admin: {
+        position: 'sidebar',
+        readOnly: true,
+        description: 'Approximate. Counted once per reader per session, browsers only.',
+      },
+    },
+
     // ---------------------------------------------------------------- flagging
     {
       name: 'isBreaking',
