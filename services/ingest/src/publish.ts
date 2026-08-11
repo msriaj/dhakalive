@@ -1,9 +1,9 @@
 import { DEFAULT_LOCALE } from '@dhakalive/config'
-import { blocksToLexical, slugify } from '@dhakalive/core'
+import { blocksToLexical, slugify, type IngestBlock } from '@dhakalive/core'
 import { getLogger } from '@dhakalive/observability'
 import type { Payload } from 'payload'
 
-import type { RewriteResult } from './rewrite.js'
+import type { RewriteBlock, RewriteResult } from './rewrite.js'
 import { imageFilename, type ArticleDetail } from './source.js'
 
 /**
@@ -348,6 +348,54 @@ async function uploadImage(
   return media.id as number
 }
 
+/**
+ * Uploads the pictures the model kept and puts their ids into the body.
+ *
+ * A failed upload drops that one picture rather than the story: an inline
+ * photograph is an illustration, and losing it costs a reader less than losing
+ * the report. The featured image is the opposite case, and its upload is
+ * deliberately allowed to throw.
+ */
+async function resolveInlineImages(
+  payload: Payload,
+  blocks: RewriteBlock[],
+  detail: ArticleDetail,
+  fallbackAlt: string,
+  correlationId: string,
+  signal?: AbortSignal,
+): Promise<IngestBlock[]> {
+  const logger = getLogger().child({ correlationId, externalId: detail.externalId })
+  const resolved: IngestBlock[] = []
+
+  for (const block of blocks) {
+    if (block.type !== 'pendingImage') {
+      resolved.push(block)
+      continue
+    }
+
+    const image = detail.inlineImages[block.imageIndex]
+    if (!image) continue
+
+    // The model's caption is preferred over the source's, which is usually a
+    // credit rather than a description.
+    const caption = block.caption ?? image.caption
+
+    try {
+      // The caption doubles as alt text when there is one. Poor alt, but Media
+      // requires a value and an empty one fails the upload outright.
+      const mediaId = await uploadImage(payload, image.url, caption ?? fallbackAlt, signal)
+      resolved.push({ type: 'image', mediaId, ...(caption ? { caption } : {}) })
+    } catch (error) {
+      logger.warn(
+        { url: image.url, error: error instanceof Error ? error.message : String(error) },
+        'Inline image could not be stored; story published without it',
+      )
+    }
+  }
+
+  return resolved
+}
+
 export interface PublishOptions {
   payload: Payload
   detail: ArticleDetail
@@ -389,13 +437,30 @@ export async function publishIngested(options: PublishOptions): Promise<number> 
 
   const featuredImage = await uploadImage(payload, detail.imageUrl, rewrite.imageAlt, signal)
 
+  const body = await resolveInlineImages(
+    payload,
+    rewrite.blocks,
+    detail,
+    rewrite.imageAlt,
+    correlationId,
+    signal,
+  )
+
   const created = await payload.create({
     collection: 'articles',
     data: {
       headline: rewrite.headline,
       subheadline: rewrite.subheadline ?? undefined,
       summary: rewrite.summary,
-      body: blocksToLexical(rewrite.blocks),
+      body: blocksToLexical(body),
+      ...(rewrite.seoTitle || rewrite.seoDescription
+        ? {
+            seo: {
+              ...(rewrite.seoTitle ? { title: rewrite.seoTitle } : {}),
+              ...(rewrite.seoDescription ? { description: rewrite.seoDescription } : {}),
+            },
+          }
+        : {}),
       authors: [deskAuthor],
       primaryCategory,
       ...(tags.length > 0 ? { tags } : {}),

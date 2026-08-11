@@ -52,15 +52,36 @@ const GENERATED_BLOCK_TYPES = INGEST_BLOCK_TYPES.filter((type) => type !== 'divi
  */
 const REQUEST_TIMEOUT_MS = 180_000
 
+/** Matches the SEO field's own `maxLength`s, so a long one is trimmed here. */
+const MAX_SEO_TITLE = 70
+const MAX_SEO_DESCRIPTION = 200
+
+/**
+ * An inline picture the model asked for, before the upload that gives it an id.
+ *
+ * The model cannot know media ids — it is shown the pictures as numbered
+ * placeholders and answers in the same numbers, which the publish step resolves.
+ */
+export interface PendingImageBlock {
+  type: 'pendingImage'
+  imageIndex: number
+  caption?: string
+}
+
+export type RewriteBlock = IngestBlock | PendingImageBlock
+
 export interface RewriteResult {
   headline: string
   subheadline: string | null
   summary: string
   articleType: string
-  blocks: IngestBlock[]
+  blocks: RewriteBlock[]
   /** Bengali alt text for the featured image. Required before anything publishes. */
   imageAlt: string
   tags: string[]
+  /** Page title override. Null leaves the renderer to derive one from the headline. */
+  seoTitle: string | null
+  seoDescription: string | null
 }
 
 export class RewriteError extends Error {
@@ -76,7 +97,17 @@ export class RewriteError extends Error {
 export const SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['headline', 'subheadline', 'summary', 'articleType', 'blocks', 'imageAlt', 'tags'],
+  required: [
+    'headline',
+    'subheadline',
+    'summary',
+    'articleType',
+    'blocks',
+    'imageAlt',
+    'tags',
+    'seoTitle',
+    'seoDescription',
+  ],
   properties: {
     headline: { type: 'string' },
     subheadline: { type: ['string', 'null'] },
@@ -84,6 +115,8 @@ export const SCHEMA = {
     articleType: { type: 'string', enum: [...SELECTABLE_TYPES] },
     imageAlt: { type: 'string' },
     tags: { type: 'array', items: { type: 'string' }, maxItems: 6 },
+    seoTitle: { type: ['string', 'null'], maxLength: MAX_SEO_TITLE },
+    seoDescription: { type: ['string', 'null'], maxLength: MAX_SEO_DESCRIPTION },
     blocks: {
       type: 'array',
       minItems: 1,
@@ -95,7 +128,7 @@ export const SCHEMA = {
         // expressed by the `null` in each type union instead. A paragraph
         // block therefore comes back with `attribution: null` rather than
         // without the key, and `validateBlocks` drops the nulls.
-        required: ['type', 'text', 'attribution', 'style', 'items', 'caption'],
+        required: ['type', 'text', 'attribution', 'style', 'items', 'caption', 'imageIndex'],
         properties: {
           type: { type: 'string', enum: [...GENERATED_BLOCK_TYPES] },
           text: { type: ['string', 'null'] },
@@ -103,6 +136,8 @@ export const SCHEMA = {
           style: { type: ['string', 'null'], enum: ['bullet', 'number', null] },
           items: { type: ['array', 'null'], items: { type: 'string' } },
           caption: { type: ['string', 'null'] },
+          /** The placeholder number an `image` block refers back to. */
+          imageIndex: { type: ['integer', 'null'] },
         },
       },
     },
@@ -110,14 +145,61 @@ export const SCHEMA = {
 } as const
 
 /**
- * The `image` block type is offered to the model but it has no media ids to
- * reference, so any it emits are dropped before validation. Inline imagery is a
- * second pass — the featured image is what the publish guards actually require.
+ * Lifts the model's image blocks out of the stream, keeping where they sat.
+ *
+ * `validateBlocks` requires a `mediaId`, and the model has none to give — it is
+ * shown the story's pictures as numbered placeholders and answers in the same
+ * numbers. So the image blocks are pulled aside before validation, keyed by the
+ * position they held once the rest is validated, and the publish step puts real
+ * ids in and splices them back. An index the model invented, or one it used
+ * twice, is dropped rather than guessed at.
  */
-function dropImageBlocks(blocks: unknown): unknown {
-  return Array.isArray(blocks)
-    ? blocks.filter((block) => (block as { type?: unknown })?.type !== 'image')
-    : blocks
+function extractImages(
+  blocks: unknown,
+  imageCount: number,
+): { rest: unknown[]; pending: Map<number, PendingImageBlock> } {
+  const rest: unknown[] = []
+  const pending = new Map<number, PendingImageBlock>()
+  const used = new Set<number>()
+
+  if (!Array.isArray(blocks)) return { rest, pending }
+
+  for (const block of blocks as Record<string, unknown>[]) {
+    if (block?.type !== 'image') {
+      rest.push(block)
+      continue
+    }
+
+    const index = block.imageIndex
+    if (typeof index !== 'number' || !Number.isInteger(index)) continue
+    if (index < 0 || index >= imageCount || used.has(index)) continue
+
+    used.add(index)
+    pending.set(rest.length, {
+      type: 'pendingImage',
+      imageIndex: index,
+      ...(typeof block.caption === 'string' && block.caption.trim().length > 0
+        ? { caption: block.caption.trim() }
+        : {}),
+    })
+  }
+
+  return { rest, pending }
+}
+
+/** Puts the pending images back at the positions they were lifted from. */
+function spliceImages(
+  blocks: IngestBlock[],
+  pending: Map<number, PendingImageBlock>,
+): RewriteBlock[] {
+  const out: RewriteBlock[] = []
+  for (let index = 0; index <= blocks.length; index++) {
+    const image = pending.get(index)
+    if (image) out.push(image)
+    const block = blocks[index]
+    if (block) out.push(block)
+  }
+  return out
 }
 
 const SYSTEM_PROMPT = `You are a Bengali news sub-editor for Dhaka Live.
@@ -131,12 +213,30 @@ Rules:
   given. Do not add detail that is not in the source, and do not soften or
   sharpen what it says.
 - Do not name the source outlet or its reporter anywhere in the text.
-- Structure the body as blocks: paragraph, subhead, pullQuote, list, divider.
+- Structure the body as blocks: paragraph, subhead, pullQuote, list.
 - Use a pullQuote only for a quotation that is already in the source.
 - The summary is for listings and social cards: one or two sentences, under
   ${MAX_SUMMARY} characters.
 - imageAlt describes the photograph for a reader who cannot see it, in Bengali.
 - tags are up to six short Bengali topic labels.
+
+The headline:
+- Write our own headline. Do not reproduce the source headline word for word,
+  and do not merely reorder it. Say what happened, in the present tense, in the
+  fewest words that stay accurate.
+- One exception, and it is absolute: any words inside quotation marks are
+  somebody's actual words. Reproduce a quoted run exactly, character for
+  character, including the quotation marks. Rewrite only the words outside
+  them. If the whole headline is a quotation, keep the whole headline.
+- Never put words inside quotation marks that were not quoted in the source.
+- Do not use a colon to attach a speaker unless the source did.
+
+seoTitle and seoDescription are for search results and nothing else:
+- seoTitle: under ${MAX_SEO_TITLE} characters, and it may differ from the
+  headline — lead with the words a reader would actually search for. Return
+  null if it would only repeat the headline.
+- seoDescription: under ${MAX_SEO_DESCRIPTION} characters, a plain sentence
+  saying what the story reports. Not a teaser, and no "read more".
 
 Pick articleType from what the source actually is. The site gives each of these
 a different page, so the choice changes how the story is presented:
@@ -151,7 +251,14 @@ a different page, so the choice changes how the story is presented:
 - video-story: built around a video.
 
 Do not reach for an unusual type to make a story seem more than it is. A report
-labelled analysis reads to the reader as a promise the copy does not keep.`
+labelled analysis reads to the reader as a promise the copy does not keep.
+
+The source may contain pictures, marked in the text as [ছবি 0], [ছবি 1] and so
+on. To keep one, emit an image block with imageIndex set to that number, at the
+point in your body where it belongs — a photograph illustrates the part of the
+story it sits beside. Use each number at most once, never invent a number, and
+leave out any picture that does not earn its place. caption may hold a short
+Bengali caption. Every other block type must have imageIndex null.`
 
 export interface RewriteOptions {
   apiKey: string
@@ -176,7 +283,7 @@ export async function rewriteArticle(
             `শিরোনাম: ${detail.title}`,
             detail.sourceCategory ? `বিভাগ: ${detail.sourceCategory}` : '',
             '',
-            detail.paragraphs.join('\n\n'),
+            renderBody(detail),
           ]
             .filter(Boolean)
             .join('\n'),
@@ -202,7 +309,9 @@ export async function rewriteArticle(
     throw new RewriteError('Model returned content that is not JSON', detail.url)
   }
 
-  const blocks = validateBlocks(dropImageBlocks(parsed.blocks))
+  const { rest, pending } = extractImages(parsed.blocks, detail.inlineImages.length)
+
+  const blocks = validateBlocks(rest)
   if (!blocks.ok) {
     throw new RewriteError(`Unusable blocks: ${describe(blocks.issues)}`, detail.url)
   }
@@ -240,12 +349,35 @@ export async function rewriteArticle(
       articleType && (SELECTABLE_TYPES as readonly string[]).includes(articleType)
         ? articleType
         : 'standard',
-    blocks: blocks.blocks,
+    blocks: spliceImages(blocks.blocks, pending),
     imageAlt,
     tags: Array.isArray(parsed.tags)
       ? parsed.tags.filter((tag): tag is string => typeof tag === 'string' && tag.trim().length > 0)
       : [],
+    /*
+     * Both are overrides, and null is a valid answer: with nothing here the
+     * page derives its title and description from the headline and summary,
+     * which for a routine report is the right metadata anyway. A model asked to
+     * always produce one would produce the headline again.
+     */
+    seoTitle: text(parsed.seoTitle)?.slice(0, MAX_SEO_TITLE) ?? null,
+    seoDescription: text(parsed.seoDescription)?.slice(0, MAX_SEO_DESCRIPTION) ?? null,
   }
+}
+
+/**
+ * The body as the model is shown it: paragraphs, with each picture marked where
+ * it appeared so the model can put it back in the same place.
+ */
+function renderBody(detail: ArticleDetail): string {
+  return detail.body
+    .map((node) => (node.type === 'text' ? node.text : imageMarker(node.index, detail)))
+    .join('\n\n')
+}
+
+function imageMarker(index: number, detail: ArticleDetail): string {
+  const caption = detail.inlineImages[index]?.caption
+  return caption ? `[ছবি ${index}: ${caption}]` : `[ছবি ${index}]`
 }
 
 function text(value: unknown): string | null {
