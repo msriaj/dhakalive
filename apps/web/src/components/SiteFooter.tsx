@@ -199,10 +199,18 @@ export async function SiteFooter({ locale }: { locale: Locale }) {
           </div>
         ) : null}
 
-        <div className="mt-8 border-t border-[var(--color-rule)] pt-6">
+        {/*
+          The closing line is centred, unlike the columns above it.
+
+          Everything higher up the footer is a list a reader scans down a left
+          edge. This is not that — it is the imprint, and centring is how a
+          masthead signs off rather than how a directory is laid out. It also
+          stops a two-word copyright sitting adrift under four columns of links.
+        */}
+        <div className="mt-8 border-t border-[var(--color-rule)] pt-6 text-center">
           {bottomLinks.length > 0 ? (
             <nav aria-label={d('footerNavigation')}>
-              <ul className="mb-4 flex flex-wrap gap-x-5 gap-y-2">
+              <ul className="mb-4 flex flex-wrap justify-center gap-x-5 gap-y-2">
                 {bottomLinks.map((link, index) => (
                   <li key={`${link.label ?? 'bottom'}-${index}`}>
                     <NavLink

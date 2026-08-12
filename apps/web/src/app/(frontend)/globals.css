@@ -143,36 +143,6 @@
     -webkit-tap-highlight-color: rgb(0 0 0 / 0.06);
   }
 
-  /*
-   * Press feedback, on touch only.
-   *
-   * The native highlight covers the link's own box — the headline glyphs, or
-   * the photograph — which on a card reads as a stray grey rectangle rather
-   * than as "this story". Washing the whole card says what was actually hit.
-   *
-   * `[data-card]` rather than `article`, because the story page and the live
-   * page are `<article>` too: an unscoped selector would flash the entire
-   * story every time a reader touched a link inside the copy.
-   *
-   * The wash is carried out past the card's edges by a spread shadow rather
-   * than by padding, which would move the card under the reader's finger at
-   * the moment they pressed it. 6px, so it stays inside the 12px gutter a
-   * list row sets and never crosses the hairline into the story above.
-   *
-   * Scoped to `hover: none` so a mouse keeps the hover styles and never sees
-   * this; a pointer already has a cursor and an underline to go on.
-   */
-  @media (hover: none) {
-    [data-card]:has(a:active) {
-      background-color: var(--color-surface-sunken);
-      box-shadow: 0 0 0 0.375rem var(--color-surface-sunken);
-    }
-
-    a:active {
-      color: var(--color-brand-hover);
-    }
-  }
-
   body {
     font-family: var(--font-body);
     /*
@@ -230,18 +200,11 @@
     font-weight: 700;
     line-height: 1.15;
     letter-spacing: -0.015em;
-    text-wrap: balance;
   }
 
   h1 {
     line-height: 1.1;
     letter-spacing: -0.025em;
-  }
-
-  /* Long-form copy wants a measure, not the full column. `text-wrap: pretty`
-     keeps a single word from being stranded on the last line of a paragraph. */
-  p {
-    text-wrap: pretty;
   }
 
   figcaption {
@@ -381,5 +344,59 @@
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
+  }
+}
+
+/*
+ * Press feedback, on touch only.
+ *
+ * Deliberately outside `@layer base`, unlike everything above it. Tailwind puts
+ * its utilities in the `utilities` layer, and a layered rule always loses to a
+ * later layer no matter how specific it is — so `a:active` in the base layer
+ * was silently beaten by every `text-…` utility in the markup. That is why the
+ * footer links and the masthead gave no response while article cards did: the
+ * cards set no colour of their own. Unlayered CSS outranks all layers, which is
+ * the only place this rule works from.
+ *
+ * Scoped to `hover: none` so a pointer keeps the hover styles and never sees
+ * this; a mouse already has a cursor and an underline to go on.
+ */
+@media (hover: none) {
+  /*
+   * Opacity rather than colour, because the masthead is an uploaded image on
+   * most deployments and a colour change is invisible on a photograph. Dimming
+   * answers the finger whatever was touched — logo, icon button, or text.
+   */
+  a:active,
+  button:active,
+  summary:active,
+  [role='button']:active {
+    opacity: 0.55;
+  }
+
+  /*
+   * A card answers with a wash instead.
+   *
+   * The native highlight covers only the link's own box — the headline glyphs,
+   * or the photograph — which on a card reads as a stray grey rectangle rather
+   * than as "this story".
+   *
+   * `[data-card]`, not `article`: the story page and the live page are
+   * `<article>` too, and an unscoped selector would flash an entire story every
+   * time a reader touched a link inside the copy.
+   *
+   * The wash is carried past the card's edges by a spread shadow rather than by
+   * padding, which would move the card under the finger at the moment of the
+   * press. 6px, so it stays inside the 12px gutter a list row sets and never
+   * crosses the hairline into the story above.
+   */
+  [data-card]:has(a:active) {
+    background-color: var(--color-surface-sunken);
+    box-shadow: 0 0 0 0.375rem var(--color-surface-sunken);
+  }
+
+  /* The wash is the answer; dimming the headline as well reads as a glitch. */
+  [data-card] a:active {
+    opacity: 1;
   }
 }
