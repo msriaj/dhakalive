@@ -6,6 +6,7 @@ import {
   externalIdFromUrl,
   fullSizeImageUrl,
   imageFilename,
+  imageIdentity,
   isStale,
   parseDetail,
   parseListing,
@@ -124,6 +125,26 @@ describe('URL parsing', () => {
 
     expect(imageFilename('https://cosmos.example/bn/a.webp')).toBe('a.webp')
     expect(imageFilename('not a url')).toBe('ingested-image')
+  })
+
+  it('identifies a picture by the asset, not by how it is served', () => {
+    const asset = 'https://cosmos.example/bn/3554488.webp'
+
+    // Proxied, unproxied and resized are one photograph.
+    expect(imageIdentity(`https://unb.com.bd/compressed?url=${asset}&width=370`)).toBe(
+      imageIdentity(asset),
+    )
+    expect(imageIdentity(`https://unb.com.bd/compressed?url=${asset}&width=1200`)).toBe(
+      imageIdentity(asset),
+    )
+    expect(imageIdentity(`${asset}?v=2`)).toBe(imageIdentity(asset))
+  })
+
+  it('keeps different assets apart, including same-named ones', () => {
+    expect(imageIdentity('https://cosmos.example/a/photo.webp')).not.toBe(
+      imageIdentity('https://cosmos.example/b/photo.webp'),
+    )
+    expect(imageIdentity('not a url')).toBe('not a url')
   })
 
   it('passes through an unproxied absolute URL and rejects nothing usable', () => {
@@ -292,6 +313,47 @@ describe('parseDetail', () => {
     )
 
     expect(parseDetail(withLeadImageInBody, item).inlineImages).toHaveLength(0)
+  })
+
+  /**
+   * The case the test above does not reach, and the one that actually happened.
+   *
+   * It substitutes the lead URL verbatim, so it only ever proved that identical
+   * strings match. In production they are never identical: the lead is read
+   * from the listing card, where the source proxies it, and the body is read
+   * from the article page, where it is often the bare asset. The duplicate
+   * passed the guard, was uploaded a second time as its own Media row, and
+   * appeared as the hero and again as the first picture in the story.
+   */
+  it('does not repeat the lead image when the body serves the same asset directly', () => {
+    const sameAssetUnproxied =
+      'https://cosmosgroup.sgp1.digitaloceanspaces.com/bn_news/3554488.webp'
+    const page = DETAIL_PAGE.replace(
+      'https://cosmosgroup.sgp1.digitaloceanspaces.com/bn_news/details/1.webp',
+      sameAssetUnproxied,
+    )
+
+    expect(parseDetail(page, item).inlineImages).toEqual([])
+  })
+
+  it('does not repeat the lead image at a different rendition', () => {
+    const sameAssetOtherSize =
+      'https://unb.com.bd/compressed?url=https://cosmosgroup.sgp1.digitaloceanspaces.com/bn_news/3554488.webp&amp;width=1200'
+    const page = DETAIL_PAGE.replace(
+      'https://cosmosgroup.sgp1.digitaloceanspaces.com/bn_news/details/1.webp',
+      sameAssetOtherSize,
+    )
+
+    expect(parseDetail(page, item).inlineImages).toEqual([])
+  })
+
+  /**
+   * The other half of the bargain. Matching on the asset rather than the URL
+   * must not start discarding pictures that merely resemble the lead — a story
+   * illustrated with two photographs should publish with two.
+   */
+  it('keeps a genuinely different picture', () => {
+    expect(parseDetail(DETAIL_PAGE, item).inlineImages).toHaveLength(1)
   })
 
   /** The AdSense unit is also wrapped in a `.image` div. */
