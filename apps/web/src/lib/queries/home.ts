@@ -352,19 +352,37 @@ export async function composeHomepage(
       : null,
   )
 
+  /**
+   * The latest list is the one block exempt from "one story, one place".
+   *
+   * It used to claim like any other, and because it is resolved here — before
+   * the columns and sections, which render *above* it — it took the newest
+   * stories and left the top of the page the remainder. The front page ended up
+   * with a rail of the 10th to 15th newest stories sitting above a list of the
+   * 2nd to 9th, which is backwards, and it contradicted this file's own rule
+   * that the block a reader meets first keeps the story.
+   *
+   * Both halves are fixed by not claiming. A block titled "latest" that omits
+   * the latest story because something above it ran first is wrong on its own
+   * terms; and once it stops consuming, the columns and sections below claim in
+   * page order again and the top of the page carries the freshest stories.
+   *
+   * The cost is that a story may appear both here and higher up. That is what
+   * every daily does with a latest rail, and it is the lesser fault: a reader
+   * scanning for the newest story should find it here.
+   */
   const latestLimit = homepage.latestNews?.limit ?? 10
-  const latestResult = await getLatestArticles({
-    locale,
-    limit: headroom(latestLimit, placed),
-    exclude: placed.list,
-  })
+  // One spare, so lifting the hero out does not shorten the list.
+  const latestResult = await getLatestArticles({ locale, limit: latestLimit + 1 })
 
   /*
    * With no curated lead, the newest story becomes it rather than leaving the
    * page headless — and then it must not also head the latest list.
    */
   const heroArticle = claimedLead ?? placed.take(latestResult.docs, 1)[0] ?? null
-  const latest = placed.take(latestResult.docs, latestLimit)
+  const latest = latestResult.docs
+    .filter((article) => article.id !== heroArticle?.id)
+    .slice(0, latestLimit)
 
   const [fetchedSlots, fetched] = await Promise.all([
     Promise.all(
