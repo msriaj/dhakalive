@@ -93,7 +93,7 @@ export async function ArticleBody({
             media={article.featuredImage}
             fill
             priority={priority}
-            sizes="(min-width: 1024px) 1024px, 100vw"
+            sizes={spec.heroSizes}
             className="object-cover"
           />
         </div>

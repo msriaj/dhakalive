@@ -58,6 +58,15 @@ export interface LayoutSpec {
    */
   hero: 'lead' | 'after' | 'none'
   heroAspect: string
+  /**
+   * The `sizes` hint for the hero, matching `headerContainer`.
+   *
+   * Per layout rather than one constant, because this was hardcoded to
+   * 1024px — true only of the widest layout. Every other layout asked the
+   * browser for a picture wider than the column it is drawn in, and got a
+   * bigger file than it could ever display.
+   */
+  heroSizes: string
   headline: string
   standfirst: string
   /** Extra class on the rich text, keyed to the `.prose-*` rules in globals.css. */
@@ -72,6 +81,7 @@ const SPECS: Record<ArticleLayout, LayoutSpec> = {
     headerContainer: 'max-w-4xl',
     hero: 'after',
     heroAspect: 'aspect-[16/9]',
+    heroSizes: '(min-width: 896px) 896px, 100vw',
     headline: 'text-3xl leading-tight font-bold tracking-tight md:text-4xl',
     standfirst: 'mt-3 text-lg text-[var(--color-ink-muted)]',
     prose: '',
@@ -87,6 +97,7 @@ const SPECS: Record<ArticleLayout, LayoutSpec> = {
     headerContainer: 'max-w-3xl',
     hero: 'none',
     heroAspect: 'aspect-[16/9]',
+    heroSizes: '(min-width: 768px) 768px, 100vw',
     headline:
       'font-[family-name:var(--font-body)] text-3xl leading-tight font-semibold md:text-4xl',
     standfirst: 'mt-3 font-[family-name:var(--font-body)] text-lg italic',
@@ -99,6 +110,7 @@ const SPECS: Record<ArticleLayout, LayoutSpec> = {
     headerContainer: 'max-w-4xl',
     hero: 'lead',
     heroAspect: 'aspect-[2/1]',
+    heroSizes: '(min-width: 896px) 896px, 100vw',
     headline: 'text-4xl leading-[1.08] font-bold tracking-tight md:text-5xl',
     standfirst: 'mt-4 text-xl leading-relaxed text-[var(--color-ink-muted)]',
     prose: 'prose-longform',
@@ -110,6 +122,7 @@ const SPECS: Record<ArticleLayout, LayoutSpec> = {
     headerContainer: 'max-w-3xl',
     hero: 'after',
     heroAspect: 'aspect-[3/2]',
+    heroSizes: '(min-width: 768px) 768px, 100vw',
     headline: 'text-3xl leading-tight font-bold tracking-tight md:text-4xl',
     standfirst: 'mt-3 text-lg text-[var(--color-ink-muted)]',
     prose: 'prose-interview',
@@ -125,6 +138,7 @@ const SPECS: Record<ArticleLayout, LayoutSpec> = {
     headerContainer: 'max-w-5xl',
     hero: 'lead',
     heroAspect: 'aspect-[3/2]',
+    heroSizes: '(min-width: 1024px) 1024px, 100vw',
     headline: 'text-3xl leading-tight font-bold tracking-tight md:text-4xl',
     standfirst: 'mt-3 text-lg text-[var(--color-ink-muted)]',
     prose: 'prose-visual',
