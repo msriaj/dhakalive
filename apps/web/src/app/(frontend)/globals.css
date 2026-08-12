@@ -130,6 +130,47 @@
     /* The design is light-only. Stated explicitly so a reader whose OS is dark
        does not get dark form controls and scrollbars on a white page. */
     color-scheme: light;
+
+    /*
+     * Tailwind's preflight sets this to `transparent`, which removes the tap
+     * flash a phone browser draws on every link and leaves a reader with no
+     * confirmation that their tap registered at all. On a slow connection that
+     * silence reads as a dead page and earns a second tap.
+     *
+     * Restored rather than left to the browser default: the stock iOS grey and
+     * Android blue are both louder than this page wants, and neither is ours.
+     */
+    -webkit-tap-highlight-color: rgb(0 0 0 / 0.06);
+  }
+
+  /*
+   * Press feedback, on touch only.
+   *
+   * The native highlight covers the link's own box — the headline glyphs, or
+   * the photograph — which on a card reads as a stray grey rectangle rather
+   * than as "this story". Washing the whole card says what was actually hit.
+   *
+   * `[data-card]` rather than `article`, because the story page and the live
+   * page are `<article>` too: an unscoped selector would flash the entire
+   * story every time a reader touched a link inside the copy.
+   *
+   * The wash is carried out past the card's edges by a spread shadow rather
+   * than by padding, which would move the card under the reader's finger at
+   * the moment they pressed it. 6px, so it stays inside the 12px gutter a
+   * list row sets and never crosses the hairline into the story above.
+   *
+   * Scoped to `hover: none` so a mouse keeps the hover styles and never sees
+   * this; a pointer already has a cursor and an underline to go on.
+   */
+  @media (hover: none) {
+    [data-card]:has(a:active) {
+      background-color: var(--color-surface-sunken);
+      box-shadow: 0 0 0 0.375rem var(--color-surface-sunken);
+    }
+
+    a:active {
+      color: var(--color-brand-hover);
+    }
   }
 
   body {

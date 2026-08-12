@@ -422,7 +422,7 @@ export function ArticleCard({
   }
 
   return (
-    <article className={spec.root}>
+    <article data-card className={spec.root}>
       {size === 'numbered' ? (
         <span
           aria-hidden="true"
