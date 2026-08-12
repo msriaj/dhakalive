@@ -197,6 +197,41 @@ export function fullSizeImageUrl(src: string | undefined, baseUrl: string): stri
 }
 
 /**
+ * What picture this URL is, ignoring how it is being served.
+ *
+ * The lead image is read from the listing card and the body images from the
+ * article page, and the source hands out the same photograph at both places
+ * under different URLs — a different proxy endpoint, or the same one with a
+ * different `width`. Comparing the URLs as strings therefore misses, and the
+ * picture is uploaded twice: once as the featured image and again as the first
+ * image in the body, where a reader meets it twice in one screen.
+ *
+ * Reduced to the asset the proxy wraps, without query parameters, which is the
+ * part that identifies the photograph rather than the rendition. Deliberately
+ * not the bare filename: `image.jpg` is not rare, and dropping a genuinely
+ * different picture is worse than the duplicate this prevents.
+ */
+export function imageIdentity(url: string): string {
+  const assetPath = (value: string): string | null => {
+    try {
+      const parsed = new URL(value)
+      return `${parsed.origin}${parsed.pathname}`.toLowerCase()
+    } catch {
+      return null
+    }
+  }
+
+  try {
+    const parsed = new URL(url)
+    const inner = parsed.searchParams.get('url')
+    if (inner) return assetPath(inner) ?? inner.toLowerCase()
+    return `${parsed.origin}${parsed.pathname}`.toLowerCase()
+  } catch {
+    return url.toLowerCase()
+  }
+}
+
+/**
  * A filename for a stored image, taken from the asset the proxy wraps.
  *
  * Reading the proxy's own path would name every file `compressed`, because that
@@ -315,9 +350,16 @@ export function parseDetail(html: string, item: FeedItem): ArticleDetail {
   const inlineImages: InlineImage[] = []
   const body: BodyNode[] = []
 
-  // The lead image is frequently repeated at the top of the body. It is already
-  // the featured image, and running it twice on one page is a duplicate.
-  const seen = new Set<string>(item.imageUrl ? [item.imageUrl] : [])
+  /*
+   * The lead image is frequently repeated at the top of the body. It is already
+   * the featured image, and running it twice on one page is a duplicate.
+   *
+   * Keyed by `imageIdentity`, not by the URL. The lead comes from the listing
+   * card and these come from the article page, and the source serves the same
+   * photograph at both under different URLs — so a string comparison let the
+   * duplicate through, and it was uploaded a second time as its own Media row.
+   */
+  const seen = new Set<string>(item.imageUrl ? [imageIdentity(item.imageUrl)] : [])
 
   $(`${DETAIL.body}, ${DETAIL.figure}`).each((_, element) => {
     const node = $(element)
@@ -331,8 +373,11 @@ export function parseDetail(html: string, item: FeedItem): ArticleDetail {
     }
 
     const url = fullSizeImageUrl(node.find('img').first().attr('src'), origin)
-    if (!url || seen.has(url)) return
-    seen.add(url)
+    if (!url) return
+
+    const identity = imageIdentity(url)
+    if (seen.has(identity)) return
+    seen.add(identity)
 
     const caption = normaliseText(node.find(DETAIL.caption).first().text())
     body.push({ type: 'image', index: inlineImages.length })
