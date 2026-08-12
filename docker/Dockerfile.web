@@ -97,6 +97,18 @@ USER nextjs
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+# The incremental-regeneration and image-optimiser cache directory, created here
+# rather than left to the volume mount.
+#
+# Docker seeds a named volume from the image and adopts the image directory's
+# ownership — but only when that path exists in the image. Standalone output
+# carries no `cache/`, so without this the mountpoint is created root-owned,
+# `nextjs` cannot write to it, and Next silently re-renders every page and
+# re-encodes every image on every request. That is not a theoretical failure:
+# it is what production did until this line existed.
+RUN mkdir -p ./apps/web/.next/cache \
+  && chown nextjs:nodejs ./apps/web/.next/cache
+
   CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 ENTRYPOINT ["dumb-init", "--"]
