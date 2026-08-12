@@ -54,6 +54,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ARG NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ARG NEXT_PUBLIC_DEFAULT_LOCALE=bn
 ARG NEXT_PUBLIC_APP_VERSION=dev
+# Empty is the normal case: the app falls back to the property id in
+# @dhakalive/config. Set this only to point a build at a different one.
+ARG NEXT_PUBLIC_GA_ID=
 # Needed at *build* time, not just at runtime: `next.config.ts` turns it into
 # an `images.remotePatterns` entry while `next build` runs, and the optimiser
 # answers 400 for any host missing from that list. Passing it only to the
@@ -63,6 +66,7 @@ ARG CLOUDFLARE_MEDIA_PUBLIC_URL=
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_PUBLIC_DEFAULT_LOCALE=$NEXT_PUBLIC_DEFAULT_LOCALE
 ENV NEXT_PUBLIC_APP_VERSION=$NEXT_PUBLIC_APP_VERSION
+ENV NEXT_PUBLIC_GA_ID=$NEXT_PUBLIC_GA_ID
 ENV CLOUDFLARE_MEDIA_PUBLIC_URL=$CLOUDFLARE_MEDIA_PUBLIC_URL
 
 RUN pnpm build:packages \
@@ -93,10 +97,6 @@ COPY --from=builder --chown=nextjs:nodejs /repo/apps/web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /repo/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder --chown=nextjs:nodejs /repo/apps/web/public ./apps/web/public
 
-USER nextjs
-EXPOSE 3000
-
-HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
 # The incremental-regeneration and image-optimiser cache directory, created here
 # rather than left to the volume mount.
 #
@@ -109,6 +109,10 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
 RUN mkdir -p ./apps/web/.next/cache \
   && chown nextjs:nodejs ./apps/web/.next/cache
 
+USER nextjs
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 ENTRYPOINT ["dumb-init", "--"]

@@ -117,11 +117,36 @@ export function shouldUseSecureCookies(siteUrl: string): boolean {
   return url.hostname !== 'localhost' && url.hostname !== '127.0.0.1' && url.hostname !== '::1'
 }
 
+/**
+ * A GA4 measurement id, `G-` and ten upper-case alphanumerics.
+ *
+ * Validated rather than taken as a string because the failure is otherwise
+ * invisible: a typo'd id is accepted by Google's tag, reports nothing, and
+ * looks exactly like a site with no traffic. Better to refuse the build.
+ */
+const gaMeasurementId = z
+  .string()
+  .trim()
+  .regex(/^G-[A-Z0-9]{10}$/, 'must look like G-XXXXXXXXXX')
+
+/**
+ * The site's own GA4 property, used when nothing overrides it.
+ *
+ * A measurement id is not a secret — it ships in the page source of every site
+ * that uses one — so it lives here rather than in a repository variable that a
+ * fresh clone or a new environment would have to be told about separately. One
+ * literal, in reviewed code, instead of a value that silently differs between
+ * the Dockerfile, CI and someone's shell.
+ */
+export const DEFAULT_GA_MEASUREMENT_ID = 'G-WJ1FKZHE2E'
+
 export const clientEnvSchema = z.object({
   NEXT_PUBLIC_SITE_URL: z.url(),
   NEXT_PUBLIC_MEDIA_URL: z.url().optional(),
   NEXT_PUBLIC_DEFAULT_LOCALE: z.enum(['bn', 'en']).default('bn'),
   NEXT_PUBLIC_APP_VERSION: optionalString,
+  /** Unset disables analytics entirely — which is what local and CI want. */
+  NEXT_PUBLIC_GA_ID: gaMeasurementId.optional(),
 })
 
 export const serverEnvSchema = z
@@ -135,6 +160,7 @@ export const serverEnvSchema = z
     NEXT_PUBLIC_DEFAULT_LOCALE: z.enum(['bn', 'en']).default('bn'),
     /** Commit SHA or release tag, surfaced by /api/health for deploy correlation. */
     NEXT_PUBLIC_APP_VERSION: optionalString,
+    NEXT_PUBLIC_GA_ID: gaMeasurementId.optional(),
 
     // --- Payload --------------------------------------------------------------
     // 32 chars is the floor for the key that signs auth cookies and reset tokens.
@@ -406,6 +432,7 @@ export function getClientEnv(
       NEXT_PUBLIC_MEDIA_URL: source.NEXT_PUBLIC_MEDIA_URL,
       NEXT_PUBLIC_DEFAULT_LOCALE: source.NEXT_PUBLIC_DEFAULT_LOCALE,
       NEXT_PUBLIC_APP_VERSION: source.NEXT_PUBLIC_APP_VERSION,
+      NEXT_PUBLIC_GA_ID: source.NEXT_PUBLIC_GA_ID,
     }),
   )
   if (!parsed.success) throw new EnvValidationError('client', formatIssues(parsed.error))

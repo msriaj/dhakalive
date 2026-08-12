@@ -102,6 +102,26 @@ describe('getServerEnv', () => {
     expect(expectIssues(baseEnv({ SEARCH_PROVIDER: 'meilisearch' })).join()).toContain('SEARCH_URL')
   })
 
+  it('accepts a GA4 measurement id, and treats an absent one as analytics off', () => {
+    expect(getServerEnv(baseEnv({ NEXT_PUBLIC_GA_ID: 'G-WJ1FKZHE2E' })).NEXT_PUBLIC_GA_ID).toBe(
+      'G-WJ1FKZHE2E',
+    )
+    resetEnvCache()
+    expect(getServerEnv(baseEnv()).NEXT_PUBLIC_GA_ID).toBeUndefined()
+  })
+
+  it('rejects a malformed GA4 measurement id rather than reporting nowhere', () => {
+    // A wrong id is accepted by Google's tag and silently collects nothing,
+    // which is indistinguishable from a site with no readers.
+    expect(expectIssues(baseEnv({ NEXT_PUBLIC_GA_ID: 'UA-12345-1' })).join()).toContain(
+      'NEXT_PUBLIC_GA_ID',
+    )
+    resetEnvCache()
+    expect(expectIssues(baseEnv({ NEXT_PUBLIC_GA_ID: 'G-wj1fkzhe2e' })).join()).toContain(
+      'NEXT_PUBLIC_GA_ID',
+    )
+  })
+
   it('does not apply production rules to a production NODE_ENV alone', () => {
     // `next build` forces NODE_ENV=production; that must not fail a dev build.
     const env = getServerEnv(baseEnv({ NODE_ENV: 'production', APP_ENV: 'development' }))

@@ -4,6 +4,8 @@ import type React from 'react'
 
 import { DEFAULT_LOCALE } from '@dhakalive/config'
 
+import { Analytics } from '../../components/Analytics'
+
 import './globals.css'
 
 /**
@@ -53,7 +55,10 @@ export const metadata: Metadata = {
 export default function FrontendLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang={DEFAULT_LOCALE} className={`${displayFont.variable} ${bodyFont.variable}`}>
-      <body className="min-h-screen">{children}</body>
+      <body className="min-h-screen">
+        {children}
+        <Analytics />
+      </body>
     </html>
   )
 }
