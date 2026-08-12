@@ -6,7 +6,7 @@ import type { Locale } from '@dhakalive/config'
 
 import type { Media } from '../payload-types'
 import { getSeoDefaults } from './queries/globals'
-import { absoluteUrl } from './routes'
+import { absoluteUrl, feedPath } from './routes'
 import { env } from './env'
 
 /**
@@ -96,10 +96,10 @@ export async function buildMetadata(input: MetadataInput): Promise<Metadata> {
        */
       types: {
         'application/rss+xml': [
-          { url: absoluteUrl(`/${input.locale}/rss.xml`, siteUrl), title: 'RSS' },
+          { url: absoluteUrl(feedPath(input.locale, 'rss'), siteUrl), title: 'RSS' },
         ],
         'application/atom+xml': [
-          { url: absoluteUrl(`/${input.locale}/atom.xml`, siteUrl), title: 'Atom' },
+          { url: absoluteUrl(feedPath(input.locale, 'atom'), siteUrl), title: 'Atom' },
         ],
       },
     },

@@ -6,6 +6,7 @@ import { withPayload } from '@payloadcms/next/withPayload'
 import type { NextConfig } from 'next'
 
 import { cacheHeaderRules } from './src/lib/cache/cache-policy'
+import { localeRedirects, localeRewrites } from './src/lib/routing/locale-routing'
 
 const appDir = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(appDir, '../..')
@@ -103,6 +104,14 @@ const nextConfig: NextConfig = {
 
   // Cache policy lives in lib/cache/cache-policy.ts so it can be unit-tested.
   headers: () => Promise.resolve(cacheHeaderRules()),
+
+  /**
+   * Bengali is served at the root. Both rule sets live in
+   * lib/routing/locale-routing.ts so they can be unit-tested — see the note
+   * there on why the rewrite has to run before the filesystem.
+   */
+  redirects: () => Promise.resolve(localeRedirects()),
+  rewrites: () => Promise.resolve({ beforeFiles: localeRewrites(), afterFiles: [], fallback: [] }),
 }
 
 export default withPayload(nextConfig, { devBundleServerPackages: false })

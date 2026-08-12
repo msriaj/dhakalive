@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
-import { isLocale } from '@dhakalive/config'
+import { isPublicLocale, localePrefix } from '@dhakalive/config'
 
 import { ArticleList, Pagination } from '../../../../../components/ArticleList'
 import { Breadcrumbs } from '../../../../../components/Breadcrumbs'
@@ -30,7 +30,7 @@ function pageNumber(value: string | string[] | undefined): number {
 
 export async function generateMetadata({ params }: RouteParams): Promise<Metadata> {
   const { locale: raw, slug } = await params
-  if (!isLocale(raw)) return {}
+  if (!isPublicLocale(raw)) return {}
   const decoded = decodeURIComponent(slug)
   const author = await getAuthorBySlug(decoded, raw)
   if (!author) return {}
@@ -47,7 +47,7 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
 
 export default async function AuthorPage({ params, searchParams }: RouteParams) {
   const { locale: raw, slug } = await params
-  if (!isLocale(raw)) notFound()
+  if (!isPublicLocale(raw)) notFound()
   const locale = raw
   const d = dictionary(locale)
   const decoded = decodeURIComponent(slug)
@@ -55,7 +55,7 @@ export default async function AuthorPage({ params, searchParams }: RouteParams) 
 
   const author = await getAuthorBySlug(decoded, locale)
   if (!author) {
-    await redirectIfKnown(`/${locale}/author/${decoded}`)
+    await redirectIfKnown(`${localePrefix(locale)}/author/${decoded}`)
     notFound()
   }
 

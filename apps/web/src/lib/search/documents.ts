@@ -1,4 +1,4 @@
-import { LOCALES, type Locale } from '@dhakalive/config'
+import { PUBLIC_LOCALES, type Locale } from '@dhakalive/config'
 import { isPubliclyVisible, richTextToPlainText } from '@dhakalive/core'
 import type { SearchDocument } from '@dhakalive/search'
 import type { Payload, PayloadRequest } from 'payload'
@@ -85,7 +85,7 @@ export async function buildArticleDocuments(options: LoadOptions): Promise<Searc
   const { payload, id, req } = options
   const documents: SearchDocument[] = []
 
-  for (const locale of LOCALES) {
+  for (const locale of PUBLIC_LOCALES) {
     const article = await payload.findByID({
       collection: 'articles',
       id,
@@ -140,7 +140,7 @@ export async function buildPageDocuments(options: LoadOptions): Promise<SearchDo
   const { payload, id, req } = options
   const documents: SearchDocument[] = []
 
-  for (const locale of LOCALES) {
+  for (const locale of PUBLIC_LOCALES) {
     const page = await payload.findByID({
       collection: 'pages',
       id,
@@ -178,7 +178,7 @@ export async function buildPageDocuments(options: LoadOptions): Promise<SearchDo
 
 /** Every locale of one document, for removal. */
 export function refsFor(collection: string, documentId: string | number) {
-  return LOCALES.map((locale: Locale) => ({
+  return PUBLIC_LOCALES.map((locale: Locale) => ({
     collection,
     documentId: String(documentId),
     locale,

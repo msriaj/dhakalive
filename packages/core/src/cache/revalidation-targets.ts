@@ -1,4 +1,4 @@
-import { LOCALES, type Locale } from '@dhakalive/config'
+import { PUBLIC_LOCALES, localePrefix, type Locale } from '@dhakalive/config'
 
 import { CacheTag } from './tags.js'
 
@@ -72,8 +72,19 @@ function unique(values: string[]): string[] {
   return [...new Set(values.filter((value) => value.length > 0))]
 }
 
+/**
+ * The default locale is served unprefixed, so its prefix is an empty string and
+ * every path below is built by concatenation rather than by interpolating the
+ * locale. These strings are handed to `revalidatePath` and to the CDN purge, so
+ * a path that does not match what the router serves is a purge that silently
+ * hits nothing and leaves a corrected story stale at the edge.
+ */
+function homeUrl(locale: Locale): string {
+  return localePrefix(locale) || '/'
+}
+
 function articleUrl(locale: Locale, categorySlug: string, slug: string): string {
-  return `/${locale}/${encodeURIComponent(categorySlug)}/${encodeURIComponent(slug)}`
+  return `${localePrefix(locale)}/${encodeURIComponent(categorySlug)}/${encodeURIComponent(slug)}`
 }
 
 function archiveUrl(locale: Locale, publishedAt: string): string | null {
@@ -85,7 +96,7 @@ function archiveUrl(locale: Locale, publishedAt: string): string | null {
   const year = dhaka.getUTCFullYear()
   const month = String(dhaka.getUTCMonth() + 1).padStart(2, '0')
   const day = String(dhaka.getUTCDate()).padStart(2, '0')
-  return `/${locale}/archive/${year}/${month}/${day}`
+  return `${localePrefix(locale)}/archive/${year}/${month}/${day}`
 }
 
 function articleTargets(event: ArticleChange): RevalidationTargets {
@@ -104,7 +115,7 @@ function articleTargets(event: ArticleChange): RevalidationTargets {
     CacheTag.feed(locale),
   ]
 
-  const paths = [`/${locale}`]
+  const paths = [homeUrl(locale)]
 
   // Both the new and the old URL — a slug or section change leaves the previous
   // address cached and serving a story that has moved.
@@ -119,9 +130,11 @@ function articleTargets(event: ArticleChange): RevalidationTargets {
     paths.push(articleUrl(locale, previousCategory, previousSlug))
   }
 
-  if (event.categorySlug) paths.push(`/${locale}/${encodeURIComponent(event.categorySlug)}`)
+  if (event.categorySlug) {
+    paths.push(`${localePrefix(locale)}/${encodeURIComponent(event.categorySlug)}`)
+  }
   if (event.previousCategorySlug) {
-    paths.push(`/${locale}/${encodeURIComponent(event.previousCategorySlug)}`)
+    paths.push(`${localePrefix(locale)}/${encodeURIComponent(event.previousCategorySlug)}`)
   }
 
   if (event.categoryId !== null && event.categoryId !== undefined) {
@@ -131,7 +144,7 @@ function articleTargets(event: ArticleChange): RevalidationTargets {
   for (const tagId of event.tagIds ?? []) tags.push(CacheTag.tag(locale, tagId))
   for (const authorId of event.authorIds ?? []) tags.push(CacheTag.author(locale, authorId))
   for (const authorSlug of event.authorSlugs ?? []) {
-    paths.push(`/${locale}/author/${encodeURIComponent(authorSlug)}`)
+    paths.push(`${localePrefix(locale)}/author/${encodeURIComponent(authorSlug)}`)
   }
 
   if (event.publishedAt) {
@@ -144,7 +157,7 @@ function articleTargets(event: ArticleChange): RevalidationTargets {
 
 function slugPaths(locale: Locale, prefix: string, ref: EntityRef): string[] {
   const paths: string[] = []
-  const base = prefix ? `/${locale}/${prefix}` : `/${locale}`
+  const base = prefix ? `${localePrefix(locale)}/${prefix}` : localePrefix(locale)
   if (ref.slug) paths.push(`${base}/${encodeURIComponent(ref.slug)}`)
   if (ref.previousSlug && ref.previousSlug !== ref.slug) {
     paths.push(`${base}/${encodeURIComponent(ref.previousSlug)}`)
@@ -166,7 +179,7 @@ export function computeRevalidationTargets(event: RevalidationEvent): Revalidati
           CacheTag.home(event.locale),
           CacheTag.sitemap(),
         ]),
-        paths: unique([`/${event.locale}`, ...slugPaths(event.locale, '', event.category)]),
+        paths: unique([homeUrl(event.locale), ...slugPaths(event.locale, '', event.category)]),
       }
 
     case 'tag':
@@ -209,14 +222,14 @@ export function computeRevalidationTargets(event: RevalidationEvent): Revalidati
           CacheTag.home(event.locale),
           CacheTag.articleFeed(event.locale),
         ]),
-        paths: [`/${event.locale}`],
+        paths: [homeUrl(event.locale)],
       }
 
     case 'global': {
       if (event.global === 'homepage') {
         return {
           tags: [CacheTag.home(event.locale)],
-          paths: [`/${event.locale}`],
+          paths: [homeUrl(event.locale)],
         }
       }
 
@@ -232,7 +245,7 @@ export function computeRevalidationTargets(event: RevalidationEvent): Revalidati
           CacheTag.home(event.locale),
           CacheTag.articleFeed(event.locale),
         ]),
-        paths: [`/${event.locale}`],
+        paths: [homeUrl(event.locale)],
       }
     }
   }
@@ -249,7 +262,7 @@ export function mergeTargets(...targets: RevalidationTargets[]): RevalidationTar
 /** Every locale's home page — used when something global changes. */
 export function allLocaleHomes(): RevalidationTargets {
   return {
-    tags: LOCALES.map((locale) => CacheTag.home(locale)),
-    paths: LOCALES.map((locale) => `/${locale}`),
+    tags: PUBLIC_LOCALES.map((locale) => CacheTag.home(locale)),
+    paths: PUBLIC_LOCALES.map((locale) => homeUrl(locale)),
   }
 }

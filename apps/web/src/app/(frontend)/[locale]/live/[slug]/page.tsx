@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
-import { isLocale } from '@dhakalive/config'
+import { isPublicLocale } from '@dhakalive/config'
 
 import { MediaImage } from '../../../../../components/MediaImage'
 import { RichText } from '../../../../../components/RichText'
@@ -22,13 +22,22 @@ import { liveBlogPath } from '../../../../../lib/routes'
  */
 export const revalidate = 15
 
+/**
+ * Empty by design — see the article route for why the function has to exist at
+ * all. A live blog is rendered on first request and then held for fifteen
+ * seconds, which is what keeps a breaking-news surge off the database.
+ */
+export function generateStaticParams(): { slug: string }[] {
+  return []
+}
+
 interface RouteParams {
   params: Promise<{ locale: string; slug: string }>
 }
 
 export async function generateMetadata({ params }: RouteParams): Promise<Metadata> {
   const { locale: raw, slug } = await params
-  if (!isLocale(raw)) return {}
+  if (!isPublicLocale(raw)) return {}
   const decoded = decodeURIComponent(slug)
   const liveBlog = await getLiveBlogBySlug(decoded, raw)
   if (!liveBlog) return {}
@@ -46,7 +55,7 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
 
 export default async function LiveBlogPage({ params }: RouteParams) {
   const { locale: raw, slug } = await params
-  if (!isLocale(raw)) notFound()
+  if (!isPublicLocale(raw)) notFound()
   const locale = raw
   const d = dictionary(locale)
   const decoded = decodeURIComponent(slug)

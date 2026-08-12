@@ -89,6 +89,7 @@ jobs:
             NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
             NEXT_PUBLIC_DEFAULT_LOCALE=${{ vars.NEXT_PUBLIC_DEFAULT_LOCALE }}
             NEXT_PUBLIC_APP_VERSION=${{ steps.resolve.outputs.sha }}
+            NEXT_PUBLIC_GA_ID=${{ vars.NEXT_PUBLIC_GA_ID }}
             CLOUDFLARE_MEDIA_PUBLIC_URL=${{ vars.CLOUDFLARE_MEDIA_PUBLIC_URL }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

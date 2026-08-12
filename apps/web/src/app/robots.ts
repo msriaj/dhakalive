@@ -1,8 +1,9 @@
-import { DEFAULT_LOCALE, LOCALES } from '@dhakalive/config'
+import { DEFAULT_LOCALE, PUBLIC_LOCALES } from '@dhakalive/config'
 import type { MetadataRoute } from 'next'
 
 import { env } from '../lib/env'
 import { getSeoDefaults } from '../lib/queries/globals'
+import { searchPath } from '../lib/routes'
 
 /**
  * Rendered on demand, never at build.
@@ -57,7 +58,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
           // Search result pages are thin and infinitely variable — the canonical
           // example of what not to let into an index. They are `noindex` too;
           // this stops them being fetched at all.
-          ...LOCALES.map((locale) => `/${locale}/search`),
+          ...PUBLIC_LOCALES.map((locale) => searchPath(locale)),
         ],
       },
       {

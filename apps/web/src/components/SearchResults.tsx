@@ -49,7 +49,7 @@ export function Highlighted({
  */
 function Result({ hit, locale }: { hit: SearchHit; locale: Locale }) {
   return (
-    <article>
+    <article data-card>
       <h2 className="text-lg leading-snug font-semibold">
         <Link href={hit.url} className="hover:text-[var(--color-brand)]">
           <Highlighted snippets={hit.titleSnippet} fallback={hit.title} />

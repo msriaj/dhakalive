@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
 
-import { DEFAULT_LOCALE, LOCALES, isLocale } from '@dhakalive/config'
+import { DEFAULT_LOCALE, PUBLIC_LOCALES, isPublicLocale, localePrefix } from '@dhakalive/config'
 
 import { layoutForType, specForLayout } from '../../../../../lib/article-layout'
 import { ArticleBody } from '../../../../../components/ArticleBody'
@@ -22,12 +22,30 @@ import { loadNextArticle } from './next-article'
 /**
  * Article page.
  *
- * Statically generated for the most recent stories and incrementally
- * regenerated every five minutes; publishing or editing triggers an on-demand
- * revalidation (Phase 5) so the time-based window is only a safety net.
+ * Incrementally regenerated every five minutes; publishing or editing triggers
+ * an on-demand revalidation (Phase 5) so the time-based window is only a safety
+ * net.
  */
 export const revalidate = 300
 export const dynamicParams = true
+
+/**
+ * Empty, and required.
+ *
+ * `dynamicParams` above only decides what happens to a param that was *not*
+ * listed here. Without the function at all, Next does not treat the route as
+ * incrementally generated: nothing is written to the route cache and every
+ * request renders the article again from the database — which is what this site
+ * did until this was added.
+ *
+ * Returning `[]` asks for no build-time prerendering, which is deliberate. A
+ * news archive is far too large to bake into an image, and enumerating it would
+ * make the build need a database. Each story is rendered once, on the first
+ * request for it, and served from cache after that.
+ */
+export function generateStaticParams(): { section: string; slug: string }[] {
+  return []
+}
 
 interface RouteParams {
   params: Promise<{ locale: string; section: string; slug: string }>
@@ -40,7 +58,7 @@ function categoryOf(article: { primaryCategory?: unknown }): Category | null {
 
 export async function generateMetadata({ params }: RouteParams): Promise<Metadata> {
   const { locale: raw, slug } = await params
-  if (!isLocale(raw)) return {}
+  if (!isPublicLocale(raw)) return {}
   const locale = raw
 
   // Route params arrive percent-encoded, and every slug here may be Bengali.
@@ -51,22 +69,29 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   const category = categoryOf(article)
   const path = articlePath(locale, category?.slug ?? 'news', article.slug ?? decodedSlug)
 
-  // The slug is localised, so an alternate only exists where a translation does.
+  /**
+   * The slug is localised, so an alternate only exists where a translation
+   * does — and only for locales the site actually publishes. While that is one
+   * locale the loop does no work and no query runs, which matters here: this
+   * used to fetch the article again in every locale on every article render.
+   */
   const alternates: Record<string, string> = {}
   const siteUrl = env().NEXT_PUBLIC_SITE_URL
-  for (const candidate of LOCALES) {
-    const translated = await getArticleBySlug(decodedSlug, candidate)
-    if (!translated?.slug) continue
-    const translatedCategory = categoryOf(translated)
-    alternates[candidate] = absoluteUrl(
-      articlePath(candidate, translatedCategory?.slug ?? 'news', translated.slug),
-      siteUrl,
-    )
-  }
+  if (PUBLIC_LOCALES.length > 1) {
+    for (const candidate of PUBLIC_LOCALES) {
+      const translated = await getArticleBySlug(decodedSlug, candidate)
+      if (!translated?.slug) continue
+      const translatedCategory = categoryOf(translated)
+      alternates[candidate] = absoluteUrl(
+        articlePath(candidate, translatedCategory?.slug ?? 'news', translated.slug),
+        siteUrl,
+      )
+    }
 
-  // Tells search engines which version to serve for unmatched languages.
-  const defaultAlternate = alternates[DEFAULT_LOCALE]
-  if (defaultAlternate) alternates['x-default'] = defaultAlternate
+    // Tells search engines which version to serve for unmatched languages.
+    const defaultAlternate = alternates[DEFAULT_LOCALE]
+    if (defaultAlternate) alternates['x-default'] = defaultAlternate
+  }
 
   return buildMetadata({
     locale,
@@ -84,16 +109,24 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
 
 export default async function ArticlePage({ params }: RouteParams) {
   const { locale: raw, section: sectionSlug, slug } = await params
-  if (!isLocale(raw)) notFound()
+  if (!isPublicLocale(raw)) notFound()
   const locale = raw
   const d = dictionary(locale)
 
   const decodedSlug = decodeURIComponent(slug)
   const article = await getArticleBySlug(decodedSlug, locale)
   if (!article) {
-    // The story may simply have moved. Checked only here, on the path that was
-    // already going to fail, so a reader following a live URL never pays for it.
-    await redirectIfKnown(`/${locale}/${decodeURIComponent(sectionSlug)}/${decodedSlug}`)
+    /**
+     * The story may simply have moved. Checked only here, on the path that was
+     * already going to fail, so a reader following a live URL never pays for it.
+     *
+     * Looked up by the *public* path, which is what an editor sees and types
+     * into the redirects collection. A `/bn/…` form would never match anyway:
+     * that URL is now permanently redirected before the route is reached.
+     */
+    await redirectIfKnown(
+      `${localePrefix(locale)}/${decodeURIComponent(sectionSlug)}/${decodedSlug}`,
+    )
     notFound()
   }
 

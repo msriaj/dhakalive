@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
-import { isLocale } from '@dhakalive/config'
+import { isPublicLocale } from '@dhakalive/config'
 import { MAX_QUERY_LENGTH } from '@dhakalive/search'
 
 import { Pagination } from '../../../../components/ArticleList'
@@ -38,7 +38,7 @@ function pageNumber(value: string | string[] | undefined): number {
 
 export async function generateMetadata({ params }: RouteParams): Promise<Metadata> {
   const { locale: raw } = await params
-  if (!isLocale(raw)) return {}
+  if (!isPublicLocale(raw)) return {}
 
   return buildMetadata({
     locale: raw,
@@ -50,7 +50,7 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
 
 export default async function SearchPage({ params, searchParams }: RouteParams) {
   const { locale: raw } = await params
-  if (!isLocale(raw)) notFound()
+  if (!isPublicLocale(raw)) notFound()
   const locale = raw
   const d = dictionary(locale)
 

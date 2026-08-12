@@ -63,10 +63,7 @@ function allowedHosts(): string[] {
 const validateRedirect: CollectionBeforeChangeHook = async ({ data, req, originalDoc }) => {
   const from = normaliseRedirectPath(data.from)
   if (!from) {
-    throw new APIError(
-      'The "from" value must be a site-relative path, for example /bn/old-slug',
-      400,
-    )
+    throw new APIError('The "from" value must be a site-relative path, for example /old-slug', 400)
   }
 
   const target = parseRedirectTarget(data.to, { allowedHosts: allowedHosts() })
@@ -159,7 +156,7 @@ export const Redirects: CollectionConfig = {
       index: true,
       admin: {
         description:
-          'The old path, including the locale — /bn/politics/old-slug. Query strings are ignored.',
+          'The old path as a reader would type it — /politics/old-slug. Bengali is served without a locale prefix, so do not include /bn. Query strings are ignored.',
       },
     },
     {

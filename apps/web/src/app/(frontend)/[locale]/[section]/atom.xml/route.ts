@@ -1,4 +1,4 @@
-import { isLocale } from '@dhakalive/config'
+import { isPublicLocale } from '@dhakalive/config'
 import type { NextResponse } from 'next/server'
 
 import { categoryFeed } from '../../../../../lib/seo/feed-data'
@@ -21,7 +21,7 @@ export async function GET(
   { params }: { params: Promise<{ locale: string; section: string }> },
 ): Promise<NextResponse> {
   const { locale, section } = await params
-  if (!isLocale(locale)) return feedNotFound()
+  if (!isPublicLocale(locale)) return feedNotFound()
 
   const feed = await categoryFeed(locale, decodeURIComponent(section), 'atom')
   return feed ? feedResponse(feed, 'atom') : feedNotFound()

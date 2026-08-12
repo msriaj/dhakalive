@@ -54,6 +54,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ARG NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ARG NEXT_PUBLIC_DEFAULT_LOCALE=bn
 ARG NEXT_PUBLIC_APP_VERSION=dev
+# Empty is the normal case: the app falls back to the property id in
+# @dhakalive/config. Set this only to point a build at a different one.
+ARG NEXT_PUBLIC_GA_ID=
 # Needed at *build* time, not just at runtime: `next.config.ts` turns it into
 # an `images.remotePatterns` entry while `next build` runs, and the optimiser
 # answers 400 for any host missing from that list. Passing it only to the
@@ -63,6 +66,7 @@ ARG CLOUDFLARE_MEDIA_PUBLIC_URL=
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_PUBLIC_DEFAULT_LOCALE=$NEXT_PUBLIC_DEFAULT_LOCALE
 ENV NEXT_PUBLIC_APP_VERSION=$NEXT_PUBLIC_APP_VERSION
+ENV NEXT_PUBLIC_GA_ID=$NEXT_PUBLIC_GA_ID
 ENV CLOUDFLARE_MEDIA_PUBLIC_URL=$CLOUDFLARE_MEDIA_PUBLIC_URL
 
 RUN pnpm build:packages \
@@ -92,6 +96,18 @@ RUN groupadd --system --gid 1001 nodejs \
 COPY --from=builder --chown=nextjs:nodejs /repo/apps/web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /repo/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder --chown=nextjs:nodejs /repo/apps/web/public ./apps/web/public
+
+# The incremental-regeneration and image-optimiser cache directory, created here
+# rather than left to the volume mount.
+#
+# Docker seeds a named volume from the image and adopts the image directory's
+# ownership — but only when that path exists in the image. Standalone output
+# carries no `cache/`, so without this the mountpoint is created root-owned,
+# `nextjs` cannot write to it, and Next silently re-renders every page and
+# re-encodes every image on every request. That is not a theoretical failure:
+# it is what production did until this line existed.
+RUN mkdir -p ./apps/web/.next/cache \
+  && chown nextjs:nodejs ./apps/web/.next/cache
 
 USER nextjs
 EXPOSE 3000

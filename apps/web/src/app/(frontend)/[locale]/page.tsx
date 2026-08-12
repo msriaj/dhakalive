@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
-import { DEFAULT_LOCALE, LOCALES, isLocale } from '@dhakalive/config'
+import { isPublicLocale } from '@dhakalive/config'
 
 import { ArticleCard } from '../../../components/ArticleCard'
 import { ArticleList } from '../../../components/ArticleList'
@@ -13,7 +13,7 @@ import { buildMetadata } from '../../../lib/metadata'
 import { composeHomepage } from '../../../lib/queries/home'
 import { getHomepage, getSeoDefaults, getSiteSettings } from '../../../lib/queries/globals'
 import { env } from '../../../lib/env'
-import { absoluteUrl, homePath } from '../../../lib/routes'
+import { homePath, localeAlternates } from '../../../lib/routes'
 import { homeGraph } from '../../../lib/seo/structured-data'
 
 /**
@@ -37,7 +37,7 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>
 }): Promise<Metadata> {
   const { locale: raw } = await params
-  if (!isLocale(raw)) return {}
+  if (!isPublicLocale(raw)) return {}
   const locale = raw
 
   const [settings, defaults] = await Promise.all([getSiteSettings(locale), getSeoDefaults(locale)])
@@ -49,19 +49,16 @@ export async function generateMetadata({
     absoluteTitle: true,
     description: settings.tagline ?? defaults.defaultDescription,
     path: homePath(locale),
-    alternates: {
-      ...Object.fromEntries<string>(
-        LOCALES.map((candidate) => [candidate, absoluteUrl(homePath(candidate), siteUrl)]),
-      ),
-      'x-default': absoluteUrl(homePath(DEFAULT_LOCALE), siteUrl),
-    },
+    // Built through the shared helper rather than inline, so that a locale the
+    // site does not publish cannot be announced to a crawler from here.
+    alternates: localeAlternates((candidate) => homePath(candidate), siteUrl),
     image: settings.logo,
   })
 }
 
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale: raw } = await params
-  if (!isLocale(raw)) notFound()
+  if (!isPublicLocale(raw)) notFound()
   const locale = raw
   const d = dictionary(locale)
 
