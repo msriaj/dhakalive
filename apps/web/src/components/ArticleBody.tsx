@@ -76,7 +76,6 @@ export async function ArticleBody({
   const settings = await getSiteSettings(locale)
   const siteName = settings.siteName ?? 'DhakaLive'
   const logoAsset = typeof settings.logo === 'object' ? settings.logo : null
-  const cardByline = [siteName, formatDate(article.publishedAt, locale)].filter(Boolean).join(' | ')
 
   /**
    * The hero is rendered from one definition in two possible positions rather
@@ -242,8 +241,7 @@ export async function ArticleBody({
           <PhotoCard
             headline={article.headline ?? ''}
             subheadline={article.subheadline ?? null}
-            category={category?.title ?? null}
-            byline={cardByline}
+            date={formatDate(article.publishedAt, locale)}
             imageUrl={heroUrl}
             logoUrl={logoAsset?.url ?? null}
             siteName={siteName}

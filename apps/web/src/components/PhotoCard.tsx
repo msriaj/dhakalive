@@ -10,9 +10,9 @@ import { dictionary } from '../lib/dictionary'
  * Builds a shareable picture of a story, in the browser.
  *
  * A social card that a desk can post to Facebook or WhatsApp without opening a
- * design tool: the section, the headline, the standfirst, the byline, the
- * story's own photograph and the masthead. Drawn on a canvas rather than
- * assembled from HTML, because the alternatives are worse — `html2canvas`
+ * design tool: the masthead and date, the headline, the standfirst and the
+ * story's own photograph. Drawn on a canvas rather than assembled from HTML,
+ * because the alternatives are worse — `html2canvas`
  * re-implements a layout engine badly and gets Bengali shaping wrong, and
  * rendering it on the server would mean a headless browser or a font pipeline
  * on a box that is already short of CPU.
@@ -31,13 +31,12 @@ const HEADLINE_MAX = 68
 const HEADLINE_MIN = 38
 const SUB_SIZE = 30
 const SUB_LINES = 2
-const BYLINE_SIZE = 26
-const CHIP_SIZE = 26
+const DATE_SIZE = 26
 
 /**
  * The floor the photograph is never allowed below.
  *
- * The text block grew a section chip and a standfirst, and left to itself it
+ * The text block carries a headline and a standfirst, and left to itself it
  * would take whatever it needed — on a long headline with a long standfirst,
  * enough that the picture became a strip. The type shrinks to protect this
  * rather than the other way round: a card whose photograph is 200px tall is a
@@ -146,8 +145,7 @@ function optimised(url: string, width: 640 | 1080): string {
 export function PhotoCard({
   headline,
   subheadline,
-  category,
-  byline,
+  date,
   imageUrl,
   logoUrl,
   siteName,
@@ -156,13 +154,11 @@ export function PhotoCard({
   headline: string
   /** Printed under the headline when there is one, at two lines at most. */
   subheadline: string | null
-  /** The section name, set as a coloured chip above the headline. */
-  category: string | null
-  /** Desk and date, printed under the standfirst as the papers set it. */
-  byline: string
+  /** Publication date, set at the top right opposite the masthead. */
+  date: string
   /** The story's featured image, as a raw URL; the optimiser is asked for it here. */
   imageUrl: string | null
-  /** The masthead, drawn on a white badge over the picture. */
+  /** The masthead, drawn at the top left of the card. */
   logoUrl: string | null
   siteName: string
   locale: Locale
@@ -206,22 +202,42 @@ export function PhotoCard({
 
       let y = PADDING
 
-      // ---------------------------------------------------------- section chip
-      if (category) {
-        ctx.font = `700 ${String(CHIP_SIZE)}px ${display}`
-        const textWidth = ctx.measureText(category).width
-        const chipHeight = CHIP_SIZE * 1.9
-        const chipWidth = textWidth + CHIP_SIZE * 1.6
+      /*
+       * The masthead row: the mark on the left, the date on the right.
+       *
+       * At the top of the card rather than over the foot of the picture. A
+       * reader meets a shared card top-first, and both of these are the frame
+       * around the story — who published it and when — rather than part of it.
+       * Keeping them on one line also costs the headline nothing.
+       */
+      const logo = logoUrl ? await loadImage(optimised(logoUrl, 640)) : null
+      const mastheadHeight = 46
 
+      if (logo && logo.width > 0) {
+        const logoWidth = (logo.width / logo.height) * mastheadHeight
+        ctx.drawImage(logo, PADDING, y, logoWidth, mastheadHeight)
+      } else {
+        // No logo uploaded, or one the optimiser refuses — an SVG, usually. The
+        // name set in the brand colour is the honest fallback.
+        ctx.font = `700 34px ${display}`
         ctx.fillStyle = BRAND
-        ctx.beginPath()
-        ctx.roundRect(PADDING, y, chipWidth, chipHeight, chipHeight / 2)
-        ctx.fill()
-
-        ctx.fillStyle = '#ffffff'
-        ctx.fillText(category, PADDING + CHIP_SIZE * 0.8, y + chipHeight * 0.68)
-        y += chipHeight + 28
+        ctx.textBaseline = 'middle'
+        ctx.fillText(siteName, PADDING, y + mastheadHeight / 2)
+        ctx.textBaseline = 'alphabetic'
       }
+
+      if (date) {
+        ctx.font = `400 ${String(DATE_SIZE)}px ${display}`
+        ctx.fillStyle = 'rgba(0,0,0,0.55)'
+        ctx.textAlign = 'right'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(date, WIDTH - PADDING, y + mastheadHeight / 2)
+        // Reset both: the canvas state is shared with everything drawn below.
+        ctx.textAlign = 'left'
+        ctx.textBaseline = 'alphabetic'
+      }
+
+      y += mastheadHeight + 40
 
       /*
        * The headline is fitted to the space left once the picture has taken its
@@ -229,8 +245,7 @@ export function PhotoCard({
        * headline is worse than one whose headline is small.
        */
       const subLineHeight = SUB_SIZE * 1.4
-      const reserved =
-        (subheadline ? subLineHeight * SUB_LINES + 20 : 0) + BYLINE_SIZE + 44 + PADDING
+      const reserved = (subheadline ? subLineHeight * SUB_LINES + 20 : 0) + 44 + PADDING
       const available = HEIGHT - MIN_IMAGE_HEIGHT - y - reserved
 
       const segments = segmentsFor(headline)
@@ -287,10 +302,6 @@ export function PhotoCard({
         }
       }
 
-      ctx.font = `400 ${String(BYLINE_SIZE)}px ${display}`
-      ctx.fillStyle = 'rgba(0,0,0,0.55)'
-      ctx.fillText(byline, PADDING, y + 10)
-
       const imageTop = y + 44
 
       // ---------------------------------------------------------- the picture
@@ -316,43 +327,6 @@ export function PhotoCard({
           drawHeight,
         )
         ctx.restore()
-      }
-
-      // ------------------------------------------------------------- masthead
-      const logo = logoUrl ? await loadImage(optimised(logoUrl, 640)) : null
-
-      if (logo && logo.width > 0) {
-        /*
-         * On a white badge, not straight onto the photograph. A masthead is
-         * drawn in its own colours — this one is black and red — and those
-         * disappear against a dark press picture. A panel keeps the brand
-         * intact instead of asking the logo to survive any background.
-         */
-        const logoHeight = 46
-        const logoWidth = (logo.width / logo.height) * logoHeight
-        const padX = 22
-        const padY = 16
-        const badgeHeight = logoHeight + padY * 2
-        const badgeY = HEIGHT - PADDING - badgeHeight
-
-        ctx.fillStyle = '#ffffff'
-        ctx.beginPath()
-        ctx.roundRect(PADDING, badgeY, logoWidth + padX * 2, badgeHeight, 12)
-        ctx.fill()
-
-        ctx.drawImage(logo, PADDING + padX, badgeY + padY, logoWidth, logoHeight)
-      } else if (image) {
-        // No logo uploaded, or one the optimiser refuses — an SVG, usually.
-        // The name over a scrim is the honest fallback.
-        const gradient = ctx.createLinearGradient(0, HEIGHT - 180, 0, HEIGHT)
-        gradient.addColorStop(0, 'rgba(0,0,0,0)')
-        gradient.addColorStop(1, 'rgba(0,0,0,0.55)')
-        ctx.fillStyle = gradient
-        ctx.fillRect(0, HEIGHT - 180, WIDTH, 180)
-
-        ctx.font = `700 34px ${display}`
-        ctx.fillStyle = '#ffffff'
-        ctx.fillText(siteName, PADDING, HEIGHT - PADDING)
       }
 
       const blob = await new Promise<Blob | null>((resolve) => {
