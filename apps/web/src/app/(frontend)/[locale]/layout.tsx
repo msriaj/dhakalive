@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import type React from 'react'
 
-import { PUBLIC_LOCALES, isPublicLocale } from '@dhakalive/config'
+import { isPublicLocale } from '@dhakalive/config'
 
 import { AdSlot } from '../../../components/AdSlot'
 import { SiteFooter } from '../../../components/SiteFooter'
@@ -17,24 +17,28 @@ import { dictionary } from '../../../lib/dictionary'
  * requirement; the root `<html lang>` carries the default.
  */
 /**
- * The published locales, and nothing else.
+ * Declared, and deliberately empty.
  *
- * This used to be omitted on the reasoning that a route without
- * `generateStaticParams` still fills the full route cache on first request.
- * It does not. Next lists a dynamic route in its prerender manifest only if the
- * route declares its params, and a route that is not in the manifest is served
- * dynamically — no cache entry is ever written, and the `revalidate` exports on
- * the pages below have nothing to act on. Production ran that way: every page,
- * every request, a full render against the database.
+ * The function has to exist. Next lists a dynamic route in its prerender
+ * manifest only if the route declares its params, and a route absent from the
+ * manifest is served dynamically — no cache entry is ever written, and the
+ * `revalidate` exports on the pages below have nothing to act on. This app
+ * declared it nowhere, and production ran that way: every page, every request,
+ * a full render against the database.
  *
- * The concern behind the omission was real, and is kept. Prerendering must not
- * require a reachable database, or the image only builds while infrastructure
- * is up. It does not require one here: this list is a constant, and every
- * dynamic segment underneath returns `[]` — build nothing, cache everything on
- * first request. Unknown locales still 404 via the check below.
+ * The list is empty because returning the locales would prerender them, and
+ * *rendering* the front page reads from Postgres even though *enumerating* the
+ * locales does not. That is the failure the original comment here warned about
+ * and it is a real one: an image that only builds while the database is up
+ * cannot be rebuilt in a clean CI runner or during an incident.
+ *
+ * Empty gets both. Nothing is built ahead of time, and with `dynamicParams`
+ * left at its default every locale is rendered on first request and then held
+ * in the route cache for its `revalidate` window. Unknown locales still 404 via
+ * the check below.
  */
 export function generateStaticParams(): { locale: string }[] {
-  return PUBLIC_LOCALES.map((locale) => ({ locale }))
+  return []
 }
 
 export default async function LocaleLayout({
