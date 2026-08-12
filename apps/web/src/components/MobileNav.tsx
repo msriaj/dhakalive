@@ -106,8 +106,30 @@ export function MobileNav({
           </button>
         </div>
 
-        {/* Scrolls independently: a long section list must not be unreachable. */}
-        <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-2">{children}</div>
+        {/*
+          Scrolls independently: a long section list must not be unreachable.
+
+          The click is caught here rather than bound to each link because the
+          links are `children` — server-rendered by the header, which cannot
+          hand a handler across that boundary. One listener on the container
+          covers every one of them, now and whenever the menu gains more.
+
+          Closing on navigation is not optional. The App Router keeps this
+          component mounted across a route change, so without it the drawer
+          stays open over the page the reader just asked for and looks like a
+          tap that did nothing.
+
+          `setIsOpen` rather than `close()`: focus belongs to the new page, not
+          back on the hamburger the reader has finished with.
+        */}
+        <div
+          className="flex-1 overflow-y-auto overscroll-contain px-4 py-2"
+          onClick={(event) => {
+            if ((event.target as HTMLElement).closest('a')) setIsOpen(false)
+          }}
+        >
+          {children}
+        </div>
       </nav>
     </div>
   )
