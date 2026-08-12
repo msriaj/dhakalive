@@ -12,6 +12,8 @@
  * believe.
  */
 
+import { unprefixedPathMatcher } from '../routing/locale-routing'
+
 export interface HeaderRule {
   source: string
   headers: { key: string; value: string }[]
@@ -24,9 +26,6 @@ export const ROBOTS_CACHE = 'public, s-maxage=3600, stale-while-revalidate=86400
 export const HOME_CACHE = 'public, s-maxage=60, stale-while-revalidate=300, max-age=0'
 export const PUBLIC_CACHE = 'public, s-maxage=300, stale-while-revalidate=3600, max-age=0'
 
-/** Locales, inlined as a route-matcher alternation. */
-const LOCALE_MATCH = ':locale(bn|en)'
-
 export function cacheHeaderRules(): HeaderRule[] {
   const noStore = [{ key: 'Cache-Control', value: NO_STORE }]
 
@@ -38,7 +37,7 @@ export function cacheHeaderRules(): HeaderRule[] {
     // Search depends on user input and is thin, infinitely-variable content:
     // neither cached nor indexed.
     {
-      source: `/${LOCALE_MATCH}/search`,
+      source: '/search',
       headers: [...noStore, { key: 'X-Robots-Tag', value: 'noindex, follow' }],
     },
 
@@ -53,12 +52,20 @@ export function cacheHeaderRules(): HeaderRule[] {
     { source: '/sitemaps/:path*', headers: [{ key: 'Cache-Control', value: CRAWLER_CACHE }] },
 
     // Home: shortest window, highest churn.
-    { source: `/${LOCALE_MATCH}`, headers: [{ key: 'Cache-Control', value: HOME_CACHE }] },
+    { source: '/', headers: [{ key: 'Cache-Control', value: HOME_CACHE }] },
 
-    // Everything else public — articles, listings, archives, live blogs. The
-    // negative lookahead keeps this from overlapping the search rule above.
+    /**
+     * Everything else public — articles, listings, archives, live blogs.
+     *
+     * Bengali is served unprefixed, so this catch-all sits at the root and has
+     * to exclude by hand everything that is not an article: the passthrough
+     * list the rewrite uses, plus `search`, which has its own rule above, plus
+     * the empty path, which is the home rule's. Next applies *every* matching
+     * rule, and two `Cache-Control` headers on one response is whatever the
+     * proxy in front decides to believe.
+     */
     {
-      source: `/${LOCALE_MATCH}/:path((?!search$).*)`,
+      source: unprefixedPathMatcher(['search$', '$']),
       headers: [{ key: 'Cache-Control', value: PUBLIC_CACHE }],
     },
   ]

@@ -27,11 +27,14 @@ function cacheControlOf(source: string): string | undefined {
 
 /** Crude matcher mirroring Next's path-to-regexp semantics closely enough. */
 function matches(source: string, path: string): boolean {
-  const pattern = source
-    .replace(':locale(bn|en)', '(?:bn|en)')
-    .replace(/:path\(\(\?!search\$\)\.\*\)/, '(?!search$).*')
-    .replace(/:path\*/g, '.*')
-  return new RegExp(`^${pattern}$`).test(path)
+  // `/:path(<regex>)` — one parameter carrying its own matcher, which is how
+  // the catch-all public rule excludes the passthrough list.
+  const custom = /^\/:path\((.*)\)$/.exec(source)
+  if (custom) return new RegExp(`^/(?:${custom[1]})$`).test(path)
+
+  // `/:path*` — zero or more trailing segments, so `/api` matches as well as
+  // `/api/users`.
+  return new RegExp(`^${source.replace(/\/:path\*/g, '(?:/.*)?')}$`).test(path)
 }
 
 describe('authenticated surfaces', () => {
@@ -53,15 +56,34 @@ describe('authenticated surfaces', () => {
 
 describe('search', () => {
   it('is not cached and not indexed', () => {
-    const rule = ruleFor('/:locale(bn|en)/search')
+    const rule = ruleFor('/search')
     expect(rule?.headers).toContainEqual({ key: 'Cache-Control', value: NO_STORE })
     expect(rule?.headers).toContainEqual({ key: 'X-Robots-Tag', value: 'noindex, follow' })
   })
+})
 
-  it('is excluded from the general public rule', () => {
+describe('the catch-all public rule', () => {
+  const source = rules.find((rule) => rule.source.startsWith('/:path('))?.source ?? ''
+
+  it('covers articles and listings', () => {
+    for (const path of ['/রাজনীতি', '/রাজনীতি/story-slug', '/tag/x', '/archive/2026/08']) {
+      expect(matches(source, path), `${path} should be publicly cached`).toBe(true)
+    }
+  })
+
+  it('leaves static assets alone', () => {
+    // A Cache-Control header here would override the immutable one Next sets
+    // on hashed assets, and every page view would re-fetch the bundle.
+    for (const path of ['/_next/static/chunk.css', '/fonts/solaimanlipi-400.woff2']) {
+      expect(matches(source, path), `${path} must not be matched`).toBe(false)
+    }
+  })
+
+  it('does not swallow the rules that own their own paths', () => {
     // Two Cache-Control headers on one response is the failure this prevents.
-    expect(matches('/:locale(bn|en)/:path((?!search$).*)', '/bn/search')).toBe(false)
-    expect(matches('/:locale(bn|en)/:path((?!search$).*)', '/bn/politics')).toBe(true)
+    for (const path of ['/', '/search', '/api/health', '/admin', '/robots.txt', '/sitemap.xml']) {
+      expect(matches(source, path), `${path} must not be matched`).toBe(false)
+    }
   })
 })
 
@@ -116,18 +138,19 @@ describe('rule set', () => {
 
   it('never applies two rules to the same path', () => {
     const paths = [
-      '/bn',
-      '/en',
-      '/bn/politics',
-      '/bn/politics/some-article',
-      '/bn/search',
-      '/bn/archive/2026/08/10',
+      '/',
+      '/রাজনীতি',
+      '/রাজনীতি/some-article',
+      '/search',
+      '/archive/2026/08/10',
       '/api/articles',
       '/admin/collections/articles',
       '/robots.txt',
       '/sitemap.xml',
       '/sitemaps/articles-1.xml',
-      '/bn/rss.xml',
+      '/rss.xml',
+      '/_next/static/chunk.css',
+      '/fonts/solaimanlipi-400.woff2',
     ]
 
     for (const path of paths) {

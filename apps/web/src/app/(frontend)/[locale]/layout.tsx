@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import type React from 'react'
 
-import { isLocale } from '@dhakalive/config'
+import { PUBLIC_LOCALES, isPublicLocale } from '@dhakalive/config'
 
 import { AdSlot } from '../../../components/AdSlot'
 import { SiteFooter } from '../../../components/SiteFooter'
@@ -17,18 +17,25 @@ import { dictionary } from '../../../lib/dictionary'
  * requirement; the root `<html lang>` carries the default.
  */
 /**
- * Deliberately no `generateStaticParams`.
+ * The published locales, and nothing else.
  *
- * Exporting the locale list here would make Next prerender `/bn` and `/en` at
- * build time, which means the *image build* needs a reachable database. An
- * artifact that only builds when infrastructure is up cannot be rebuilt in a
- * clean CI runner or during an incident, and it bakes environment coupling into
- * something that should be environment-independent.
+ * This used to be omitted on the reasoning that a route without
+ * `generateStaticParams` still fills the full route cache on first request.
+ * It does not. Next lists a dynamic route in its prerender manifest only if the
+ * route declares its params, and a route that is not in the manifest is served
+ * dynamically — no cache entry is ever written, and the `revalidate` exports on
+ * the pages below have nothing to act on. Production ran that way: every page,
+ * every request, a full render against the database.
  *
- * Without it these routes render on first request and are then stored in the
- * full route cache under their `revalidate` window — the same caching, filled
- * lazily instead of at build. Unknown locales still 404 via the check below.
+ * The concern behind the omission was real, and is kept. Prerendering must not
+ * require a reachable database, or the image only builds while infrastructure
+ * is up. It does not require one here: this list is a constant, and every
+ * dynamic segment underneath returns `[]` — build nothing, cache everything on
+ * first request. Unknown locales still 404 via the check below.
  */
+export function generateStaticParams(): { locale: string }[] {
+  return PUBLIC_LOCALES.map((locale) => ({ locale }))
+}
 
 export default async function LocaleLayout({
   children,
@@ -38,7 +45,10 @@ export default async function LocaleLayout({
   params: Promise<{ locale: string }>
 }) {
   const { locale: raw } = await params
-  if (!isLocale(raw)) notFound()
+  // `isPublicLocale`, not `isLocale`: English is authored but unpublished, so
+  // `/en/…` must 404 rather than render — the redirect sends readers to the
+  // Bengali equivalent, and this is what stops anything slipping past it.
+  if (!isPublicLocale(raw)) notFound()
 
   const locale = raw
   const d = dictionary(locale)

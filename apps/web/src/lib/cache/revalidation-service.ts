@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 
 import { LOCALES } from '@dhakalive/config'
 import { createCloudflarePurger, noopPurger, type CachePurger } from '@dhakalive/cache'
+import { toRoutePath } from '../routing/locale-routing'
 import {
   CacheTag,
   computeRevalidationTargets,
@@ -68,12 +69,19 @@ function revalidateNextPaths(targets: RevalidationTargets): { paths: number; lay
    */
   for (const locale of LOCALES) {
     if (!targets.tags.includes(CacheTag.layout(locale))) continue
+    // The route path, not the public one: the locale layout is `/bn` even when
+    // what a reader types is `/`.
     revalidatePath(`/${locale}`, 'layout')
     layouts += 1
   }
 
+  /**
+   * Translated on the way in. `targets.paths` are public URLs, which is what
+   * the CDN purge below needs; Next's route cache is keyed by the path that
+   * actually rendered. See `toRoutePath`.
+   */
   for (const path of targets.paths) {
-    revalidatePath(path)
+    revalidatePath(toRoutePath(path))
   }
 
   return { paths: targets.paths.length, layouts }

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react'
 
-import { isLocale } from '@dhakalive/config'
+import { isPublicLocale } from '@dhakalive/config'
 
 import { ArticleBody } from '../../../../../components/ArticleBody'
 import { getNextArticle } from '../../../../../lib/queries/articles'
@@ -36,7 +36,7 @@ export async function loadNextArticle(input: {
   /** Everything already on the page, so a shared timestamp cannot repeat one. */
   seen: number[]
 }): Promise<NextArticle | null> {
-  if (!isLocale(input.locale)) return null
+  if (!isPublicLocale(input.locale)) return null
 
   /*
    * Bounded on the way in. `seen` arrives from the browser and is the only

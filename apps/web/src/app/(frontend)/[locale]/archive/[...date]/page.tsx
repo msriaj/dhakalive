@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
-import { isLocale, type Locale } from '@dhakalive/config'
+import { isPublicLocale, type Locale } from '@dhakalive/config'
 
 import { ArticleList, Pagination } from '../../../../../components/ArticleList'
 import { Breadcrumbs } from '../../../../../components/Breadcrumbs'
@@ -80,7 +80,7 @@ function label(range: Range, locale: Locale): string {
 
 export async function generateMetadata({ params }: RouteParams): Promise<Metadata> {
   const { locale: raw, date } = await params
-  if (!isLocale(raw)) return {}
+  if (!isPublicLocale(raw)) return {}
   const range = parseRange(date)
   if (!range) return {}
 
@@ -94,7 +94,7 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
 
 export default async function ArchivePage({ params, searchParams }: RouteParams) {
   const { locale: raw, date } = await params
-  if (!isLocale(raw)) notFound()
+  if (!isPublicLocale(raw)) notFound()
   const locale = raw
   const d = dictionary(locale)
 

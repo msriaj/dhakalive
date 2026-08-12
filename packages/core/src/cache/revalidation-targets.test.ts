@@ -36,9 +36,9 @@ describe('article changes', () => {
   it('invalidates the article, its section, the home page and the feeds on publish', () => {
     const targets = computeRevalidationTargets(articleEvent())
 
-    expect(targets.paths).toContain('/bn/politics/dhaka-metro')
-    expect(targets.paths).toContain('/bn/politics')
-    expect(targets.paths).toContain('/bn')
+    expect(targets.paths).toContain('/politics/dhaka-metro')
+    expect(targets.paths).toContain('/politics')
+    expect(targets.paths).toContain('/')
     expect(targets.tags).toContain(CacheTag.article('bn', 42))
     expect(targets.tags).toContain(CacheTag.articleFeed('bn'))
     expect(targets.tags).toContain(CacheTag.home('bn'))
@@ -48,7 +48,7 @@ describe('article changes', () => {
   it('still invalidates when an article is unpublished', () => {
     // The story is gone, but the pages that listed it are now wrong.
     const targets = computeRevalidationTargets(articleEvent({ wasPublic: true, isPublic: false }))
-    expect(targets.paths).toContain('/bn/politics/dhaka-metro')
+    expect(targets.paths).toContain('/politics/dhaka-metro')
     expect(targets.tags).toContain(CacheTag.articleFeed('bn'))
   })
 
@@ -60,18 +60,18 @@ describe('article changes', () => {
         isPublic: true,
       }),
     )
-    expect(targets.paths).toContain('/bn/politics/dhaka-metro-line-6')
-    expect(targets.paths).toContain('/bn/politics/dhaka-metro')
+    expect(targets.paths).toContain('/politics/dhaka-metro-line-6')
+    expect(targets.paths).toContain('/politics/dhaka-metro')
   })
 
   it('purges both sections when an article moves between them', () => {
     const targets = computeRevalidationTargets(
       articleEvent({ categorySlug: 'business', previousCategorySlug: 'politics' }),
     )
-    expect(targets.paths).toContain('/bn/business/dhaka-metro')
-    expect(targets.paths).toContain('/bn/politics/dhaka-metro')
-    expect(targets.paths).toContain('/bn/business')
-    expect(targets.paths).toContain('/bn/politics')
+    expect(targets.paths).toContain('/business/dhaka-metro')
+    expect(targets.paths).toContain('/politics/dhaka-metro')
+    expect(targets.paths).toContain('/business')
+    expect(targets.paths).toContain('/politics')
   })
 
   it('invalidates every author and tag the story touches', () => {
@@ -79,13 +79,13 @@ describe('article changes', () => {
     expect(targets.tags).toContain(CacheTag.tag('bn', 1))
     expect(targets.tags).toContain(CacheTag.tag('bn', 2))
     expect(targets.tags).toContain(CacheTag.author('bn', 5))
-    expect(targets.paths).toContain('/bn/author/rafiq-ahmed')
+    expect(targets.paths).toContain('/author/rafiq-ahmed')
   })
 
   it('invalidates the archive day, in the newsroom timezone', () => {
     // 2026-08-10T04:00Z is 10:00 on 10 August in Dhaka (UTC+6).
     const targets = computeRevalidationTargets(articleEvent())
-    expect(targets.paths).toContain('/bn/archive/2026/08/10')
+    expect(targets.paths).toContain('/archive/2026/08/10')
   })
 
   it('rolls the archive day forward for late-evening UTC timestamps', () => {
@@ -93,7 +93,7 @@ describe('article changes', () => {
     const targets = computeRevalidationTargets(
       articleEvent({ publishedAt: '2026-08-09T21:00:00.000Z' }),
     )
-    expect(targets.paths).toContain('/bn/archive/2026/08/10')
+    expect(targets.paths).toContain('/archive/2026/08/10')
   })
 
   it('ignores an unparseable publication date instead of throwing', () => {
@@ -118,9 +118,12 @@ describe('article changes', () => {
     expect(new Set(targets.tags).size).toBe(targets.tags.length)
   })
 
-  it('keeps locales separate', () => {
+  it('keeps locales separate, and keeps a prefixed locale prefixed', () => {
+    // Bengali is the unprefixed default; anything else still carries its
+    // prefix, which is what lets English be published without moving a single
+    // Bengali URL.
     const targets = computeRevalidationTargets(articleEvent({ locale: 'en' }))
-    expect(targets.paths.every((path) => path.startsWith('/en'))).toBe(true)
+    expect(targets.paths.every((path) => path === '/en' || path.startsWith('/en/'))).toBe(true)
     expect(targets.tags).toContain(CacheTag.home('en'))
     expect(targets.tags).not.toContain(CacheTag.home('bn'))
   })
@@ -134,8 +137,8 @@ describe('taxonomy changes', () => {
       category: { id: 7, slug: 'politics' },
     })
     expect(targets.tags).toContain(CacheTag.layout('bn'))
-    expect(targets.paths).toContain('/bn/politics')
-    expect(targets.paths).toContain('/bn')
+    expect(targets.paths).toContain('/politics')
+    expect(targets.paths).toContain('/')
   })
 
   it('purges an old category URL after a rename', () => {
@@ -144,8 +147,8 @@ describe('taxonomy changes', () => {
       locale: 'bn',
       category: { id: 7, slug: 'business', previousSlug: 'economy' },
     })
-    expect(targets.paths).toContain('/bn/business')
-    expect(targets.paths).toContain('/bn/economy')
+    expect(targets.paths).toContain('/business')
+    expect(targets.paths).toContain('/economy')
   })
 
   it('keeps tag and author changes narrow', () => {
@@ -154,7 +157,7 @@ describe('taxonomy changes', () => {
       locale: 'bn',
       tag: { id: 3, slug: 'budget' },
     })
-    expect(tagTargets.paths).toEqual(['/bn/tag/budget'])
+    expect(tagTargets.paths).toEqual(['/tag/budget'])
     // A tag rename must not invalidate the whole site.
     expect(tagTargets.tags).not.toContain(CacheTag.layout('bn'))
 
@@ -163,7 +166,7 @@ describe('taxonomy changes', () => {
       locale: 'bn',
       author: { id: 5, slug: 'rafiq-ahmed' },
     })
-    expect(authorTargets.paths).toEqual(['/bn/author/rafiq-ahmed'])
+    expect(authorTargets.paths).toEqual(['/author/rafiq-ahmed'])
   })
 })
 
@@ -174,7 +177,7 @@ describe('live blogs', () => {
       locale: 'bn',
       liveBlog: { id: 11, slug: 'election-night' },
     })
-    expect(targets.paths).toEqual(['/bn/live/election-night'])
+    expect(targets.paths).toEqual(['/live/election-night'])
     // Entries are posted constantly; touching the sitemap each time is waste.
     expect(targets.tags).not.toContain(CacheTag.sitemap())
   })
@@ -196,7 +199,7 @@ describe('globals', () => {
       locale: 'bn',
       global: 'homepage',
     })
-    expect(targets.paths).toEqual(['/bn'])
+    expect(targets.paths).toEqual(['/'])
     expect(targets.tags).toEqual([CacheTag.home('bn')])
   })
 
@@ -206,7 +209,7 @@ describe('globals', () => {
       const targets = computeRevalidationTargets({ type: 'global', locale: 'bn', global })
       expect(targets.tags).toContain(CacheTag.layout('bn'))
       // The affected URL set is the whole site; enumerating it is not possible.
-      expect(targets.paths).toEqual(['/bn'])
+      expect(targets.paths).toEqual(['/'])
     },
   )
 })
@@ -218,14 +221,16 @@ describe('mergeTargets', () => {
       computeRevalidationTargets(articleEvent()),
     )
     expect(new Set(merged.paths).size).toBe(merged.paths.length)
-    expect(merged.paths).toContain('/bn/politics/dhaka-metro')
+    expect(merged.paths).toContain('/politics/dhaka-metro')
   })
 })
 
 describe('allLocaleHomes', () => {
-  it('covers every configured locale', () => {
+  it('covers every published locale, and only those', () => {
+    // English is authored but unpublished, so purging it would be work done on
+    // a surface no reader can reach.
     const targets = allLocaleHomes()
-    expect(targets.paths).toContain('/bn')
-    expect(targets.paths).toContain('/en')
+    expect(targets.paths).toEqual(['/'])
+    expect(targets.tags).toContain(CacheTag.home('bn'))
   })
 })

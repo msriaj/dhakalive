@@ -1,4 +1,4 @@
-import { isLocale } from '@dhakalive/config'
+import { isPublicLocale } from '@dhakalive/config'
 import type { NextResponse } from 'next/server'
 
 import { siteFeed } from '../../../../lib/seo/feed-data'
@@ -17,7 +17,7 @@ export async function GET(
   { params }: { params: Promise<{ locale: string }> },
 ): Promise<NextResponse> {
   const { locale } = await params
-  if (!isLocale(locale)) return feedNotFound()
+  if (!isPublicLocale(locale)) return feedNotFound()
 
   return feedResponse(await siteFeed(locale, 'rss'), 'rss')
 }

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
-import { isLocale } from '@dhakalive/config'
+import { isPublicLocale, localePrefix } from '@dhakalive/config'
 
 import { ArticleList, Pagination } from '../../../../../components/ArticleList'
 import { Breadcrumbs } from '../../../../../components/Breadcrumbs'
@@ -28,7 +28,7 @@ function pageNumber(value: string | string[] | undefined): number {
 
 export async function generateMetadata({ params }: RouteParams): Promise<Metadata> {
   const { locale: raw, slug } = await params
-  if (!isLocale(raw)) return {}
+  if (!isPublicLocale(raw)) return {}
   const decoded = decodeURIComponent(slug)
   const tag = await getTagBySlug(decoded, raw)
   if (!tag) return {}
@@ -44,14 +44,14 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
 
 export default async function TagPage({ params, searchParams }: RouteParams) {
   const { locale: raw, slug } = await params
-  if (!isLocale(raw)) notFound()
+  if (!isPublicLocale(raw)) notFound()
   const locale = raw
   const decoded = decodeURIComponent(slug)
   const page = pageNumber((await searchParams).page)
 
   const tag = await getTagBySlug(decoded, locale)
   if (!tag) {
-    await redirectIfKnown(`/${locale}/tag/${decoded}`)
+    await redirectIfKnown(`${localePrefix(locale)}/tag/${decoded}`)
     notFound()
   }
 

@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { LOCALES, type Locale } from '@dhakalive/config'
+import { PUBLIC_LOCALES, type Locale } from '@dhakalive/config'
 import { MAX_NEWS_SITEMAP_ENTRIES, MAX_SITEMAP_ENTRIES, type SitemapEntry } from '@dhakalive/core'
 
 import { mediaUrl } from '../media'
@@ -104,7 +104,7 @@ async function findArticles(
 }
 
 export async function countArticleSitemaps(): Promise<number> {
-  const { totalDocs } = await findArticles(LOCALES[0], { limit: 1 })
+  const { totalDocs } = await findArticles(PUBLIC_LOCALES[0]!, { limit: 1 })
   // Always advertise at least one chunk: an index pointing at nothing looks like
   // a broken site rather than an empty one.
   return Math.max(1, Math.ceil(totalDocs / ARTICLES_PER_SITEMAP))
@@ -124,19 +124,19 @@ export async function articleSitemapEntries(page: number): Promise<SitemapEntry[
   // Pagination is driven from the default locale so chunk boundaries are stable
   // across locales; a story missing a translation still falls back.
   const byLocale = new Map<Locale, ArticleRow[]>()
-  for (const locale of LOCALES) {
+  for (const locale of PUBLIC_LOCALES) {
     const { docs } = await findArticles(locale, { limit: ARTICLES_PER_SITEMAP, page })
     byLocale.set(locale, docs)
   }
 
-  for (const locale of LOCALES) {
+  for (const locale of PUBLIC_LOCALES) {
     for (const article of byLocale.get(locale) ?? []) {
       const category = categorySlugOf(article.primaryCategory)
       if (!category || !article.slug) continue
 
       const path = articlePath(locale, category, article.slug)
 
-      const alternates = LOCALES.flatMap((other) => {
+      const alternates = PUBLIC_LOCALES.flatMap((other) => {
         const match = byLocale.get(other)?.find((entry) => entry.id === article.id)
         const otherCategory = categorySlugOf(match?.primaryCategory)
         if (!match?.slug || !otherCategory) return []
@@ -177,7 +177,7 @@ export async function newsSitemapEntries(): Promise<SitemapEntry[]> {
   const settings = await getSiteSettings('en')
   const publicationName = settings.siteName ?? 'DhakaLive'
 
-  for (const locale of LOCALES) {
+  for (const locale of PUBLIC_LOCALES) {
     const { docs } = await findArticles(locale, { limit: MAX_NEWS_SITEMAP_ENTRIES, since })
 
     for (const article of docs) {
@@ -209,12 +209,12 @@ export async function taxonomySitemapEntries(): Promise<SitemapEntry[]> {
   const url = siteUrl()
   const entries: SitemapEntry[] = []
 
-  for (const locale of LOCALES) {
+  for (const locale of PUBLIC_LOCALES) {
     entries.push({
       loc: absoluteUrl(homePath(locale), url),
       changefreq: 'hourly',
       priority: 1,
-      alternates: LOCALES.map((other) => ({
+      alternates: PUBLIC_LOCALES.map((other) => ({
         hreflang: other,
         href: absoluteUrl(homePath(other), url),
       })),
