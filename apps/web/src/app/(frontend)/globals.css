@@ -200,18 +200,11 @@
     font-weight: 700;
     line-height: 1.15;
     letter-spacing: -0.015em;
-    text-wrap: balance;
   }
 
   h1 {
     line-height: 1.1;
     letter-spacing: -0.025em;
-  }
-
-  /* Long-form copy wants a measure, not the full column. `text-wrap: pretty`
-     keeps a single word from being stranded on the last line of a paragraph. */
-  p {
-    text-wrap: pretty;
   }
 
   figcaption {
@@ -346,6 +339,13 @@
     *,
     *::before,
     *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
 
 /*
  * Press feedback, on touch only.
@@ -398,12 +398,5 @@
   /* The wash is the answer; dimming the headline as well reads as a glitch. */
   [data-card] a:active {
     opacity: 1;
-  }
-}
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
-    }
   }
 }
