@@ -94,7 +94,44 @@ const nextConfig: NextConfig = {
      * working in production, which is the worst way to find out.
      */
     remotePatterns: buildRemotePatterns(),
-    formats: ['image/avif', 'image/webp'],
+
+    /**
+     * WebP only, deliberately.
+     *
+     * AVIF encodes roughly ten times slower than WebP, and the optimiser runs
+     * in the web container on the request path. Measured against production
+     * with AVIF enabled, a cold hero was 1.9s at the 750px width phones ask
+     * for and 3.8s at 1200px, against 20-80ms once Cloudflare held the result
+     * — so the first reader of every article paid seconds for a file the
+     * next one got instantly. The AVIF file is perhaps 20% smaller; on a
+     * Dhaka mobile connection that is worth far less than the seconds.
+     */
+    formats: ['image/webp'],
+
+    /**
+     * An optimised derivative of an immutable upload never changes, so the
+     * four-hour default only guarantees the encode is thrown away and redone
+     * several times a day. Media that is genuinely replaced gets a new
+     * filename from Payload, which is a new cache key.
+     */
+    minimumCacheTTL: 31_536_000,
+
+    /**
+     * Every width in these lists is a separate encode of every image, so the
+     * lists should stop where the source images do.
+     *
+     * Ingested photographs arrive at 1200px wide. Next never upscales, so
+     * asking for 1920 returns the same pixels as 1200 — byte for byte, when
+     * checked against production — while costing another encode and another
+     * cache entry. The default list runs to 3840, which is three redundant
+     * widths. The small end below 64px is unused because the smallest image
+     * on any page is a 128px thumbnail.
+     *
+     * Raise the ceiling if originals ever get bigger: at that point a hero at
+     * 1024 CSS pixels on a 2x screen genuinely wants 2048.
+     */
+    deviceSizes: [640, 750, 828, 1080, 1200],
+    imageSizes: [64, 128, 256, 384],
   },
 
   experimental: {
