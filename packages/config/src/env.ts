@@ -143,6 +143,15 @@ export const DEFAULT_GA_MEASUREMENT_ID = 'G-WJ1FKZHE2E'
 export const clientEnvSchema = z.object({
   NEXT_PUBLIC_SITE_URL: z.url(),
   NEXT_PUBLIC_MEDIA_URL: z.url().optional(),
+  /**
+   * Which service resizes images. `cloudflare` routes them through
+   * `/cdn-cgi/image/`; anything else leaves them on Next's own optimiser.
+   *
+   * Off by default because transformations are a billed, per-zone Cloudflare
+   * feature: requesting them on a zone without them enabled returns 404 for
+   * every image on the site.
+   */
+  NEXT_PUBLIC_IMAGE_CDN: z.enum(['cloudflare', 'next']).default('next'),
   NEXT_PUBLIC_DEFAULT_LOCALE: z.enum(['bn', 'en']).default('bn'),
   NEXT_PUBLIC_APP_VERSION: optionalString,
   /** Unset disables analytics entirely — which is what local and CI want. */
@@ -430,6 +439,7 @@ export function getClientEnv(
     stripEmptyValues({
       NEXT_PUBLIC_SITE_URL: source.NEXT_PUBLIC_SITE_URL,
       NEXT_PUBLIC_MEDIA_URL: source.NEXT_PUBLIC_MEDIA_URL,
+      NEXT_PUBLIC_IMAGE_CDN: source.NEXT_PUBLIC_IMAGE_CDN,
       NEXT_PUBLIC_DEFAULT_LOCALE: source.NEXT_PUBLIC_DEFAULT_LOCALE,
       NEXT_PUBLIC_APP_VERSION: source.NEXT_PUBLIC_APP_VERSION,
       NEXT_PUBLIC_GA_ID: source.NEXT_PUBLIC_GA_ID,
