@@ -16,6 +16,7 @@ import {
   tagPath,
 } from '../routes'
 import { env } from '../env'
+import { isIndexableTag } from './thin-content'
 
 /**
  * The data behind the sitemaps.
@@ -204,6 +205,45 @@ export async function newsSitemapEntries(): Promise<SitemapEntry[]> {
  * Everything that is not an article: home, sections, tags, bylines and standing
  * pages. Small enough to stay one file for the foreseeable life of the site.
  */
+/**
+ * How many published articles carry each tag, keyed by tag id.
+ *
+ * Counted in one pass over the articles rather than one query per tag: there
+ * are far more tags than articles here — 977 against 395 — so asking the
+ * database once per tag would be three times the work for the same answer, on a
+ * route a crawler hits regularly.
+ *
+ * Only the relationship column is selected, so this stays a narrow read even as
+ * the archive grows.
+ */
+async function publishedArticleCountByTag(locale: Locale): Promise<Map<number, number>> {
+  const payload = await getPayloadClient()
+  const counts = new Map<number, number>()
+
+  const { docs } = await payload.find({
+    collection: 'articles',
+    locale,
+    depth: 0,
+    limit: MAX_SITEMAP_ENTRIES,
+    pagination: false,
+    overrideAccess: false,
+    select: { tags: true },
+  })
+
+  for (const doc of docs) {
+    const tags = (doc as { tags?: unknown }).tags
+    if (!Array.isArray(tags)) continue
+    for (const tag of tags) {
+      // depth: 0 gives ids, but a populated object is harmless to support.
+      const id = typeof tag === 'number' ? tag : (tag as { id?: unknown })?.id
+      if (typeof id !== 'number') continue
+      counts.set(id, (counts.get(id) ?? 0) + 1)
+    }
+  }
+
+  return counts
+}
+
 export async function taxonomySitemapEntries(): Promise<SitemapEntry[]> {
   const payload = await getPayloadClient()
   const url = siteUrl()
@@ -275,7 +315,23 @@ export async function taxonomySitemapEntries(): Promise<SitemapEntry[]> {
     }
 
     push(categories.docs, (slug) => categoryPath(locale, slug), 'hourly', 0.8)
-    push(tags.docs, (slug) => tagPath(locale, slug), 'daily', 0.5)
+
+    /**
+     * Only tags carrying real coverage are offered to crawlers.
+     *
+     * Submitting all 977 of them, most listing a single story, is what put 784
+     * URLs into "Discovered - currently not indexed" and spent the crawl budget
+     * on near-duplicate listings instead of on the articles. The threshold is
+     * shared with the tag page itself so a URL is never advertised here and then
+     * found to say `noindex` — see lib/seo/thin-content.ts.
+     */
+    const counts = await publishedArticleCountByTag(locale)
+    push(
+      tags.docs.filter((tag) => isIndexableTag(counts.get(tag.id) ?? 0)),
+      (slug) => tagPath(locale, slug),
+      'daily',
+      0.5,
+    )
     push(authors.docs, (slug) => authorPath(locale, slug), 'weekly', 0.5)
     push(pages.docs, (slug) => pagePath(locale, slug), 'monthly', 0.3)
   }

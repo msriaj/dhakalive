@@ -12,6 +12,7 @@ import { getTagBySlug } from '../../../../../lib/queries/taxonomy'
 import { tagPath } from '../../../../../lib/routes'
 import { redirectIfKnown } from '../../../../../lib/redirects'
 import { collectionGraph } from '../../../../../lib/seo/structured-data'
+import { isIndexableTag } from '../../../../../lib/seo/thin-content'
 
 export const revalidate = 120
 
@@ -33,12 +34,28 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   const tag = await getTagBySlug(decoded, raw)
   if (!tag) return {}
 
+  /**
+   * A tag carrying almost nothing is kept out of the index.
+   *
+   * Tags are created freely by the desk — 977 of them against 395 articles —
+   * and the great majority list a single story. To a crawler those pages are
+   * near-identical: the same chrome, the same navigation, one headline of
+   * difference. Google responded exactly as that pattern deserves, leaving 784
+   * of them in "Discovered - currently not indexed" and spending the crawl
+   * budget it did use on tags rather than on the articles.
+   *
+   * `follow` is kept deliberately: the one thing a thin tag page is still good
+   * for is handing a crawler a path to the article on it.
+   */
+  const { totalDocs } = await getArticlesByTag(tag.id, { locale: raw, limit: 1 })
+
   return buildMetadata({
     locale: raw,
     title: tag.title ?? '',
     description: tag.description,
     path: tagPath(raw, decoded),
     seo: tag.seo,
+    noIndexFollow: !isIndexableTag(totalDocs),
   })
 }
 

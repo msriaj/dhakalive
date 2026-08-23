@@ -50,6 +50,16 @@ export interface MetadataInput {
   modifiedTime?: string | null
   /** Set for pages that must never be indexed: search, previews, archives. */
   noIndex?: boolean
+  /**
+   * Keeps the page out of the index while still letting crawlers follow its
+   * links — `noindex, follow`.
+   *
+   * Distinct from `noIndex`, which also says `nofollow`. That is right for a
+   * search results page, whose links are already reachable elsewhere, and wrong
+   * for a thin listing page whose whole remaining value is the path it gives a
+   * crawler to the articles on it.
+   */
+  noIndexFollow?: boolean
 }
 
 function imageUrl(value: unknown): string | null {
@@ -105,7 +115,9 @@ export async function buildMetadata(input: MetadataInput): Promise<Metadata> {
     },
     robots: noIndex
       ? { index: false, follow: false }
-      : { index: true, follow: true, 'max-image-preview': 'large' },
+      : input.noIndexFollow
+        ? { index: false, follow: true }
+        : { index: true, follow: true, 'max-image-preview': 'large' },
     openGraph: {
       type: input.type ?? 'website',
       title,
