@@ -21,7 +21,7 @@ async function loadWith(env: Record<string, string | undefined>) {
 const MEDIA = 'https://media.dhakalive.com'
 const ON_CDN = { NEXT_PUBLIC_IMAGE_CDN: 'cloudflare', NEXT_PUBLIC_MEDIA_URL: MEDIA }
 
-const hero: ImageLoaderArgs = { src: `${MEDIA}/3985055.webp`, width: 1080, quality: 75 }
+const hero: ImageLoaderArgs = { src: `${MEDIA}/3985055.webp`, width: 1080 }
 
 beforeEach(() => {
   vi.unstubAllEnvs()
@@ -61,8 +61,23 @@ describe('with the CDN enabled', () => {
   it('rewrites a media-domain image to a transformation URL', async () => {
     const loader = await loadWith(ON_CDN)
     expect(loader(hero)).toBe(
-      `${MEDIA}/cdn-cgi/image/width=1080,quality=75,format=auto,fit=scale-down/3985055.webp`,
+      `${MEDIA}/cdn-cgi/image/width=1080,quality=60,format=auto,fit=scale-down/3985055.webp`,
     )
+  })
+
+  /**
+   * Cloudflare's quality scale is not sharp's: passing next/image's 75 through
+   * measured *larger* than the WebP the built-in optimiser produced at its own
+   * 75, which would have made the migration a byte regression.
+   */
+  it('defaults to the Cloudflare-tuned quality rather than next/image default', async () => {
+    const loader = await loadWith(ON_CDN)
+    expect(loader(hero)).toContain('quality=60')
+  })
+
+  it('honours an explicit quality when a call site sets one', async () => {
+    const loader = await loadWith(ON_CDN)
+    expect(loader({ ...hero, quality: 45 })).toContain('quality=45')
   })
 
   /**

@@ -96,21 +96,30 @@ const nextConfig: NextConfig = {
     remotePatterns: buildRemotePatterns(),
 
     /**
-     * Edge resizing, installed only when it is actually switched on.
+     * Edge resizing, on unless something explicitly asks for the old path.
      *
      * The branch matters and is not stylistic. Setting `loader: 'custom'`
      * *removes* the `/_next/image` route — verified against a standalone build,
-     * where every request to it 404s once a custom loader is configured. So the
-     * two modes cannot coexist: with the flag off the built-in optimiser has to
-     * be left entirely alone, or the fallback path it provides disappears and
-     * every image on the site breaks.
+     * where every request to it 404s once a custom loader is configured. The
+     * two modes therefore cannot coexist, and `NEXT_PUBLIC_IMAGE_CDN=next` has
+     * to leave the built-in optimiser completely untouched to be a working
+     * rollback rather than a site with no images.
+     *
+     * The default is deliberately the CDN rather than the safe-looking local
+     * option: sharp on the request path is the thing being fixed, so a build
+     * that forgets to set anything should get the fix.
+     *
+     * Read here from raw `process.env` rather than through the config package's
+     * schema, because next.config runs before that package's default would
+     * apply. The two defaults must agree — see NEXT_PUBLIC_IMAGE_CDN in
+     * packages/config/src/env.ts.
      *
      * Every option below still applies either way. Next builds the srcset from
      * `deviceSizes`/`imageSizes` regardless of who does the resizing.
      */
-    ...(process.env.NEXT_PUBLIC_IMAGE_CDN === 'cloudflare'
-      ? { loader: 'custom' as const, loaderFile: './src/lib/images/cloudflare-loader.ts' }
-      : {}),
+    ...(process.env.NEXT_PUBLIC_IMAGE_CDN === 'next'
+      ? {}
+      : { loader: 'custom' as const, loaderFile: './src/lib/images/cloudflare-loader.ts' }),
 
     /**
      * WebP only, deliberately.

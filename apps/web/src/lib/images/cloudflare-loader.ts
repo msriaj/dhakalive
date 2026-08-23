@@ -31,8 +31,27 @@ const CDN_ENABLED = process.env.NEXT_PUBLIC_IMAGE_CDN === 'cloudflare'
 
 const MEDIA_URL = process.env.NEXT_PUBLIC_MEDIA_URL
 
-/** next/image's own default, applied when a call site does not set one. */
-const DEFAULT_QUALITY = 75
+/**
+ * Cloudflare's quality scale is not sharp's, and the difference is large enough
+ * that carrying next/image's 75 across would quietly make every image bigger.
+ *
+ * Measured on production photographs at 1080px, against what the built-in
+ * optimiser produces at its own q75:
+ *
+ *   CF AVIF q75  +13% to  -2%   (no gain, sometimes worse)
+ *   CF AVIF q65   -3% to -19%
+ *   CF AVIF q60  -10% to -26%
+ *
+ * 60 it is. AVIF holds detail at quality numbers where WebP would visibly fall
+ * apart, and a 1080px sample compared side by side against our current q75 WebP
+ * showed no difference at normal viewing distance — for 26% fewer bytes.
+ *
+ * No call site passes `quality` today, so this is what every image gets. One
+ * that did would be handed straight to Cloudflare on Cloudflare's scale, so
+ * anything setting it should pick its number from the table above rather than
+ * from what the built-in optimiser would have done with it.
+ */
+const DEFAULT_QUALITY = 60
 
 export interface ImageLoaderArgs {
   src: string

@@ -145,13 +145,16 @@ export const clientEnvSchema = z.object({
   NEXT_PUBLIC_MEDIA_URL: z.url().optional(),
   /**
    * Which service resizes images. `cloudflare` routes them through
-   * `/cdn-cgi/image/`; anything else leaves them on Next's own optimiser.
+   * `/cdn-cgi/image/` at the edge; `next` runs sharp in the web container on
+   * the request path, which is what made cold images cost seconds and what
+   * starved the React render while it encoded.
    *
-   * Off by default because transformations are a billed, per-zone Cloudflare
-   * feature: requesting them on a zone without them enabled returns 404 for
-   * every image on the site.
+   * Cloudflare is the default now that transformations are enabled on the
+   * media zone. `next` remains the escape hatch: it is the setting to reach
+   * for if transformations are ever disabled or start costing more than they
+   * are worth, and it needs no code change, only a rebuild.
    */
-  NEXT_PUBLIC_IMAGE_CDN: z.enum(['cloudflare', 'next']).default('next'),
+  NEXT_PUBLIC_IMAGE_CDN: z.enum(['cloudflare', 'next']).default('cloudflare'),
   NEXT_PUBLIC_DEFAULT_LOCALE: z.enum(['bn', 'en']).default('bn'),
   NEXT_PUBLIC_APP_VERSION: optionalString,
   /** Unset disables analytics entirely — which is what local and CI want. */
