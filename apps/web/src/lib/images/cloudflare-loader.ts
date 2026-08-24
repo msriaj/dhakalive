@@ -18,16 +18,26 @@
  */
 
 /**
- * Cloudflare transformations are a billed, per-zone feature and are off until
- * someone enables them in the dashboard. Requesting `/cdn-cgi/image/` on a zone
- * without them returns 404 — every image on the site, broken — so this is opt
- * in rather than inferred from the media URL being a Cloudflare domain.
+ * On unless something explicitly asks for the old path.
+ *
+ * Written as `!== 'next'`, not `=== 'cloudflare'`, and the difference is not
+ * cosmetic: next.config.ts installs this loader under exactly the same
+ * condition, and the two have to answer identically for an unset variable.
+ * They did not, once. The config treated unset as "use the CDN" and installed
+ * the loader — which deletes `/_next/image` — while this constant treated unset
+ * as "CDN off" and returned every source untouched. The result reached
+ * production: every image served as its full-size original at every srcset
+ * width, 170% more bytes to a phone than the resized file, with no route left
+ * to fall back to.
+ *
+ * The deployed `.env` never set the variable, so unset is the case that
+ * actually runs. Any future flag here must be read the same way on both sides.
  *
  * Read as a literal rather than through `getClientEnv()`: this module is
  * bundled for the browser and Next only inlines `NEXT_PUBLIC_*` when it can see
  * the property access statically.
  */
-const CDN_ENABLED = process.env.NEXT_PUBLIC_IMAGE_CDN === 'cloudflare'
+const CDN_ENABLED = process.env.NEXT_PUBLIC_IMAGE_CDN !== 'next'
 
 const MEDIA_URL = process.env.NEXT_PUBLIC_MEDIA_URL
 

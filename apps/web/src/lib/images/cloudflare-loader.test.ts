@@ -33,26 +33,49 @@ afterEach(() => {
 })
 
 /**
- * "Disabled" here means the loader was installed but the flag is off — a
- * misconfiguration, not the normal off state. Normally next.config.ts does not
- * install this file at all and `/_next/image` handles everything, which is
- * exactly why the fallback cannot point at that route: configuring a custom
- * loader deletes it.
+ * The unset case, which is the one that actually runs in production — the
+ * deployed `.env` does not set this variable.
+ *
+ * next.config.ts installs this loader for anything that is not the literal
+ * `next`, and this file has to agree. When it did not, the loader was installed
+ * (deleting `/_next/image`) and then returned every source untouched: full-size
+ * originals at every srcset width, and no route left to fall back to. These
+ * cases pin both halves of that condition.
  */
-describe('with the CDN disabled', () => {
-  it('passes the source through untouched', async () => {
+describe('default, with nothing configured', () => {
+  it('uses the CDN, matching what next.config installs the loader for', async () => {
     const loader = await loadWith({ NEXT_PUBLIC_MEDIA_URL: MEDIA })
-    expect(loader(hero)).toBe(hero.src)
+    expect(loader(hero)).toContain('/cdn-cgi/image/')
   })
 
-  it('stays disabled for any value other than "cloudflare"', async () => {
+  it('never returns the unresized original', async () => {
+    const loader = await loadWith({ NEXT_PUBLIC_MEDIA_URL: MEDIA })
+    expect(loader(hero)).not.toBe(hero.src)
+  })
+
+  /** An unrecognised value is not a reason to silently stop resizing. */
+  it('treats an unrecognised value as the CDN', async () => {
     const loader = await loadWith({ NEXT_PUBLIC_IMAGE_CDN: 'true', NEXT_PUBLIC_MEDIA_URL: MEDIA })
+    expect(loader(hero)).toContain('/cdn-cgi/image/')
+  })
+})
+
+/**
+ * `next` is the rollback, and it is the only value that turns the CDN off.
+ *
+ * Reaching this branch in production would mean next.config had also left the
+ * built-in optimiser in place, so the passthrough here is the misconfiguration
+ * path, not the normal one: it keeps images loading rather than breaking them.
+ */
+describe('with the CDN explicitly disabled', () => {
+  it('passes the source through untouched', async () => {
+    const loader = await loadWith({ NEXT_PUBLIC_IMAGE_CDN: 'next', NEXT_PUBLIC_MEDIA_URL: MEDIA })
     expect(loader(hero)).toBe(hero.src)
   })
 
   /** Never a relative or malformed URL: the browser has to be able to load it. */
   it('returns something the browser can fetch', async () => {
-    const loader = await loadWith({ NEXT_PUBLIC_MEDIA_URL: MEDIA })
+    const loader = await loadWith({ NEXT_PUBLIC_IMAGE_CDN: 'next', NEXT_PUBLIC_MEDIA_URL: MEDIA })
     expect(() => new URL(loader(hero))).not.toThrow()
   })
 })
@@ -124,6 +147,13 @@ describe('with the CDN enabled', () => {
    */
   it('falls back when the media URL is unset', async () => {
     const loader = await loadWith({ NEXT_PUBLIC_IMAGE_CDN: 'cloudflare' })
+    expect(loader(hero)).toBe(hero.src)
+    expect(loader(hero)).not.toContain('undefined')
+  })
+
+  /** The same guard on the default path, where no variable is set at all. */
+  it('falls back when nothing is configured at all', async () => {
+    const loader = await loadWith({})
     expect(loader(hero)).toBe(hero.src)
     expect(loader(hero)).not.toContain('undefined')
   })
