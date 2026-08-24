@@ -161,6 +161,22 @@ jobs:
             export WORKER_IMAGE="ghcr.io/${{ github.repository_owner }}/dhakalive-worker:$SHA"
             export INGEST_IMAGE="ghcr.io/${{ github.repository_owner }}/dhakalive-ingest:$SHA"
 
+            # Reclaim what previous releases left behind, *before* pulling.
+            #
+            # Every deploy writes three new images and nothing ever removed the
+            # old ones, so the disk filled until a pull failed mid-extract with
+            # "no space left on device" — the release did not go out, and the
+            # box needed hands on it. Pruning after the pull would not have
+            # helped: by then there is no room to land the layers.
+            #
+            # Images only, never volumes: the ISR cache and the database live in
+            # volumes, and `system prune` would take them. `--filter until=168h`
+            # keeps the past week of releases so redeploying an earlier SHA is
+            # still a pull-free rollback.
+            docker image prune -f
+            docker image prune -af --filter "until=168h"
+            df -h / | tail -1
+
             docker compose --env-file .env -f docker/docker-compose.prod.yml pull app worker ingest
 
             # Drop the credential as soon as the images are local. The token
