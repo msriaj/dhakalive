@@ -48,6 +48,21 @@ describe('renderPhotocard', () => {
     expect(meta.height).toBe(CARD_HEIGHT)
   })
 
+  it('renders the breaking variant at the same dimensions', async () => {
+    const card = await renderPhotocard({
+      headline: 'ব্রেকিং: বড় খবর',
+      photo: await testPhoto(),
+      dateLabel: '৩০ আগস্ট, ২০২৬',
+      siteLabel: 'dhakalive.com',
+      categoryLabel: 'জাতীয়',
+      isBreaking: true,
+    })
+
+    const meta = await sharp(card).metadata()
+    expect(meta.width).toBe(CARD_WIDTH)
+    expect(meta.height).toBe(CARD_HEIGHT)
+  })
+
   it('escapes markup characters in headlines', async () => {
     // An ampersand or angle bracket in a headline is editorial text, not pango
     // markup; the render must survive it rather than fail at post time.
