@@ -1,9 +1,10 @@
 import { notFound } from 'next/navigation'
-import type React from 'react'
+import React, { Suspense } from 'react'
 
 import { isPublicLocale } from '@dhakalive/config'
 
 import { AdSlot } from '../../../components/AdSlot'
+import { NavigationProgress } from '../../../components/NavigationProgress'
 import { SiteFooter } from '../../../components/SiteFooter'
 import { SiteHeader } from '../../../components/SiteHeader'
 import { dictionary } from '../../../lib/dictionary'
@@ -59,6 +60,16 @@ export default async function LocaleLayout({
 
   return (
     <div lang={locale} dir="ltr">
+      {/*
+        Suspense because the indicator reads `useSearchParams`, and without a
+        boundary that opts every route beneath this layout out of static
+        rendering. The fallback is nothing: until the first click there is
+        nothing to show.
+      */}
+      <Suspense fallback={null}>
+        <NavigationProgress label={d('loadingPage')} />
+      </Suspense>
+
       {/* First focusable element on the page, visible only when focused. */}
       <a
         href="#main"
