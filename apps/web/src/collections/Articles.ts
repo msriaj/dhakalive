@@ -387,6 +387,30 @@ export const Articles: CollectionConfig = {
         description: 'Automatic social publication, recorded by the background worker.',
       },
       fields: [
+        /**
+         * Approval state for the photocard, when SOCIAL_APPROVAL_REQUIRED is
+         * on. Written by the Telegram webhook when an editor taps a button;
+         * deliberately editable here too, so an admin can approve or reverse a
+         * decline without leaving the CMS — saving it as `approved` queues the
+         * post exactly as a tap would.
+         */
+        {
+          name: 'approvalStatus',
+          type: 'select',
+          options: [
+            { label: 'Awaiting approval', value: 'pending' },
+            { label: 'Approved', value: 'approved' },
+            { label: 'Declined', value: 'declined' },
+          ],
+          admin: { description: 'Photocard approval. Set to Approved to (re)post.' },
+        },
+        { name: 'approvalRequestedAt', type: 'date', admin: { readOnly: true } },
+        { name: 'approvalMessageId', type: 'number', admin: { readOnly: true, hidden: true } },
+        {
+          name: 'approvalDecidedBy',
+          type: 'text',
+          admin: { readOnly: true, description: 'Who tapped the button on Telegram.' },
+        },
         { name: 'facebookPostedAt', type: 'date', admin: { readOnly: true } },
         { name: 'facebookPostUrl', type: 'text', admin: { readOnly: true } },
         { name: 'instagramPostedAt', type: 'date', admin: { readOnly: true } },
