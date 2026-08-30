@@ -161,6 +161,7 @@ export const socialPhotocard: TaskConfig<{
       dateLabel: formatCardDate(publishedAt),
       siteLabel: new URL(env.NEXT_PUBLIC_SITE_URL).host,
       categoryLabel: typeof categoryTitle === 'string' ? categoryTitle : null,
+      isBreaking: article.isBreaking === true,
     })
 
     const caption = buildCaption({

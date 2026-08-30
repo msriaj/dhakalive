@@ -36,7 +36,28 @@ const FOOTER_GAP = 44
 
 /** The masthead red — the same value `app/icon.svg` states, for the same reason. */
 const BRAND_RED = '#c4172a'
-const PANEL_DARK = '#101418'
+
+/**
+ * Panel palettes. A regular story sits on a neutral dark panel so the brand
+ * red stays an accent; a breaking story takes the red panel itself, which is
+ * what makes one card in a feed of dark ones read as urgent.
+ */
+const PANEL_PALETTES = {
+  regular: {
+    panel: '#101418',
+    footerText: '#c9d1d9',
+    dot: BRAND_RED,
+    // The brand red, lifted to read on the dark panel.
+    category: '#ff6b7a',
+  },
+  breaking: {
+    // Slightly deeper than the masthead red so white text carries on it.
+    panel: '#b8121f',
+    footerText: '#ffffff',
+    dot: '#ffffff',
+    category: '#ffffff',
+  },
+} as const
 
 const FONT_FAMILY = 'SolaimanLipi'
 /**
@@ -90,6 +111,8 @@ export interface PhotocardInput {
   siteLabel: string
   /** Section name, shown in the panel's bottom-right corner. */
   categoryLabel?: string | null
+  /** Breaking stories take the red panel; everything else the dark one. */
+  isBreaking?: boolean
 }
 
 /** Bengali-locale date for the card header. */
@@ -166,6 +189,8 @@ export async function renderPhotocard(input: PhotocardInput): Promise<Buffer> {
     .resize(CARD_WIDTH, PHOTO_HEIGHT, { fit: 'cover', position: 'attention' })
     .toBuffer()
 
+  const palette = PANEL_PALETTES[input.isBreaking ? 'breaking' : 'regular']
+
   const logo = await loadLogo()
   const date = await renderText({
     text: escapeMarkup(input.dateLabel),
@@ -175,14 +200,14 @@ export async function renderPhotocard(input: PhotocardInput): Promise<Buffer> {
   const footer = await renderText({
     text: escapeMarkup(input.siteLabel),
     sizePx: 24,
-    color: '#c9d1d9',
+    color: palette.footerText,
   })
 
   const category = input.categoryLabel?.trim()
     ? await renderText({
         text: escapeMarkup(input.categoryLabel.trim()),
         sizePx: 26,
-        color: '#ff6b7a', // the brand red, lifted to read on the dark panel
+        color: palette.category,
       })
     : null
 
@@ -200,9 +225,9 @@ export async function renderPhotocard(input: PhotocardInput): Promise<Buffer> {
   const headlineTop =
     headlineAreaTop + Math.max(0, Math.round((headlineAreaHeight - headline.height) / 2))
 
-  /** Small brand-red dot in front of the footer line. */
+  /** Small dot in front of the footer line — red on dark, white on red. */
   const footerDot = Buffer.from(
-    `<svg width="14" height="14" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="7" fill="${BRAND_RED}"/></svg>`,
+    `<svg width="14" height="14" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="7" fill="${palette.dot}"/></svg>`,
   )
 
   return sharp({
@@ -217,7 +242,12 @@ export async function renderPhotocard(input: PhotocardInput): Promise<Buffer> {
       { input: photo, left: 0, top: HEADER_HEIGHT },
       {
         input: {
-          create: { width: CARD_WIDTH, height: PANEL_HEIGHT, channels: 3, background: PANEL_DARK },
+          create: {
+            width: CARD_WIDTH,
+            height: PANEL_HEIGHT,
+            channels: 3,
+            background: palette.panel,
+          },
         },
         left: 0,
         top: panelTop,
