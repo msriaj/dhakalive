@@ -62,6 +62,25 @@ function fontPath(): string {
   return fontFile
 }
 
+/** Masthead logo height inside the header band. */
+const LOGO_HEIGHT = 48
+
+let logoCache: { buffer: Buffer; width: number; height: number } | undefined
+
+/**
+ * The site logo, resized once and cached. Same deferred-path rule as the font
+ * above, and for the same Turbopack reason.
+ */
+async function loadLogo() {
+  if (!logoCache) {
+    const path = fileURLToPath(new URL('../../assets/dhakalive-logo.png', import.meta.url))
+    const buffer = await sharp(path).resize({ height: LOGO_HEIGHT }).png().toBuffer()
+    const meta = await sharp(buffer).metadata()
+    logoCache = { buffer, width: meta.width ?? 0, height: meta.height ?? LOGO_HEIGHT }
+  }
+  return logoCache
+}
+
 export interface PhotocardInput {
   headline: string
   /** Photograph bytes; any format sharp reads. Cover-cropped to the card. */
@@ -146,11 +165,7 @@ export async function renderPhotocard(input: PhotocardInput): Promise<Buffer> {
     .resize(CARD_WIDTH, PHOTO_HEIGHT, { fit: 'cover', position: 'attention' })
     .toBuffer()
 
-  const wordmark = await renderText({
-    text: escapeMarkup('ঢাকা লাইভ'),
-    sizePx: 44,
-    color: BRAND_RED,
-  })
+  const logo = await loadLogo()
   const date = await renderText({
     text: escapeMarkup(input.dateLabel),
     sizePx: 26,
@@ -205,11 +220,11 @@ export async function renderPhotocard(input: PhotocardInput): Promise<Buffer> {
         left: 0,
         top: panelTop,
       },
-      // Header: wordmark left, date right, both vertically centred in the band.
+      // Header: logo left, date right, both vertically centred in the band.
       {
-        input: wordmark.buffer,
+        input: logo.buffer,
         left: MARGIN,
-        top: Math.round((HEADER_HEIGHT - wordmark.height) / 2),
+        top: Math.round((HEADER_HEIGHT - logo.height) / 2),
       },
       {
         input: date.buffer,
