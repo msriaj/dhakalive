@@ -1,6 +1,7 @@
 import { DEFAULT_LOCALE, getServerEnv, type SocialPlatformName } from '@dhakalive/config'
 import type { TaskConfig } from 'payload'
 
+import { absoluteUrl, articlePath } from '../../lib/routes'
 import { buildCaption } from '../../lib/social/caption'
 import { formatCardDate, renderPhotocard } from '../../lib/social/photocard'
 import { postPhotocard } from '../../lib/social/upload-post'
@@ -153,7 +154,22 @@ export const socialPhotocard: TaskConfig<{
     const publishedAt =
       typeof article.publishedAt === 'string' ? new Date(article.publishedAt) : new Date()
 
-    const categoryTitle = (article.primaryCategory as { title?: unknown } | null | undefined)?.title
+    const primaryCategory = article.primaryCategory as
+      { title?: unknown; slug?: unknown } | null | undefined
+    const categoryTitle = primaryCategory?.title
+
+    /**
+     * The article link rides as the first comment on the Facebook post. Not in
+     * the caption — Facebook's feed algorithm throttles captioned links, and
+     * on Instagram and Threads a URL is dead text. 'news' mirrors the
+     * structured-data fallback for an article missing its category.
+     */
+    const categorySlug = typeof primaryCategory?.slug === 'string' ? primaryCategory.slug : 'news'
+    const slug = typeof article.slug === 'string' ? article.slug : input.articleId
+    const articleUrl = absoluteUrl(
+      articlePath(DEFAULT_LOCALE, categorySlug, slug),
+      env.NEXT_PUBLIC_SITE_URL,
+    )
 
     const card = await renderPhotocard({
       headline,
@@ -177,6 +193,7 @@ export const socialPhotocard: TaskConfig<{
       photo: card,
       filename: `photocard-${input.articleId}.jpg`,
       caption,
+      facebookFirstComment: articleUrl,
       idempotencyKey: `social-photocard-${input.articleId}-${pending.join('-')}`,
     })
 

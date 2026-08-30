@@ -29,6 +29,12 @@ export interface PhotocardPost {
    */
   caption: string
   /**
+   * Posted automatically as the first comment on the Facebook post — the
+   * article link lives there, where Facebook does not throttle it and the
+   * caption stays clean. Sent only when the request includes Facebook.
+   */
+  facebookFirstComment?: string
+  /**
    * Suppresses a duplicate post when a retry re-sends a request whose response
    * was lost. Sent as the documented `Idempotency-Key` header. Callers vary it
    * with the platform set, so a retry for the platforms that failed is a new
@@ -81,6 +87,9 @@ export async function postPhotocard(
     post.filename,
   )
   body.set('title', post.caption)
+  if (post.facebookFirstComment && post.platforms.includes('facebook')) {
+    body.set('facebook_first_comment', post.facebookFirstComment)
+  }
   if (post.facebookPageId && post.platforms.includes('facebook')) {
     body.set('facebook_page_id', post.facebookPageId)
   }
