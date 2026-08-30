@@ -286,14 +286,12 @@ export interface Article {
    * Automatic social publication, recorded by the background worker.
    */
   socialPosts?: {
-    /**
-     * When the photocard was posted.
-     */
     facebookPostedAt?: string | null;
-    /**
-     * The published Facebook post.
-     */
     facebookPostUrl?: string | null;
+    instagramPostedAt?: string | null;
+    instagramPostUrl?: string | null;
+    threadsPostedAt?: string | null;
+    threadsPostUrl?: string | null;
   };
   createdBy?: (number | null) | User;
   lastEditedBy?: (number | null) | User;
@@ -1151,6 +1149,10 @@ export interface ArticlesSelect<T extends boolean = true> {
     | {
         facebookPostedAt?: T;
         facebookPostUrl?: T;
+        instagramPostedAt?: T;
+        instagramPostUrl?: T;
+        threadsPostedAt?: T;
+        threadsPostUrl?: T;
       };
   createdBy?: T;
   lastEditedBy?: T;
@@ -2262,9 +2264,8 @@ export interface TaskSocialPhotocard {
     articleId: string;
   };
   output: {
-    posted?: boolean | null;
+    posted?: number | null;
     skipped?: string | null;
-    postUrl?: string | null;
   };
 }
 /**

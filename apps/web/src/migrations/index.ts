@@ -16,6 +16,7 @@ import * as migration_20260811_090414_lead_columns_take_a_source from './2026081
 import * as migration_20260811_092641_footer_apps_toggle from './20260811_092641_footer_apps_toggle'
 import * as migration_20260811_112353_article_view_count from './20260811_112353_article_view_count'
 import * as migration_20260830_033524_social_posts from './20260830_033524_social_posts'
+import * as migration_20260830_035104_social_platforms from './20260830_035104_social_platforms'
 
 export const migrations = [
   {
@@ -107,5 +108,10 @@ export const migrations = [
     up: migration_20260830_033524_social_posts.up,
     down: migration_20260830_033524_social_posts.down,
     name: '20260830_033524_social_posts',
+  },
+  {
+    up: migration_20260830_035104_social_platforms.up,
+    down: migration_20260830_035104_social_platforms.down,
+    name: '20260830_035104_social_platforms',
   },
 ]

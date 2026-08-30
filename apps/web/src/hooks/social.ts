@@ -23,7 +23,8 @@ export const queueSocialPhotocard: CollectionAfterChangeHook = ({ doc, previousD
   // bookkeeping write would re-enter the hook it came from.
   if (req.context?.isSocialPostUpdate) return
 
-  if (!getServerEnv().SOCIAL_AUTOPOST_ENABLED) return
+  const env = getServerEnv()
+  if (!env.SOCIAL_AUTOPOST_ENABLED) return
 
   const current = doc as { id?: unknown; workflowStatus?: unknown; socialPosts?: unknown }
   const previous = previousDoc as { workflowStatus?: unknown } | undefined
@@ -31,9 +32,9 @@ export const queueSocialPhotocard: CollectionAfterChangeHook = ({ doc, previousD
   if (current.workflowStatus !== 'published') return
   if (previous?.workflowStatus === 'published') return
 
-  const posted = (current.socialPosts as { facebookPostedAt?: unknown } | undefined)
-    ?.facebookPostedAt
-  if (posted) return
+  const posted = (current.socialPosts ?? {}) as Partial<Record<string, unknown>>
+  const allPosted = env.SOCIAL_AUTOPOST_PLATFORMS.every((platform) => posted[`${platform}PostedAt`])
+  if (allPosted) return
 
   const id = current.id
   if (typeof id !== 'string' && typeof id !== 'number') return

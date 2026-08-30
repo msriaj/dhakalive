@@ -373,10 +373,11 @@ export const Articles: CollectionConfig = {
 
     // ----------------------------------------------------------- social posts
     /**
-     * Record of the automatic Facebook photocard, written by the worker after a
-     * successful post. It doubles as the dedupe guard: the photocard task
-     * refuses to post an article that already carries a timestamp, so clearing
-     * these fields is also how an admin deliberately re-posts one.
+     * Record of the automatic photocard posts, written by the worker after each
+     * successful publish. It doubles as the per-platform dedupe guard: the
+     * photocard task only posts to platforms whose timestamp is empty, so
+     * clearing a platform's fields is also how an admin deliberately re-posts
+     * there.
      */
     {
       name: 'socialPosts',
@@ -386,16 +387,12 @@ export const Articles: CollectionConfig = {
         description: 'Automatic social publication, recorded by the background worker.',
       },
       fields: [
-        {
-          name: 'facebookPostedAt',
-          type: 'date',
-          admin: { readOnly: true, description: 'When the photocard was posted.' },
-        },
-        {
-          name: 'facebookPostUrl',
-          type: 'text',
-          admin: { readOnly: true, description: 'The published Facebook post.' },
-        },
+        { name: 'facebookPostedAt', type: 'date', admin: { readOnly: true } },
+        { name: 'facebookPostUrl', type: 'text', admin: { readOnly: true } },
+        { name: 'instagramPostedAt', type: 'date', admin: { readOnly: true } },
+        { name: 'instagramPostUrl', type: 'text', admin: { readOnly: true } },
+        { name: 'threadsPostedAt', type: 'date', admin: { readOnly: true } },
+        { name: 'threadsPostUrl', type: 'text', admin: { readOnly: true } },
       ],
     },
 
