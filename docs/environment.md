@@ -122,18 +122,19 @@ Validation rejects setting one of zone/token without the other.
 
 ### Social auto-posting
 
-Posts a branded photocard to the Facebook page whenever an article is
-published, through [Upload-Post](https://docs.upload-post.com) — the service
-holds the Facebook OAuth grant, we hold only its API key. The switch is
-separate from the credentials so staging can carry a real key without posting
-to the real audience. When the switch is on, the key and profile are required
-at boot.
+Posts a branded photocard whenever an article is published — to Facebook,
+Instagram and Threads by default — through
+[Upload-Post](https://docs.upload-post.com): the service holds the platform
+OAuth grants, we hold only its API key. The switch is separate from the
+credentials so staging can carry a real key without posting to the real
+audience. When the switch is on, the key and profile are required at boot.
 
 | Variable                       | Default | Notes                                                                                    |
 | ------------------------------ | ------- | ---------------------------------------------------------------------------------------- |
 | `SOCIAL_AUTOPOST_ENABLED`      | `false` | Turns automatic posting on for this deployment.                                          |
+| `SOCIAL_AUTOPOST_PLATFORMS`    | all     | Comma list of `facebook`, `instagram`, `threads`. Trim to drop a platform.               |
 | `UPLOAD_POST_API_KEY`          | —       | From <https://app.upload-post.com/api-keys>. **Required** when enabled.                  |
-| `UPLOAD_POST_PROFILE`          | —       | Upload-Post profile with the Facebook page connected. **Required** when enabled.         |
+| `UPLOAD_POST_PROFILE`          | —       | Upload-Post profile with each platform's account connected. **Required** when enabled.   |
 | `UPLOAD_POST_FACEBOOK_PAGE_ID` | —       | Only needed when the profile has several pages connected and none pinned as the default. |
 
 ## Secret handling

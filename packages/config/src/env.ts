@@ -30,6 +30,10 @@ export type AppEnvName = (typeof APP_ENVS)[number]
 const SEARCH_PROVIDERS = ['postgres', 'meilisearch', 'opensearch'] as const
 export type SearchProviderName = (typeof SEARCH_PROVIDERS)[number]
 
+/** Platforms the photocard auto-poster can publish to. */
+export const SOCIAL_PLATFORMS = ['facebook', 'instagram', 'threads'] as const
+export type SocialPlatformName = (typeof SOCIAL_PLATFORMS)[number]
+
 // `silent` is a real pino level and the right setting for test runs.
 const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const
 
@@ -279,8 +283,24 @@ export const serverEnvSchema = z
      * mean staging publishing photocards to the real audience.
      */
     SOCIAL_AUTOPOST_ENABLED: booleanFromString.default(false),
+    /**
+     * Where a photocard goes, as a comma-separated list. All three by default;
+     * the list exists so a deployment can drop a platform (say, while its
+     * account is suspended) without touching code or losing the others.
+     */
+    SOCIAL_AUTOPOST_PLATFORMS: z
+      .string()
+      .trim()
+      .default('facebook,instagram,threads')
+      .transform((value) =>
+        value
+          .split(',')
+          .map((entry) => entry.trim())
+          .filter(Boolean),
+      )
+      .pipe(z.array(z.enum(SOCIAL_PLATFORMS)).min(1)),
     UPLOAD_POST_API_KEY: optionalString,
-    /** Profile name at upload-post.com that has the Facebook page connected. */
+    /** Profile name at upload-post.com with the target accounts connected. */
     UPLOAD_POST_PROFILE: optionalString,
     /** Optional when the profile has exactly one page connected or one pinned. */
     UPLOAD_POST_FACEBOOK_PAGE_ID: optionalString,

@@ -1,16 +1,16 @@
-import { DEFAULT_LOCALE, getServerEnv } from '@dhakalive/config'
+import { DEFAULT_LOCALE, getServerEnv, type SocialPlatformName } from '@dhakalive/config'
 import type { TaskConfig } from 'payload'
 
-import { articlePath, absoluteUrl } from '../../lib/routes'
-import { buildFacebookCaption } from '../../lib/social/caption'
+import { buildCaption } from '../../lib/social/caption'
 import { formatCardDate, renderPhotocard } from '../../lib/social/photocard'
-import { postPhotoToFacebook } from '../../lib/social/upload-post'
+import { postPhotocard } from '../../lib/social/upload-post'
 import { RETRY_REMOTE } from '../queues'
 import { correlationIdField, logFailure, taskLogger } from '../telemetry'
 import type { SocialPhotocardInput } from '../types'
 
 /**
- * Renders a photocard for one article and posts it to the Facebook page.
+ * Renders a photocard for one article and posts it to the configured platforms
+ * (Facebook, Instagram and Threads by default) in a single Upload-Post request.
  *
  * Queued by the publish transition (editor or scheduler — both arrive here
  * through the same `afterChange` hook). The job re-reads the article when it
@@ -18,22 +18,20 @@ import type { SocialPhotocardInput } from '../types'
  * and run is not posted, and a headline corrected in that window goes out
  * corrected.
  *
- * ## Posting exactly once
+ * ## Posting exactly once, per platform
  *
- * Three layers, weakest to strongest: the queueing hook only fires on the
- * not-published → published transition; `facebookPostedAt` on the article is
- * checked before posting and written after; and the request carries an
- * `Idempotency-Key` derived from the article id, so the failure mode that
- * neither of the first two can cover — posted successfully, crashed before
- * recording it — is absorbed by the API returning the existing upload instead
- * of creating a second post.
+ * Each platform records its own `<platform>PostedAt` on the article, and a run
+ * only posts to platforms that lack one. A partial failure — Instagram down,
+ * Facebook fine — therefore records the successes and throws for the retry,
+ * and the retry posts only to what is still missing. The `Idempotency-Key`
+ * varies with that pending set, so the retry is a new request to the API while
+ * a replay of a lost response is still recognised and absorbed.
  */
 
 interface SocialPhotocardOutput {
-  posted: boolean
-  /** Why nothing was posted, when that is the correct outcome. */
+  posted: number
+  /** Why nothing was attempted, when that is the correct outcome. */
   skipped?: string
-  postUrl?: string
   [k: string]: unknown
 }
 
@@ -48,7 +46,7 @@ interface MediaDoc {
 }
 
 function skip(reason: string): { output: SocialPhotocardOutput } {
-  return { output: { posted: false, skipped: reason } }
+  return { output: { posted: 0, skipped: reason } }
 }
 
 /**
@@ -64,20 +62,30 @@ function photoUrlOf(media: MediaDoc, siteUrl: string): string | null {
   return new URL(path, siteUrl).toString()
 }
 
+/** `socialPosts` as stored on the article: per-platform date/url pairs. */
+type SocialPostsState = Partial<Record<string, unknown>>
+
+function postedAtKey(platform: SocialPlatformName): string {
+  return `${platform}PostedAt`
+}
+
+function postUrlKey(platform: SocialPlatformName): string {
+  return `${platform}PostUrl`
+}
+
 export const socialPhotocard: TaskConfig<{
   input: SocialPhotocardInput
   output: SocialPhotocardOutput
 }> = {
   slug: 'social-photocard',
-  label: 'Post an article photocard to Facebook',
+  label: 'Post an article photocard to social platforms',
   retries: RETRY_REMOTE,
 
   inputSchema: [correlationIdField, { name: 'articleId', type: 'text', required: true }],
 
   outputSchema: [
-    { name: 'posted', type: 'checkbox' },
+    { name: 'posted', type: 'number' },
     { name: 'skipped', type: 'text' },
-    { name: 'postUrl', type: 'text' },
   ],
 
   /**
@@ -116,9 +124,11 @@ export const socialPhotocard: TaskConfig<{
     if (!article) return skip('article no longer exists')
     if (article.workflowStatus !== 'published') return skip('article is not published')
 
-    const alreadyPosted = (article.socialPosts as { facebookPostedAt?: unknown } | undefined)
-      ?.facebookPostedAt
-    if (alreadyPosted) return skip('already posted')
+    const state = (article.socialPosts ?? {}) as SocialPostsState
+    const pending = env.SOCIAL_AUTOPOST_PLATFORMS.filter(
+      (platform) => !state[postedAtKey(platform)],
+    )
+    if (pending.length === 0) return skip('already posted everywhere configured')
 
     const headline = typeof article.headline === 'string' ? article.headline.trim() : ''
     if (!headline) return skip('article has no headline in the default locale')
@@ -140,15 +150,6 @@ export const socialPhotocard: TaskConfig<{
     }
     const photo = Buffer.from(await photoResponse.arrayBuffer())
 
-    const categoryValue = (article.primaryCategory as { slug?: unknown } | null | undefined)?.slug
-    // 'news' mirrors the structured-data fallback for an article missing its category.
-    const categorySlug = typeof categoryValue === 'string' ? categoryValue : 'news'
-    const slug = typeof article.slug === 'string' ? article.slug : input.articleId
-    const url = absoluteUrl(
-      articlePath(DEFAULT_LOCALE, categorySlug, slug),
-      env.NEXT_PUBLIC_SITE_URL,
-    )
-
     const publishedAt =
       typeof article.publishedAt === 'string' ? new Date(article.publishedAt) : new Date()
 
@@ -159,43 +160,61 @@ export const socialPhotocard: TaskConfig<{
       siteLabel: new URL(env.NEXT_PUBLIC_SITE_URL).host,
     })
 
-    const caption = buildFacebookCaption({
+    const caption = buildCaption({
       headline,
       summary: typeof article.summary === 'string' ? article.summary : null,
-      url,
     })
 
-    const result = await postPhotoToFacebook({
+    const results = await postPhotocard({
       apiKey: env.UPLOAD_POST_API_KEY,
       profile: env.UPLOAD_POST_PROFILE,
+      platforms: pending,
       facebookPageId: env.UPLOAD_POST_FACEBOOK_PAGE_ID,
       photo: card,
       filename: `photocard-${input.articleId}.jpg`,
       title: caption.title,
       description: caption.description,
-      idempotencyKey: `social-photocard-${input.articleId}`,
+      fullCaption: caption.full,
+      idempotencyKey: `social-photocard-${input.articleId}-${pending.join('-')}`,
     })
 
-    await req.payload.update({
-      collection: 'articles',
-      id: input.articleId,
-      data: {
-        socialPosts: {
-          facebookPostedAt: new Date().toISOString(),
-          facebookPostUrl: result.postUrl,
-        },
-      },
-      depth: 0,
-      locale: DEFAULT_LOCALE,
-      overrideAccess: true,
-      // Lets the queueing hook tell this bookkeeping write from an edit, so
-      // recording the post cannot queue another post.
-      context: { isSocialPostUpdate: true },
-      req,
-    })
+    const now = new Date().toISOString()
+    const record: Record<string, unknown> = {}
+    const failed: string[] = []
+    for (const platform of pending) {
+      const result = results[platform]
+      if (result?.posted) {
+        record[postedAtKey(platform)] = now
+        record[postUrlKey(platform)] = result.postUrl
+      } else {
+        failed.push(`${platform}: ${result?.error ?? 'missing from response'}`)
+      }
+    }
 
-    logger.info({ postUrl: result.postUrl }, 'Photocard posted to Facebook')
+    if (Object.keys(record).length > 0) {
+      await req.payload.update({
+        collection: 'articles',
+        id: input.articleId,
+        data: { socialPosts: record },
+        depth: 0,
+        locale: DEFAULT_LOCALE,
+        overrideAccess: true,
+        // Lets the queueing hook tell this bookkeeping write from an edit, so
+        // recording the posts cannot queue another post. Deliberately not on
+        // `req`: the throw below for a partial failure must not roll back the
+        // record of what *did* post, or the retry would post those again.
+        context: { isSocialPostUpdate: true },
+      })
+    }
 
-    return { output: { posted: true, ...(result.postUrl ? { postUrl: result.postUrl } : {}) } }
+    const posted = pending.length - failed.length
+    logger.info({ posted, failed }, 'Photocard run finished')
+
+    if (failed.length > 0) {
+      // Retryable: the platforms already recorded above are excluded next run.
+      throw new Error(`Photocard failed for ${failed.join('; ')}`)
+    }
+
+    return { output: { posted } }
   },
 }
