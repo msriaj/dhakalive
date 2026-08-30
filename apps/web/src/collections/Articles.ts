@@ -15,6 +15,7 @@ import { enforceArticleWorkflow } from '../hooks/article-workflow'
 import { recordArticleRedirect } from '../hooks/redirects'
 import { revalidateArticle, revalidateArticleDeletion } from '../hooks/revalidate'
 import { deindexOnDelete, indexOnChange } from '../hooks/search'
+import { queueSocialPhotocard } from '../hooks/social'
 
 const TYPE_LABELS: Record<ArticleType, string> = {
   standard: 'Standard article',
@@ -112,7 +113,12 @@ export const Articles: CollectionConfig = {
 
   hooks: {
     beforeChange: [enforceArticleWorkflow],
-    afterChange: [recordArticleRedirect, revalidateArticle, indexOnChange('articles')],
+    afterChange: [
+      recordArticleRedirect,
+      revalidateArticle,
+      indexOnChange('articles'),
+      queueSocialPhotocard,
+    ],
     afterDelete: [revalidateArticleDeletion, deindexOnDelete('articles')],
   },
 
@@ -361,6 +367,34 @@ export const Articles: CollectionConfig = {
             condition: (_data: unknown, siblingData: Record<string, unknown>) =>
               Boolean(siblingData?.hasCorrection),
           },
+        },
+      ],
+    },
+
+    // ----------------------------------------------------------- social posts
+    /**
+     * Record of the automatic Facebook photocard, written by the worker after a
+     * successful post. It doubles as the dedupe guard: the photocard task
+     * refuses to post an article that already carries a timestamp, so clearing
+     * these fields is also how an admin deliberately re-posts one.
+     */
+    {
+      name: 'socialPosts',
+      type: 'group',
+      admin: {
+        position: 'sidebar',
+        description: 'Automatic social publication, recorded by the background worker.',
+      },
+      fields: [
+        {
+          name: 'facebookPostedAt',
+          type: 'date',
+          admin: { readOnly: true, description: 'When the photocard was posted.' },
+        },
+        {
+          name: 'facebookPostUrl',
+          type: 'text',
+          admin: { readOnly: true, description: 'The published Facebook post.' },
         },
       ],
     },

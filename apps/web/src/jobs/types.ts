@@ -50,11 +50,23 @@ export interface RevalidateInput extends JobInput {
   event: RevalidationEvent
 }
 
+/**
+ * Renders a branded photocard for one article and posts it to Facebook.
+ *
+ * Same identity-only shape as `SearchIndexInput`, for the same reason: the job
+ * reads the article as it stands when it runs, so a headline fixed between
+ * publish and post goes out corrected.
+ */
+export interface SocialPhotocardInput extends JobInput {
+  articleId: string
+}
+
 export interface TaskInputs {
   'prune-jobs': PruneJobsInput
   'search-index': SearchIndexInput
   'publish-scheduled': PublishScheduledInput
   'expire-breaking': ExpireBreakingInput
+  'social-photocard': SocialPhotocardInput
   revalidate: RevalidateInput
 }
 

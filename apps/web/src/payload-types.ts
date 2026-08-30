@@ -132,6 +132,7 @@ export interface Config {
       'expire-breaking': TaskExpireBreaking;
       revalidate: TaskRevalidate;
       'search-index': TaskSearchIndex;
+      'social-photocard': TaskSocialPhotocard;
       'prune-jobs': TaskPruneJobs;
       inline: {
         input: unknown;
@@ -280,6 +281,19 @@ export interface Article {
      */
     note?: string | null;
     correctedAt?: string | null;
+  };
+  /**
+   * Automatic social publication, recorded by the background worker.
+   */
+  socialPosts?: {
+    /**
+     * When the photocard was posted.
+     */
+    facebookPostedAt?: string | null;
+    /**
+     * The published Facebook post.
+     */
+    facebookPostUrl?: string | null;
   };
   createdBy?: (number | null) | User;
   lastEditedBy?: (number | null) | User;
@@ -827,7 +841,7 @@ export interface Advertisement {
 export interface Redirect {
   id: number;
   /**
-   * The old path, including the locale — /bn/politics/old-slug. Query strings are ignored.
+   * The old path as a reader would type it — /politics/old-slug. Bengali is served without a locale prefix, so do not include /bn. Query strings are ignored.
    */
   from: string;
   /**
@@ -922,7 +936,14 @@ export interface PayloadJob {
     | {
         executedAt: string;
         completedAt: string;
-        taskSlug: 'inline' | 'publish-scheduled' | 'expire-breaking' | 'revalidate' | 'search-index' | 'prune-jobs';
+        taskSlug:
+          | 'inline'
+          | 'publish-scheduled'
+          | 'expire-breaking'
+          | 'revalidate'
+          | 'search-index'
+          | 'social-photocard'
+          | 'prune-jobs';
         taskID: string;
         input?:
           | {
@@ -954,13 +975,32 @@ export interface PayloadJob {
           | null;
         parent?: {
           taskSlug?:
-            ('inline' | 'publish-scheduled' | 'expire-breaking' | 'revalidate' | 'search-index' | 'prune-jobs') | null;
+            | (
+                | 'inline'
+                | 'publish-scheduled'
+                | 'expire-breaking'
+                | 'revalidate'
+                | 'search-index'
+                | 'social-photocard'
+                | 'prune-jobs'
+              )
+            | null;
           taskID?: string | null;
         };
         id?: string | null;
       }[]
     | null;
-  taskSlug?: ('inline' | 'publish-scheduled' | 'expire-breaking' | 'revalidate' | 'search-index' | 'prune-jobs') | null;
+  taskSlug?:
+    | (
+        | 'inline'
+        | 'publish-scheduled'
+        | 'expire-breaking'
+        | 'revalidate'
+        | 'search-index'
+        | 'social-photocard'
+        | 'prune-jobs'
+      )
+    | null;
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
@@ -1105,6 +1145,12 @@ export interface ArticlesSelect<T extends boolean = true> {
         hasCorrection?: T;
         note?: T;
         correctedAt?: T;
+      };
+  socialPosts?:
+    | T
+    | {
+        facebookPostedAt?: T;
+        facebookPostUrl?: T;
       };
   createdBy?: T;
   lastEditedBy?: T;
@@ -2201,6 +2247,24 @@ export interface TaskSearchIndex {
   output: {
     indexed?: number | null;
     removed?: boolean | null;
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskSocial-photocard".
+ */
+export interface TaskSocialPhotocard {
+  input: {
+    /**
+     * Ties this job back to the request that queued it.
+     */
+    correlationId?: string | null;
+    articleId: string;
+  };
+  output: {
+    posted?: boolean | null;
+    skipped?: string | null;
+    postUrl?: string | null;
   };
 }
 /**

@@ -271,6 +271,20 @@ export const serverEnvSchema = z
     OPENAI_API_KEY: optionalString,
     OPENAI_MODEL: z.string().trim().default('gpt-4o'),
 
+    // --- Social auto-posting ---------------------------------------------------
+    /**
+     * Same shape as INGEST_ENABLED, for the same reason: the API key can sit in
+     * every environment, and this switch alone decides which deployment
+     * actually posts to the page. Staging holding real credentials must not
+     * mean staging publishing photocards to the real audience.
+     */
+    SOCIAL_AUTOPOST_ENABLED: booleanFromString.default(false),
+    UPLOAD_POST_API_KEY: optionalString,
+    /** Profile name at upload-post.com that has the Facebook page connected. */
+    UPLOAD_POST_PROFILE: optionalString,
+    /** Optional when the profile has exactly one page connected or one pinned. */
+    UPLOAD_POST_FACEBOOK_PAGE_ID: optionalString,
+
     // --- Observability --------------------------------------------------------
     LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
     ERROR_TRACKING_DSN: optionalString,
@@ -310,6 +324,27 @@ export const serverEnvSchema = z
           code: 'custom',
           path: ['INGEST_SOURCE_URL'],
           message: 'Required when INGEST_ENABLED is true',
+        })
+      }
+    }
+
+    /**
+     * Same rule as the ingest: posting runs unattended, so a half-configured
+     * setup must refuse to boot rather than dead-letter a job per publish.
+     */
+    if (env.SOCIAL_AUTOPOST_ENABLED) {
+      if (!env.UPLOAD_POST_API_KEY) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['UPLOAD_POST_API_KEY'],
+          message: 'Required when SOCIAL_AUTOPOST_ENABLED is true',
+        })
+      }
+      if (!env.UPLOAD_POST_PROFILE) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['UPLOAD_POST_PROFILE'],
+          message: 'Required when SOCIAL_AUTOPOST_ENABLED is true',
         })
       }
     }
