@@ -24,11 +24,16 @@ export const CARD_HEIGHT = 1350
 
 const HEADER_HEIGHT = 108
 const ACCENT_HEIGHT = 10
-const PANEL_HEIGHT = 470
-const PHOTO_HEIGHT = CARD_HEIGHT - HEADER_HEIGHT - ACCENT_HEIGHT - PANEL_HEIGHT
+/** The photograph is the news; it gets the larger share of the card. */
+const PHOTO_HEIGHT = 800
+const PANEL_HEIGHT = CARD_HEIGHT - HEADER_HEIGHT - ACCENT_HEIGHT - PHOTO_HEIGHT
 
 const MARGIN = 64
 const TEXT_WIDTH = CARD_WIDTH - MARGIN * 2
+
+/** Panel paddings around the headline block and the footer line. */
+const PANEL_PAD = 32
+const FOOTER_GAP = 44
 
 /** The masthead red — the same value `app/icon.svg` states, for the same reason. */
 const BRAND_RED = '#c4172a'
@@ -117,16 +122,16 @@ async function renderText({ text, sizePx, color, width }: TextOptions) {
 /**
  * The headline block, sized to fit.
  *
- * Tried at decreasing sizes until the wrapped block fits the panel. A headline
- * that is still too tall at the floor size is rendered anyway — a cramped card
- * beats a job that can never succeed, and 90px of overflow room is left below
- * the block before the footer line.
+ * Starts big — a one- or two-line headline should fill the panel the way a
+ * front page would set it — and steps down until the wrapped block fits. A
+ * headline that is still too tall at the floor size is rendered anyway: a
+ * cramped card beats a job that can never succeed.
  */
 async function renderHeadline(headline: string, maxHeight: number) {
-  const smallerSizes = [52, 46, 40, 34]
+  const smallerSizes = [60, 52, 46, 40, 34]
   const markup = escapeMarkup(headline.trim())
 
-  let rendered = await renderText({ text: markup, sizePx: 58, color: '#ffffff', width: TEXT_WIDTH })
+  let rendered = await renderText({ text: markup, sizePx: 68, color: '#ffffff', width: TEXT_WIDTH })
   for (const sizePx of smallerSizes) {
     if (rendered.height <= maxHeight) break
     rendered = await renderText({ text: markup, sizePx, color: '#ffffff', width: TEXT_WIDTH })
@@ -154,11 +159,27 @@ export async function renderPhotocard(input: PhotocardInput): Promise<Buffer> {
   const footer = await renderText({
     text: escapeMarkup(input.siteLabel),
     sizePx: 24,
-    color: '#8b949e',
+    color: '#c9d1d9',
   })
-  const headline = await renderHeadline(input.headline, PANEL_HEIGHT - 90 - footer.height)
 
   const panelTop = HEADER_HEIGHT + PHOTO_HEIGHT + ACCENT_HEIGHT
+  const footerTop = CARD_HEIGHT - FOOTER_GAP - footer.height
+
+  /**
+   * The headline is centred in the space between the accent bar and the footer
+   * line, so a short headline sits balanced in the panel instead of hugging the
+   * top with dead space below it.
+   */
+  const headlineAreaTop = panelTop + PANEL_PAD
+  const headlineAreaHeight = footerTop - PANEL_PAD - headlineAreaTop
+  const headline = await renderHeadline(input.headline, headlineAreaHeight)
+  const headlineTop =
+    headlineAreaTop + Math.max(0, Math.round((headlineAreaHeight - headline.height) / 2))
+
+  /** Small brand-red dot in front of the footer line. */
+  const footerDot = Buffer.from(
+    `<svg width="14" height="14" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="7" fill="${BRAND_RED}"/></svg>`,
+  )
 
   return sharp({
     create: {
@@ -195,8 +216,13 @@ export async function renderPhotocard(input: PhotocardInput): Promise<Buffer> {
         left: CARD_WIDTH - MARGIN - date.width,
         top: Math.round((HEADER_HEIGHT - date.height) / 2),
       },
-      { input: headline.buffer, left: MARGIN, top: panelTop + 48 },
-      { input: footer.buffer, left: MARGIN, top: CARD_HEIGHT - 48 - footer.height },
+      { input: headline.buffer, left: MARGIN, top: headlineTop },
+      {
+        input: footerDot,
+        left: MARGIN,
+        top: footerTop + Math.round((footer.height - 14) / 2),
+      },
+      { input: footer.buffer, left: MARGIN + 14 + 16, top: footerTop },
     ])
     .jpeg({ quality: 90, mozjpeg: true })
     .toBuffer()
