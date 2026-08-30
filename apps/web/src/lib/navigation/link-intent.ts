@@ -25,7 +25,13 @@ export interface LinkIntent {
   button?: number
   /** Ctrl/Cmd/Shift/Alt all open elsewhere or do something other than navigate. */
   modifierKey?: boolean
-  /** A handler upstream already called `preventDefault`. */
+  /**
+   * A handler that ran *before* us already called `preventDefault`.
+   *
+   * Nearly always false, because the listener runs in the capture phase — it
+   * has to, since `next/link` cancels the event to perform its own navigation
+   * and a later listener cannot tell that apart from a click being suppressed.
+   */
   defaultPrevented?: boolean
 }
 
