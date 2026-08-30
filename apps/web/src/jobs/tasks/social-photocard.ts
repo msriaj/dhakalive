@@ -172,9 +172,7 @@ export const socialPhotocard: TaskConfig<{
       facebookPageId: env.UPLOAD_POST_FACEBOOK_PAGE_ID,
       photo: card,
       filename: `photocard-${input.articleId}.jpg`,
-      title: caption.title,
-      description: caption.description,
-      fullCaption: caption.full,
+      caption,
       idempotencyKey: `social-photocard-${input.articleId}-${pending.join('-')}`,
     })
 

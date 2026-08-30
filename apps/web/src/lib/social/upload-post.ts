@@ -21,12 +21,13 @@ export interface PhotocardPost {
   facebookPageId?: string
   photo: Buffer
   filename: string
-  /** Facebook caption. */
-  title: string
-  /** Facebook extended text; the other platforms ignore it. */
-  description?: string
-  /** Single-field caption for Instagram and Threads. */
-  fullCaption: string
+  /**
+   * The caption, identical on every platform. Sent only as `title`: sending
+   * `description` or per-platform titles alongside it made the platforms
+   * disagree — Facebook hid the description, Instagram preferred it over its
+   * own title. See `caption.ts`.
+   */
+  caption: string
   /**
    * Suppresses a duplicate post when a retry re-sends a request whose response
    * was lost. Sent as the documented `Idempotency-Key` header. Callers vary it
@@ -79,10 +80,7 @@ export async function postPhotocard(
     new Blob([new Uint8Array(post.photo)], { type: 'image/jpeg' }),
     post.filename,
   )
-  body.set('title', post.title)
-  if (post.description) body.set('description', post.description)
-  if (post.platforms.includes('instagram')) body.set('instagram_title', post.fullCaption)
-  if (post.platforms.includes('threads')) body.set('threads_title', post.fullCaption)
+  body.set('title', post.caption)
   if (post.facebookPageId && post.platforms.includes('facebook')) {
     body.set('facebook_page_id', post.facebookPageId)
   }
