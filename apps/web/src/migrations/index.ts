@@ -18,6 +18,7 @@ import * as migration_20260811_112353_article_view_count from './20260811_112353
 import * as migration_20260830_033524_social_posts from './20260830_033524_social_posts'
 import * as migration_20260830_035104_social_platforms from './20260830_035104_social_platforms'
 import * as migration_20260830_083012_social_approval from './20260830_083012_social_approval'
+import * as migration_20260830_100210_social_linkedin_x from './20260830_100210_social_linkedin_x'
 import * as migration_20260830_120000_search_url_text from './20260830_120000_search_url_text'
 
 export const migrations = [
@@ -120,6 +121,11 @@ export const migrations = [
     up: migration_20260830_083012_social_approval.up,
     down: migration_20260830_083012_social_approval.down,
     name: '20260830_083012_social_approval',
+  },
+  {
+    up: migration_20260830_100210_social_linkedin_x.up,
+    down: migration_20260830_100210_social_linkedin_x.down,
+    name: '20260830_100210_social_linkedin_x',
   },
   {
     up: migration_20260830_120000_search_url_text.up,

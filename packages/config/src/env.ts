@@ -31,7 +31,7 @@ const SEARCH_PROVIDERS = ['postgres', 'meilisearch', 'opensearch'] as const
 export type SearchProviderName = (typeof SEARCH_PROVIDERS)[number]
 
 /** Platforms the photocard auto-poster can publish to. */
-export const SOCIAL_PLATFORMS = ['facebook', 'instagram', 'threads'] as const
+export const SOCIAL_PLATFORMS = ['facebook', 'instagram', 'threads', 'linkedin', 'x'] as const
 export type SocialPlatformName = (typeof SOCIAL_PLATFORMS)[number]
 
 // `silent` is a real pino level and the right setting for test runs.
@@ -291,7 +291,7 @@ export const serverEnvSchema = z
     SOCIAL_AUTOPOST_PLATFORMS: z
       .string()
       .trim()
-      .default('facebook,instagram,threads')
+      .default('facebook,instagram,threads,linkedin,x')
       .transform((value) =>
         value
           .split(',')

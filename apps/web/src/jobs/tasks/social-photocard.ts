@@ -235,6 +235,7 @@ export const socialPhotocard: TaskConfig<{
       photo: card,
       filename: `photocard-${input.articleId}.jpg`,
       caption,
+      headline,
       facebookFirstComment: articleUrl,
       idempotencyKey: `social-photocard-${input.articleId}-${pending.join('-')}`,
     })

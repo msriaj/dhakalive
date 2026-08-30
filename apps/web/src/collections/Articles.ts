@@ -417,6 +417,10 @@ export const Articles: CollectionConfig = {
         { name: 'instagramPostUrl', type: 'text', admin: { readOnly: true } },
         { name: 'threadsPostedAt', type: 'date', admin: { readOnly: true } },
         { name: 'threadsPostUrl', type: 'text', admin: { readOnly: true } },
+        { name: 'linkedinPostedAt', type: 'date', admin: { readOnly: true } },
+        { name: 'linkedinPostUrl', type: 'text', admin: { readOnly: true } },
+        { name: 'xPostedAt', type: 'date', admin: { readOnly: true } },
+        { name: 'xPostUrl', type: 'text', admin: { readOnly: true } },
       ],
     },
 

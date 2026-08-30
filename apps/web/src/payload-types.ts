@@ -302,6 +302,10 @@ export interface Article {
     instagramPostUrl?: string | null;
     threadsPostedAt?: string | null;
     threadsPostUrl?: string | null;
+    linkedinPostedAt?: string | null;
+    linkedinPostUrl?: string | null;
+    xPostedAt?: string | null;
+    xPostUrl?: string | null;
   };
   createdBy?: (number | null) | User;
   lastEditedBy?: (number | null) | User;
@@ -1167,6 +1171,10 @@ export interface ArticlesSelect<T extends boolean = true> {
         instagramPostUrl?: T;
         threadsPostedAt?: T;
         threadsPostUrl?: T;
+        linkedinPostedAt?: T;
+        linkedinPostUrl?: T;
+        xPostedAt?: T;
+        xPostUrl?: T;
       };
   createdBy?: T;
   lastEditedBy?: T;
