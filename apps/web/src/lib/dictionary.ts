@@ -10,6 +10,8 @@ import type { Locale } from '@dhakalive/config'
  */
 const STRINGS = {
   skipToContent: { bn: 'মূল অংশে যান', en: 'Skip to content' },
+  /** Announced while a page the reader clicked to is still loading. */
+  loadingPage: { bn: 'পৃষ্ঠা লোড হচ্ছে', en: 'Loading page' },
   mainNavigation: { bn: 'প্রধান নেভিগেশন', en: 'Main navigation' },
   footerNavigation: { bn: 'ফুটার নেভিগেশন', en: 'Footer navigation' },
   breadcrumb: { bn: 'ব্রেডক্রাম্ব', en: 'Breadcrumb' },
