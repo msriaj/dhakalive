@@ -28,6 +28,8 @@ export interface PhotocardPost {
    * own title. See `caption.ts`.
    */
   caption: string
+  /** Headline alone, for platforms with hard length caps (X). */
+  headline: string
   /**
    * Posted automatically as the first comment on the Facebook post — the
    * article link lives there, where Facebook does not throttle it and the
@@ -87,6 +89,14 @@ export async function postPhotocard(
     post.filename,
   )
   body.set('title', post.caption)
+  /**
+   * X caps a post at 280 characters and the API rejects rather than truncates,
+   * so X gets the headline alone — the card carries the rest. Every other
+   * platform takes the full caption from `title`.
+   */
+  if (post.platforms.includes('x')) {
+    body.set('x_title', post.headline.slice(0, 275))
+  }
   if (post.facebookFirstComment && post.platforms.includes('facebook')) {
     body.set('facebook_first_comment', post.facebookFirstComment)
   }
