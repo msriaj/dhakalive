@@ -153,11 +153,14 @@ export const socialPhotocard: TaskConfig<{
     const publishedAt =
       typeof article.publishedAt === 'string' ? new Date(article.publishedAt) : new Date()
 
+    const categoryTitle = (article.primaryCategory as { title?: unknown } | null | undefined)?.title
+
     const card = await renderPhotocard({
       headline,
       photo,
       dateLabel: formatCardDate(publishedAt),
       siteLabel: new URL(env.NEXT_PUBLIC_SITE_URL).host,
+      categoryLabel: typeof categoryTitle === 'string' ? categoryTitle : null,
     })
 
     const caption = buildCaption({

@@ -23,10 +23,9 @@ export const CARD_WIDTH = 1080
 export const CARD_HEIGHT = 1350
 
 const HEADER_HEIGHT = 108
-const ACCENT_HEIGHT = 10
 /** The photograph is the news; it gets the larger share of the card. */
 const PHOTO_HEIGHT = 800
-const PANEL_HEIGHT = CARD_HEIGHT - HEADER_HEIGHT - ACCENT_HEIGHT - PHOTO_HEIGHT
+const PANEL_HEIGHT = CARD_HEIGHT - HEADER_HEIGHT - PHOTO_HEIGHT
 
 const MARGIN = 64
 const TEXT_WIDTH = CARD_WIDTH - MARGIN * 2
@@ -89,6 +88,8 @@ export interface PhotocardInput {
   dateLabel: string
   /** Shown in the panel footer, e.g. `dhakalive.com.bd`. */
   siteLabel: string
+  /** Section name, shown in the panel's bottom-right corner. */
+  categoryLabel?: string | null
 }
 
 /** Bengali-locale date for the card header. */
@@ -177,11 +178,19 @@ export async function renderPhotocard(input: PhotocardInput): Promise<Buffer> {
     color: '#c9d1d9',
   })
 
-  const panelTop = HEADER_HEIGHT + PHOTO_HEIGHT + ACCENT_HEIGHT
+  const category = input.categoryLabel?.trim()
+    ? await renderText({
+        text: escapeMarkup(input.categoryLabel.trim()),
+        sizePx: 26,
+        color: '#ff6b7a', // the brand red, lifted to read on the dark panel
+      })
+    : null
+
+  const panelTop = HEADER_HEIGHT + PHOTO_HEIGHT
   const footerTop = CARD_HEIGHT - FOOTER_GAP - footer.height
 
   /**
-   * The headline is centred in the space between the accent bar and the footer
+   * The headline is centred in the space between the photograph and the footer
    * line, so a short headline sits balanced in the panel instead of hugging the
    * top with dead space below it.
    */
@@ -208,13 +217,6 @@ export async function renderPhotocard(input: PhotocardInput): Promise<Buffer> {
       { input: photo, left: 0, top: HEADER_HEIGHT },
       {
         input: {
-          create: { width: CARD_WIDTH, height: ACCENT_HEIGHT, channels: 3, background: BRAND_RED },
-        },
-        left: 0,
-        top: HEADER_HEIGHT + PHOTO_HEIGHT,
-      },
-      {
-        input: {
           create: { width: CARD_WIDTH, height: PANEL_HEIGHT, channels: 3, background: PANEL_DARK },
         },
         left: 0,
@@ -238,6 +240,10 @@ export async function renderPhotocard(input: PhotocardInput): Promise<Buffer> {
         top: footerTop + Math.round((footer.height - 14) / 2),
       },
       { input: footer.buffer, left: MARGIN + 14 + 16, top: footerTop },
+      // Section name in the bottom-right corner, opposite the domain.
+      ...(category
+        ? [{ input: category.buffer, left: CARD_WIDTH - MARGIN - category.width, top: footerTop }]
+        : []),
     ])
     .jpeg({ quality: 90, mozjpeg: true })
     .toBuffer()
