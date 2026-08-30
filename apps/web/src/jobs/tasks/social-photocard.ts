@@ -5,8 +5,9 @@ import { absoluteUrl, articlePath } from '../../lib/routes'
 import { buildCaption } from '../../lib/social/caption'
 import { formatCardDate, renderPhotocard } from '../../lib/social/photocard'
 import { recordOutcomeOnMessage, sendApprovalRequest } from '../../lib/social/telegram'
-import { postPhotocard } from '../../lib/social/upload-post'
-import { RETRY_REMOTE } from '../queues'
+import { UploadPostError, postPhotocardTo } from '../../lib/social/upload-post'
+import { enqueue } from '../enqueue'
+import { QUEUE, RETRY_REMOTE } from '../queues'
 import { correlationIdField, logFailure, taskLogger } from '../telemetry'
 import type { SocialPhotocardInput } from '../types'
 
@@ -227,29 +228,43 @@ export const socialPhotocard: TaskConfig<{
       }
     }
 
-    const results = await postPhotocard({
-      apiKey: env.UPLOAD_POST_API_KEY,
-      profile: env.UPLOAD_POST_PROFILE,
-      platforms: pending,
-      facebookPageId: env.UPLOAD_POST_FACEBOOK_PAGE_ID,
-      photo: card,
-      filename: `photocard-${input.articleId}.jpg`,
-      caption,
-      headline,
-      facebookFirstComment: articleUrl,
-      idempotencyKey: `social-photocard-${input.articleId}-${pending.join('-')}`,
-    })
-
+    /**
+     * One request per platform, so one platform's failure — above all a daily
+     * posting cap — cannot take the others down with it. A cap defers rather
+     * than fails: the window is 24 hours, and RETRY_REMOTE's seconds-apart
+     * attempts would only burn themselves out against it. Deferred platforms
+     * get a fresh job hours later via `waitUntil`; everything already posted
+     * is excluded by its timestamp as usual.
+     */
     const now = new Date().toISOString()
     const record: Record<string, unknown> = {}
     const failed: string[] = []
+    let succeeded = 0
+    let deferred = false
     for (const platform of pending) {
-      const result = results[platform]
-      if (result?.posted) {
+      try {
+        const result = await postPhotocardTo({
+          apiKey: env.UPLOAD_POST_API_KEY,
+          profile: env.UPLOAD_POST_PROFILE,
+          platform,
+          facebookPageId: env.UPLOAD_POST_FACEBOOK_PAGE_ID,
+          photo: card,
+          filename: `photocard-${input.articleId}.jpg`,
+          caption,
+          headline,
+          facebookFirstComment: articleUrl,
+          idempotencyKey: `social-photocard-${input.articleId}-${platform}`,
+        })
         record[postedAtKey(platform)] = now
         record[postUrlKey(platform)] = result.postUrl
-      } else {
-        failed.push(`${platform}: ${result?.error ?? 'missing from response'}`)
+        succeeded += 1
+      } catch (error) {
+        if (error instanceof UploadPostError && error.isDailyCap) {
+          deferred = true
+          logger.warn({ platform }, 'Daily posting cap reached; deferring this platform')
+        } else {
+          failed.push(`${platform}: ${error instanceof Error ? error.message : String(error)}`)
+        }
       }
     }
 
@@ -269,15 +284,33 @@ export const socialPhotocard: TaskConfig<{
       })
     }
 
-    const posted = pending.length - failed.length
-    logger.info({ posted, failed }, 'Photocard run finished')
+    const posted = succeeded
+    logger.info({ posted, failed, deferred }, 'Photocard run finished')
+
+    /**
+     * The deferred re-run. Queued before the failure throw below so a cap on
+     * one platform and a transient error on another cannot cancel each other's
+     * recovery paths. `supersedes` on the concurrency key means a fresh
+     * approval or publish in the meantime simply replaces this waiting job.
+     */
+    if (deferred) {
+      await enqueue({
+        payload: req.payload,
+        task: 'social-photocard',
+        input: { articleId: input.articleId, correlationId: input.correlationId },
+        queue: QUEUE.content,
+        waitUntil: new Date(Date.now() + 3 * 60 * 60 * 1000),
+      })
+    }
 
     /**
      * Close the loop on the approval message, best-effort: the group's history
      * should read "requested → approved → posted". A Telegram hiccup here must
      * not fail a job whose actual work — the posts — already succeeded.
      */
-    if (posted > 0 && env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+    // Only when nothing is left outstanding: a deferred or failed platform
+    // still has a run ahead of it, and "posted" on the message would lie.
+    if (posted === pending.length && posted > 0 && env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
       const messageId = state.approvalMessageId
       if (typeof messageId === 'number') {
         const decidedBy =
