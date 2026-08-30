@@ -112,13 +112,27 @@ export function NavigationProgress({ label }: { label: string }) {
     }
 
     /**
-     * The bubble phase, deliberately. A handler that calls `preventDefault` —
-     * a menu that opens instead of navigating — has already run by the time
-     * this sees the event, so `defaultPrevented` is meaningful here.
+     * Capture phase, and it has to be.
+     *
+     * The bubble phase looks more correct — every other handler has run, so
+     * `defaultPrevented` tells you whether the click was already dealt with —
+     * and it is exactly wrong here. `next/link` calls `preventDefault()` as the
+     * *mechanism* for client-side navigation, so by the time a bubble listener
+     * sees a genuine in-app navigation the flag is already true. Measured
+     * against production: bubble reported `defaultPrevented: true` and capture
+     * `false` for the same click on a section link, and the first version of
+     * this component consequently rejected every navigation on the site and
+     * never once showed.
+     *
+     * Running first costs the `defaultPrevented` signal for handlers that have
+     * not run yet, which is a smaller loss than it sounds: an anchor that gets
+     * cancelled without navigating is almost always `href="#"` or a `javascript:`
+     * URL, and the predicate already refuses both — the first as a link to the
+     * URL we are on, the second by scheme.
      */
-    document.addEventListener('click', onClick)
+    document.addEventListener('click', onClick, true)
     return () => {
-      document.removeEventListener('click', onClick)
+      document.removeEventListener('click', onClick, true)
       clearTimers()
     }
   }, [clearTimers, currentKey])
