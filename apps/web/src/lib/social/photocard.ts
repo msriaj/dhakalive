@@ -35,7 +35,27 @@ const BRAND_RED = '#c4172a'
 const PANEL_DARK = '#101418'
 
 const FONT_FAMILY = 'SolaimanLipi'
-const FONT_FILE = fileURLToPath(new URL('../../assets/fonts/solaimanlipi-700.ttf', import.meta.url))
+/**
+ * Resolved on first use, never at module scope.
+ *
+ * `import.meta.url` is not usable while Turbopack collects page data: the build
+ * failed there first with "must be of type string or an instance of URL.
+ * Received an instance of URL" — its `URL` is not Node's — and then, given the
+ * href instead, with a plain "Invalid URL". Nothing about the value is
+ * dependable at that moment.
+ *
+ * Nothing needs it at that moment either. This module is only reached through
+ * the admin route's dependency graph during collection; the font is read when a
+ * card is actually drawn, by which point the module is running in Node and
+ * `import.meta.url` is an ordinary file URL again. Deferring the call is what
+ * keeps a build-time concern from deciding whether the site builds at all.
+ */
+let fontFile: string | undefined
+
+function fontPath(): string {
+  fontFile ??= fileURLToPath(new URL('../../assets/fonts/solaimanlipi-700.ttf', import.meta.url))
+  return fontFile
+}
 
 export interface PhotocardInput {
   headline: string
@@ -83,7 +103,7 @@ async function renderText({ text, sizePx, color, width }: TextOptions) {
     text: {
       text: `<span foreground="${color}" size="${sizePx * 1024}">${text}</span>`,
       font: FONT_FAMILY,
-      fontfile: FONT_FILE,
+      fontfile: fontPath(),
       dpi: 72,
       rgba: true,
       ...(width ? { width } : {}),

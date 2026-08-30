@@ -54,6 +54,27 @@ function buildRemotePatterns(): NonNullable<NextConfig['images']>['remotePattern
 const nextConfig: NextConfig = {
   reactStrictMode: true,
 
+  /**
+   * Publishes the media host to the browser bundle.
+   *
+   * The image loader has to know which origin Cloudflare is proxying, and it
+   * runs in the browser, so the value must be inlined at build time. Nothing
+   * set it: `NEXT_PUBLIC_MEDIA_URL` appears in no Dockerfile ARG, no deploy
+   * build-arg and no env template, so it was `undefined` in every production
+   * build. The loader's host check then failed for every image and quietly
+   * handed back the unresized original — 347KB of photographs on an article
+   * page where the resized set is 124KB.
+   *
+   * Derived from `CLOUDFLARE_MEDIA_PUBLIC_URL` rather than adding another
+   * variable to set. That one is already plumbed through the image build and is
+   * already the source of truth for `remotePatterns` below, so the allowlist
+   * and the loader cannot disagree about which host the media lives on.
+   */
+  env: {
+    NEXT_PUBLIC_MEDIA_URL:
+      process.env.NEXT_PUBLIC_MEDIA_URL ?? process.env.CLOUDFLARE_MEDIA_PUBLIC_URL ?? '',
+  },
+
   // Standalone output keeps the runtime image to the traced file set instead of
   // a full node_modules tree. `outputFileTracingRoot` is required in a pnpm
   // workspace or tracing stops at apps/web and drops the linked packages.
