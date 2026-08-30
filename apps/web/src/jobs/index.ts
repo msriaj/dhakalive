@@ -8,6 +8,7 @@ import { pruneJobs } from './tasks/prune-jobs'
 import { publishScheduled } from './tasks/publish-scheduled'
 import { revalidate } from './tasks/revalidate'
 import { searchIndex } from './tasks/search-index'
+import { socialPhotocard } from './tasks/social-photocard'
 
 /**
  * Background jobs.
@@ -34,7 +35,7 @@ import { searchIndex } from './tasks/search-index'
  */
 export function buildJobsConfig(): JobsConfig {
   return {
-    tasks: [publishScheduled, expireBreaking, revalidate, searchIndex, pruneJobs],
+    tasks: [publishScheduled, expireBreaking, revalidate, searchIndex, socialPhotocard, pruneJobs],
 
     /**
      * Adds the `concurrencyKey` column that `concurrency` on a task needs. It is
