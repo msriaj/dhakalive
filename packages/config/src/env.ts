@@ -304,6 +304,23 @@ export const serverEnvSchema = z
     UPLOAD_POST_PROFILE: optionalString,
     /** Optional when the profile has exactly one page connected or one pinned. */
     UPLOAD_POST_FACEBOOK_PAGE_ID: optionalString,
+    /**
+     * When true, a card is sent to the Telegram group for a human to approve
+     * before anything is posted. On by default: publishing to three platforms
+     * at once is the kind of thing a newsroom wants a thumb on. Set to false
+     * for the old instant auto-post.
+     */
+    SOCIAL_APPROVAL_REQUIRED: booleanFromString.default(true),
+    TELEGRAM_BOT_TOKEN: optionalString,
+    /**
+     * Chat the approval requests go to. The default is the DhakaLive editors'
+     * group — a chat id is an address, not a credential, so like the GA
+     * measurement id it lives in reviewed code rather than in a value every
+     * environment must be told about separately.
+     */
+    TELEGRAM_CHAT_ID: z.string().trim().min(1).default('-5128697398'),
+    /** Shared secret Telegram echoes back on every webhook call. 16+ chars. */
+    TELEGRAM_WEBHOOK_SECRET: optionalString,
 
     // --- Observability --------------------------------------------------------
     LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
@@ -365,6 +382,33 @@ export const serverEnvSchema = z
           code: 'custom',
           path: ['UPLOAD_POST_PROFILE'],
           message: 'Required when SOCIAL_AUTOPOST_ENABLED is true',
+        })
+      }
+    }
+
+    /**
+     * The approval flow spans two processes — the worker sends the request,
+     * the web app receives the button tap — so a partial configuration fails
+     * in whichever process is missing its piece, hours apart. Refusing the
+     * boot is the only place the gap is visible as one thing.
+     *
+     * Gated on the autopost switch too: approval defaults on, and a dev or CI
+     * environment with posting disabled must not be forced to hold Telegram
+     * credentials for a flow it will never run.
+     */
+    if (env.SOCIAL_AUTOPOST_ENABLED && env.SOCIAL_APPROVAL_REQUIRED) {
+      if (!env.TELEGRAM_BOT_TOKEN) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['TELEGRAM_BOT_TOKEN'],
+          message: 'Required when social approval is on',
+        })
+      }
+      if (!env.TELEGRAM_WEBHOOK_SECRET || env.TELEGRAM_WEBHOOK_SECRET.length < 16) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['TELEGRAM_WEBHOOK_SECRET'],
+          message: 'Required (16+ chars) when social approval is on',
         })
       }
     }

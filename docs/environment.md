@@ -129,13 +129,29 @@ OAuth grants, we hold only its API key. The switch is separate from the
 credentials so staging can carry a real key without posting to the real
 audience. When the switch is on, the key and profile are required at boot.
 
-| Variable                       | Default | Notes                                                                                    |
-| ------------------------------ | ------- | ---------------------------------------------------------------------------------------- |
-| `SOCIAL_AUTOPOST_ENABLED`      | `false` | Turns automatic posting on for this deployment.                                          |
-| `SOCIAL_AUTOPOST_PLATFORMS`    | all     | Comma list of `facebook`, `instagram`, `threads`. Trim to drop a platform.               |
-| `UPLOAD_POST_API_KEY`          | —       | From <https://app.upload-post.com/api-keys>. **Required** when enabled.                  |
-| `UPLOAD_POST_PROFILE`          | —       | Upload-Post profile with each platform's account connected. **Required** when enabled.   |
-| `UPLOAD_POST_FACEBOOK_PAGE_ID` | —       | Only needed when the profile has several pages connected and none pinned as the default. |
+| Variable                       | Default        | Notes                                                                                                                      |
+| ------------------------------ | -------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `SOCIAL_AUTOPOST_ENABLED`      | `false`        | Turns automatic posting on for this deployment.                                                                            |
+| `SOCIAL_AUTOPOST_PLATFORMS`    | all            | Comma list of `facebook`, `instagram`, `threads`. Trim to drop a platform.                                                 |
+| `UPLOAD_POST_API_KEY`          | —              | From <https://app.upload-post.com/api-keys>. **Required** when enabled.                                                    |
+| `UPLOAD_POST_PROFILE`          | —              | Upload-Post profile with each platform's account connected. **Required** when enabled.                                     |
+| `UPLOAD_POST_FACEBOOK_PAGE_ID` | —              | Only needed when the profile has several pages connected and none pinned as the default.                                   |
+| `SOCIAL_APPROVAL_REQUIRED`     | `true`         | Route every card through Telegram approval before posting. `false` restores instant auto-post.                             |
+| `TELEGRAM_BOT_TOKEN`           | —              | From @BotFather. **Required** when posting and approval are both on.                                                       |
+| `TELEGRAM_CHAT_ID`             | editors' group | Chat the approval requests go to. Defaults to the DhakaLive editors' group.                                                |
+| `TELEGRAM_WEBHOOK_SECRET`      | —              | Mint with `openssl rand -hex 16`; pass the same value to `setWebhook`. **Required** when posting and approval are both on. |
+
+With approval on, publishing renders the card and sends it to the Telegram
+group with Approve/Decline buttons. A tap comes back through
+`/api/telegram/webhook` (verified against the secret and the chat id), is
+recorded on the article's `socialPosts.approvalStatus`, and an approval queues
+the posting job. The field is also editable in the admin sidebar, so an admin
+can approve, decline, or reverse a decline without Telegram. Register the
+webhook once:
+
+```
+curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<SITE_URL>/api/telegram/webhook&secret_token=<SECRET>&allowed_updates=%5B%22callback_query%22%5D"
+```
 
 ## Secret handling
 

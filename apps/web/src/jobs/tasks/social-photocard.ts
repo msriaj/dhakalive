@@ -4,6 +4,7 @@ import type { TaskConfig } from 'payload'
 import { absoluteUrl, articlePath } from '../../lib/routes'
 import { buildCaption } from '../../lib/social/caption'
 import { formatCardDate, renderPhotocard } from '../../lib/social/photocard'
+import { recordOutcomeOnMessage, sendApprovalRequest } from '../../lib/social/telegram'
 import { postPhotocard } from '../../lib/social/upload-post'
 import { RETRY_REMOTE } from '../queues'
 import { correlationIdField, logFailure, taskLogger } from '../telemetry'
@@ -185,6 +186,47 @@ export const socialPhotocard: TaskConfig<{
       summary: typeof article.summary === 'string' ? article.summary : null,
     })
 
+    /**
+     * The approval gate. First arrival sends the card to the editors' group
+     * and parks the article as pending; the job then ends successfully — the
+     * button tap, not a retry, is what wakes this flow up again, via the
+     * webhook writing `approvalStatus` and the hook queueing a fresh job.
+     * Declined stays declined until someone flips the field.
+     */
+    if (env.SOCIAL_APPROVAL_REQUIRED && env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+      const approval = state.approvalStatus
+      if (approval === 'declined') return skip('photocard declined')
+      if (approval === 'pending') return skip('awaiting approval')
+      if (approval !== 'approved') {
+        const messageId = await sendApprovalRequest({
+          botToken: env.TELEGRAM_BOT_TOKEN,
+          chatId: env.TELEGRAM_CHAT_ID,
+          photo: card,
+          caption,
+          articleId: input.articleId,
+        })
+
+        await req.payload.update({
+          collection: 'articles',
+          id: input.articleId,
+          data: {
+            socialPosts: {
+              approvalStatus: 'pending',
+              approvalRequestedAt: new Date().toISOString(),
+              approvalMessageId: messageId,
+            },
+          },
+          depth: 0,
+          locale: DEFAULT_LOCALE,
+          overrideAccess: true,
+          context: { isSocialPostUpdate: true },
+        })
+
+        logger.info({ messageId }, 'Photocard sent for approval')
+        return { output: { posted: 0, skipped: 'approval requested' } }
+      }
+    }
+
     const results = await postPhotocard({
       apiKey: env.UPLOAD_POST_API_KEY,
       profile: env.UPLOAD_POST_PROFILE,
@@ -228,6 +270,29 @@ export const socialPhotocard: TaskConfig<{
 
     const posted = pending.length - failed.length
     logger.info({ posted, failed }, 'Photocard run finished')
+
+    /**
+     * Close the loop on the approval message, best-effort: the group's history
+     * should read "requested → approved → posted". A Telegram hiccup here must
+     * not fail a job whose actual work — the posts — already succeeded.
+     */
+    if (posted > 0 && env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+      const messageId = state.approvalMessageId
+      if (typeof messageId === 'number') {
+        const decidedBy =
+          typeof state.approvalDecidedBy === 'string'
+            ? ` — approved by ${state.approvalDecidedBy}`
+            : ''
+        await recordOutcomeOnMessage({
+          botToken: env.TELEGRAM_BOT_TOKEN,
+          chatId: env.TELEGRAM_CHAT_ID,
+          messageId,
+          caption: `✅ পোস্ট হয়েছে${decidedBy}\n\n${caption}`,
+        }).catch((error: unknown) => {
+          logger.warn({ err: error, messageId }, 'Could not update the approval message')
+        })
+      }
+    }
 
     if (failed.length > 0) {
       // Retryable: the platforms already recorded above are excluded next run.

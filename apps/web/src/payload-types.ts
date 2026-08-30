@@ -286,6 +286,16 @@ export interface Article {
    * Automatic social publication, recorded by the background worker.
    */
   socialPosts?: {
+    /**
+     * Photocard approval. Set to Approved to (re)post.
+     */
+    approvalStatus?: ('pending' | 'approved' | 'declined') | null;
+    approvalRequestedAt?: string | null;
+    approvalMessageId?: number | null;
+    /**
+     * Who tapped the button on Telegram.
+     */
+    approvalDecidedBy?: string | null;
     facebookPostedAt?: string | null;
     facebookPostUrl?: string | null;
     instagramPostedAt?: string | null;
@@ -1147,6 +1157,10 @@ export interface ArticlesSelect<T extends boolean = true> {
   socialPosts?:
     | T
     | {
+        approvalStatus?: T;
+        approvalRequestedAt?: T;
+        approvalMessageId?: T;
+        approvalDecidedBy?: T;
         facebookPostedAt?: T;
         facebookPostUrl?: T;
         instagramPostedAt?: T;

@@ -6,17 +6,19 @@ import { enqueue } from '../jobs/enqueue'
 import { QUEUE } from '../jobs/queues'
 
 /**
- * Queues a Facebook photocard when an article becomes published.
+ * Queues a social photocard job when an article becomes published, or when its
+ * photocard is approved.
  *
- * The hook only decides *whether* this save is a publication; everything else —
- * rendering, posting, recording — happens in the worker, because an editor's
- * Publish must not wait on a third-party API. Both publish paths arrive here:
- * an editor's save and the scheduler's transition run the same `afterChange`.
+ * The hook only decides *whether* this save warrants a job; everything else —
+ * rendering, the approval request, posting, recording — happens in the worker,
+ * because an editor's Publish must not wait on a third-party API. All paths
+ * arrive here: an editor's save, the scheduler's transition, the Telegram
+ * webhook writing `approvalStatus`, and an admin flipping it in the CMS.
  *
- * Fires on the transition, not on the state: a published article is saved many
- * times (corrections, autosaves of metadata), and each of those must not
- * produce a Facebook post. The task re-checks `facebookPostedAt` anyway, so a
- * false positive here costs a no-op job, never a duplicate post.
+ * Fires on transitions, not on state: a published article is saved many times
+ * (corrections, autosaves of metadata), and each of those must not produce a
+ * post. The task re-checks everything anyway, so a false positive here costs a
+ * no-op job, never a duplicate post.
  */
 export const queueSocialPhotocard: CollectionAfterChangeHook = ({ doc, previousDoc, req }) => {
   // The task recording a completed post is itself an update; without this, the
@@ -27,13 +29,20 @@ export const queueSocialPhotocard: CollectionAfterChangeHook = ({ doc, previousD
   if (!env.SOCIAL_AUTOPOST_ENABLED) return
 
   const current = doc as { id?: unknown; workflowStatus?: unknown; socialPosts?: unknown }
-  const previous = previousDoc as { workflowStatus?: unknown } | undefined
+  const previous = previousDoc as { workflowStatus?: unknown; socialPosts?: unknown } | undefined
 
   if (current.workflowStatus !== 'published') return
-  if (previous?.workflowStatus === 'published') return
 
-  const posted = (current.socialPosts ?? {}) as Partial<Record<string, unknown>>
-  const allPosted = env.SOCIAL_AUTOPOST_PLATFORMS.every((platform) => posted[`${platform}PostedAt`])
+  const state = (current.socialPosts ?? {}) as Partial<Record<string, unknown>>
+  const previousState = (previous?.socialPosts ?? {}) as Partial<Record<string, unknown>>
+
+  const becamePublished = previous?.workflowStatus !== 'published'
+  const becameApproved =
+    state.approvalStatus === 'approved' && previousState.approvalStatus !== 'approved'
+
+  if (!becamePublished && !becameApproved) return
+
+  const allPosted = env.SOCIAL_AUTOPOST_PLATFORMS.every((platform) => state[`${platform}PostedAt`])
   if (allPosted) return
 
   const id = current.id
