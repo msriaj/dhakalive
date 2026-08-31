@@ -117,17 +117,20 @@ class Placed {
 
 /**
  * Section queries are issued concurrently, so none of them can see what the
- * others returned. Each therefore over-fetches by the number of stories already
- * on the page, and the surplus is discarded when the results are folded back in
- * page order — which is what makes one story appearing in two blocks impossible
- * rather than merely unlikely.
+ * others returned. Each therefore over-fetches by `reserved` — the number of
+ * stories that will already be on the page by the time this block folds, not
+ * merely the number placed when the query is issued. The distinction matters:
+ * every block above this one folds first and claims its stories, and when one
+ * category dominates the archive its newest stories are the site's newest
+ * stories, so a fetch sized only to the stories placed so far can come back
+ * holding nothing but stories the blocks above were always going to take.
  *
  * Capped, because the headroom is bounded by how much duplication is plausible
  * and an unbounded `limit` on a front page is how a query starts reading the
  * whole table.
  */
-function headroom(limit: number, placed: Placed): number {
-  return Math.min(limit + placed.size, 60)
+function headroom(limit: number, reserved: number): number {
+  return Math.min(limit + reserved, 60)
 }
 
 /**
@@ -157,6 +160,7 @@ async function fetchSlot(
   locale: Locale,
   placed: Placed,
   manual: ArticleCardData[] | null,
+  reserved: number,
 ): Promise<Fetched> {
   const limit = slot?.limit ?? 4
   const exclude = placed.list
@@ -168,7 +172,7 @@ async function fetchSlot(
     if (!category) return { final: [], articles: [], limit }
     const result = await getArticlesByCategory(category.id, {
       locale,
-      limit: headroom(limit, placed),
+      limit: headroom(limit, reserved),
       exclude,
     })
     return { final: null, articles: result.docs, limit }
@@ -177,7 +181,7 @@ async function fetchSlot(
   if (slot?.source === 'most-viewed') {
     const result = await getMostViewedArticles({
       locale,
-      limit: headroom(limit, placed),
+      limit: headroom(limit, reserved),
       exclude,
     })
     return { final: null, articles: result.docs, limit }
@@ -188,13 +192,13 @@ async function fetchSlot(
     if (types.length === 0) return { final: [], articles: [], limit }
     const result = await getArticlesByType(types, {
       locale,
-      limit: headroom(limit, placed),
+      limit: headroom(limit, reserved),
       exclude,
     })
     return { final: null, articles: result.docs, limit }
   }
 
-  const result = await getLatestArticles({ locale, limit: headroom(limit, placed), exclude })
+  const result = await getLatestArticles({ locale, limit: headroom(limit, reserved), exclude })
   return { final: null, articles: result.docs, limit }
 }
 
@@ -221,21 +225,27 @@ async function fetchSection(
   locale: Locale,
   placed: Placed,
   manual: ArticleCardData[] | null,
+  reserved: number,
 ): Promise<FetchedSection> {
   const depth = DEPTH_BY_LAYOUT[section.layout]
   const limit = section.limit ?? 6
   const exclude = placed.list
 
   if (section.layout === COLUMN_LAYOUT) {
+    // The columns fold left to right, so each one's fetch reserves room for
+    // the columns before it as well as for everything above the section.
+    let columnReserved = reserved
     const columns = await Promise.all(
       (section.columns ?? []).map(async (column, index) => {
         const category = populated<Category>(column.category)
         if (!category) return null
 
         const columnLimit = column.limit ?? 3
+        const ownReserved = columnReserved
+        columnReserved += columnLimit
         const result = await getArticlesByCategory(category.id, {
           locale,
-          limit: headroom(columnLimit, placed),
+          limit: headroom(columnLimit, ownReserved),
           exclude,
           depth,
         })
@@ -267,7 +277,7 @@ async function fetchSection(
     case 'latest': {
       const result = await getLatestArticles({
         locale,
-        limit: headroom(limit, placed),
+        limit: headroom(limit, reserved),
         exclude,
         depth,
       })
@@ -277,7 +287,7 @@ async function fetchSection(
     case 'most-viewed': {
       const result = await getMostViewedArticles({
         locale,
-        limit: headroom(limit, placed),
+        limit: headroom(limit, reserved),
         exclude,
         depth,
       })
@@ -289,7 +299,7 @@ async function fetchSection(
       if (types.length === 0) return EMPTY_FETCH
       const result = await getArticlesByType(types, {
         locale,
-        limit: headroom(limit, placed),
+        limit: headroom(limit, reserved),
         exclude,
         depth,
       })
@@ -301,7 +311,7 @@ async function fetchSection(
       if (!category) return EMPTY_FETCH
       const result = await getArticlesByCategory(category.id, {
         locale,
-        limit: headroom(limit, placed),
+        limit: headroom(limit, reserved),
         exclude,
         depth,
       })
@@ -384,15 +394,43 @@ export async function composeHomepage(
     .filter((article) => article.id !== heroArticle?.id)
     .slice(0, latestLimit)
 
+  /*
+   * How many stories each concurrent fetch must assume are already spoken for:
+   * everything placed so far, plus the limit of every queried block that folds
+   * before it. Manual blocks contribute nothing — their stories are claimed
+   * above and already counted in `placed.size`.
+   */
+  let reservedAhead = placed.size
+  const reservedBySlot = slotConfigs.map((slot, index) => {
+    const reserved = reservedAhead
+    if (manualBySlot[index] === null) reservedAhead += slot?.limit ?? 4
+    return reserved
+  })
+  const reservedBySection = sectionConfigs.map((section, index) => {
+    const reserved = reservedAhead
+    if (section.layout === COLUMN_LAYOUT) {
+      reservedAhead += (section.columns ?? []).reduce((sum, column) => sum + (column.limit ?? 3), 0)
+    } else if (manualBySection[index] === null) {
+      reservedAhead += section.limit ?? 6
+    }
+    return reserved
+  })
+
   const [fetchedSlots, fetched] = await Promise.all([
     Promise.all(
       slotConfigs.map((slot, index) =>
-        fetchSlot(slot, locale, placed, manualBySlot[index] ?? null),
+        fetchSlot(slot, locale, placed, manualBySlot[index] ?? null, reservedBySlot[index] ?? 0),
       ),
     ),
     Promise.all(
       sectionConfigs.map((section, index) =>
-        fetchSection(section, locale, placed, manualBySection[index] ?? null),
+        fetchSection(
+          section,
+          locale,
+          placed,
+          manualBySection[index] ?? null,
+          reservedBySection[index] ?? 0,
+        ),
       ),
     ),
   ])
@@ -445,7 +483,7 @@ export async function composeHomepage(
         (
           await getArticlesByType(['photo-story', 'video-story'], {
             locale,
-            limit: headroom(mediaLimit, placed),
+            limit: headroom(mediaLimit, placed.size),
             exclude: placed.list,
           })
         ).docs,
